@@ -1,5 +1,7 @@
 # Autodarts for Home Assistant — WIP
 
+<img src="custom_components/autodarts/brand/icon.png" alt="Autodarts" width="80" height="80">
+
 > **Work in progress.** Local Board Manager control works without a client ID. Local reads have been verified with Board Manager 1.0.7; control actions and dart events still require hardware validation. Cloud account linking requires an approved project client ID and has not yet been validated with a live account.
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
@@ -61,6 +63,12 @@ For **cloud match sensors**, additionally: an Autodarts account with access to t
 
 1. Copy the `custom_components/autodarts` folder into your Home Assistant `config/custom_components/` directory
 2. Restart Home Assistant
+
+### Integration icon
+
+Version 0.4.1 bundles the Autodarts icon and light/dark logos, including high-resolution versions. Home Assistant **2026.3 or newer** loads these directly from the integration, including for local-only setups without a client ID. After updating, restart Home Assistant and refresh the browser/app if an old placeholder remains. See [Home Assistant's local brand image support](https://developers.home-assistant.io/docs/core/integration/brand_images/).
+
+The HACS repository list may still show a placeholder: its current frontend uses the central Home Assistant brands server rather than bundled images. The local assets apply to Home Assistant's integration UI. [Asset sources and rendering instructions](docs/branding/README.md).
 
 ## Configuration
 
@@ -130,3 +138,5 @@ Use these sensors to trigger Home Assistant automations, for example:
 ## License
 
 MIT
+
+Autodarts and Winmau names and brand artwork belong to their respective owners. The bundled brand assets identify the supported product; they are not covered by the integration's MIT license. This is an unofficial community integration.

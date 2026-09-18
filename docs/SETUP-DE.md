@@ -28,6 +28,7 @@ Original und Fork verwenden beide den Integrationsnamen `autodarts` und können 
 
 ## Häufige Meldungen
 
+- **Integrationsicon fehlt:** Ab Version 0.4.1 sind Icon und Logos enthalten. Home Assistant muss mindestens **2026.3** sein, um diese lokalen Bilder zu laden. Nach dem Update Home Assistant neu starten und die Browserseite/App neu laden. Die separate HACS-Repositoryliste kann weiterhin einen Platzhalter zeigen, solange HACS den zentralen Icon-Server verwendet.
 - **Client-ID abgelehnt:** Die ID ist ungültig oder nicht für die Geräteanmeldung freigeschaltet. Prüfe die eingegebene Client-ID für diese Integration. Ohne gültige ID ist die Einrichtung über **Lokales Board** möglich.
 - **Code abgelaufen / Verknüpfung abgelehnt:** Den Anmeldevorgang neu starten und den neuen Code bestätigen.
 - **Keine Boards:** Das angemeldete Konto hat keine Boards in der Board-Liste.
