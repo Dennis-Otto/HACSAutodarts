@@ -1,12 +1,15 @@
 {
   "domain": "autodarts",
   "name": "Autodarts",
-  "codeowners": ["@Trkal"],
+  "codeowners": [
+    "@Dennis-Otto",
+    "@Trkal"
+  ],
   "config_flow": true,
-  "documentation": "https://github.com/Trkal/HACSAutodarts",
+  "documentation": "https://github.com/Dennis-Otto/HACSAutodarts",
   "integration_type": "device",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/Trkal/HACSAutodarts/issues",
+  "issue_tracker": "https://github.com/Dennis-Otto/HACSAutodarts/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

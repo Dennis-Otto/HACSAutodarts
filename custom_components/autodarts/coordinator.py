@@ -2,22 +2,23 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from typing import Any
 
+import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-
-import aiohttp
 
 from .api import (
     AutodartsApiError,
+    AutodartsAuthError,
     AutodartsCloudClient,
     AutodartsLocalClient,
 )
-from .const import CONF_TOKEN, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            config_entry=entry,
         )
         self.cloud = cloud
         self.board_id = board_id
@@ -59,6 +61,10 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             board = await self.cloud.get_board(self.board_id)
             result["board"] = board
+        except AutodartsAuthError as err:
+            raise ConfigEntryAuthFailed(
+                "Autodarts account must be linked again"
+            ) from err
         except AutodartsApiError as err:
             raise UpdateFailed(f"Error fetching board data: {err}") from err
 
@@ -71,9 +77,15 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     state = await self.cloud.get_match_state(match_id)
                     match.update(state)
+                except AutodartsAuthError:
+                    raise
                 except AutodartsApiError:
                     _LOGGER.debug("Could not fetch match state for %s", match_id)
                 result["match"] = match
+            except AutodartsAuthError as err:
+                raise ConfigEntryAuthFailed(
+                    "Autodarts account must be linked again"
+                ) from err
             except AutodartsApiError as err:
                 _LOGGER.warning("Could not fetch match %s: %s", match_id, err)
 
@@ -88,7 +100,9 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 port = parsed.port or 3180
                 if host:
                     self.local = AutodartsLocalClient(
-                        host=host, port=port, session=self._session,
+                        host=host,
+                        port=port,
+                        session=self._session,
                     )
                     _LOGGER.debug("Auto-discovered local board at %s:%s", host, port)
 
@@ -97,15 +111,5 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 result["local"] = await self.local.get_state()
             except AutodartsApiError:
                 _LOGGER.debug("Local board not reachable")
-
-        # 4. Persist refreshed token so it survives restarts
-        if self._entry is not None:
-            new_token = self.cloud.token
-            stored = self._entry.data.get(CONF_TOKEN, {})
-            if new_token.get("access_token") != stored.get("access_token"):
-                self.hass.config_entries.async_update_entry(
-                    self._entry,
-                    data={**self._entry.data, CONF_TOKEN: new_token},
-                )
 
         return result

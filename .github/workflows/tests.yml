@@ -1,0 +1,18 @@
+name: Tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+      - run: pip install -r requirements-test.txt
+      - run: pytest -q --timeout=30
+      - run: ruff check custom_components/autodarts/api.py custom_components/autodarts/config_flow.py custom_components/autodarts/__init__.py custom_components/autodarts/coordinator.py custom_components/autodarts/const.py tests

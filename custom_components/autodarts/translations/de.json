@@ -1,0 +1,85 @@
+{
+  "title": "Autodarts",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Autodarts einrichten",
+        "description": "Trage die öffentliche Client-ID ein, die Autodarts für diese Integration mit Geräteanmeldung freigeschaltet hat. Das ist eine Anwendungs-ID, keine E-Mail-Adresse, Board-ID oder ein Passwort. Optional kannst du die lokale Board-IP angeben. Anschließend wird dein Anmeldecode angezeigt.",
+        "data": {
+          "client_id": "Autodarts-Client-ID",
+          "host": "Lokale Board-IP (optional)",
+          "port": "Lokaler Board-Port"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Autodarts erneut verknüpfen",
+        "description": "Verknüpfe dein Konto mit der neuen Autodarts-Geräteanmeldung. Trage eine für diese Integration registrierte öffentliche Client-ID mit freigeschalteter Geräteanmeldung ein. Dein Board, deine Entitäten und die lokalen Einstellungen bleiben erhalten.",
+        "data": {
+          "client_id": "Autodarts-Client-ID"
+        }
+      },
+      "auth_retry": {
+        "title": "Autodarts-Anmeldung neu starten",
+        "description": "Bestätige, um zur Client-ID zurückzukehren und einen neuen Anmeldecode anzufordern."
+      },
+      "boards": {
+        "title": "Autodarts-Boards laden",
+        "description": "Dein Konto ist verknüpft. Bestätige, um deine Boards erneut zu laden."
+      },
+      "board": {
+        "title": "Board auswählen",
+        "description": "Wähle das Autodarts-Board, das überwacht werden soll.",
+        "data": {
+          "board_id": "Board"
+        }
+      }
+    },
+    "progress": {
+      "wait_for_device": "Öffne die [Autodarts-Anmeldung]({verification_uri_complete}) und bestätige die Verknüpfung. Alternativ kannst du [{verification_uri}]({verification_uri}) auf einem anderen Gerät öffnen und **{user_code}** eingeben.\n\nNach der Freigabe geht es hier automatisch weiter. Gib diesen Code nur bei deiner eigenen Autodarts-Anmeldung ein."
+    },
+    "error": {
+      "invalid_client": "Diese Client-ID ist ungültig oder nicht für die Geräteanmeldung freigeschaltet. Prüfe die Client-ID für diese Integration.",
+      "expired_token": "Der Anmeldecode ist abgelaufen. Bitte fordere einen neuen Code an.",
+      "access_denied": "Die Verknüpfung wurde abgelehnt. Bitte starte die Anmeldung neu und bestätige sie.",
+      "invalid_auth": "Autodarts konnte diese Verbindung nicht autorisieren. Bitte verknüpfe dein Konto erneut.",
+      "cannot_connect": "Autodarts ist nicht erreichbar. Bitte versuche es erneut."
+    },
+    "abort": {
+      "already_configured": "Dieses Autodarts-Board ist bereits eingerichtet.",
+      "no_boards": "Für dieses Konto wurden keine Boards gefunden.",
+      "wrong_account": "Das verknüpfte Konto hat keinen Zugriff auf das bisherige Board. Bitte verwende das Konto, dem dieses Board gehört.",
+      "reauth_successful": "Autodarts wurde erfolgreich verknüpft. Dein Board und deine Entitäten bleiben erhalten."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "board_status": {
+        "name": "Board-Status"
+      },
+      "board_event": {
+        "name": "Board-Ereignis"
+      },
+      "game_mode": {
+        "name": "Spielmodus"
+      },
+      "match_state": {
+        "name": "Spielstatus"
+      },
+      "round": {
+        "name": "Runde"
+      },
+      "last_throw": {
+        "name": "Letzter Wurf"
+      },
+      "num_throws": {
+        "name": "Würfe in der Aufnahme"
+      },
+      "visit_score": {
+        "name": "Punkte der Aufnahme"
+      },
+      "darts_thrown": {
+        "name": "Aufnahmen gesamt"
+      }
+    }
+  }
+}

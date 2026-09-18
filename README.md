@@ -4,7 +4,11 @@
 
 A [Home Assistant](https://www.home-assistant.io/) custom integration for [Autodarts](https://autodarts.io/) — the automatic dart scoring system.
 
-This integration connects to the **Autodarts cloud API** (via OAuth2) to retrieve real-time match data and board status. Optionally, it also connects to your **local board** for faster throw detection.
+This fork of [Trkal/HACSAutodarts](https://github.com/Trkal/HACSAutodarts) uses the new Autodarts **device-link login**: Home Assistant displays an 8-character code, you approve it in your browser, and setup continues automatically. It retrieves cloud match data and board status, with an optional local connection for throw detection.
+
+> **Cloud setup requirement:** A public OAuth client ID approved for this integration with device authorization enabled is required. No project client ID is bundled yet, and the old `autodarts-play` client does not support the new login flow. Without a valid client ID, cloud account linking cannot be completed. See the [German setup instructions](docs/SETUP-DE.md).
+
+The device-link implementation follows the [Autodarts authentication migration guide](https://gist.github.com/lloydowen/960079f2b518f6f5d68e160465298964).
 
 ## Features
 
@@ -25,7 +29,8 @@ This integration connects to the **Autodarts cloud API** (via OAuth2) to retriev
 
 ## Requirements
 
-- An **Autodarts account** (email + password) at [autodarts.io](https://autodarts.io/)
+- An **Autodarts account**
+- A public OAuth client ID registered for this integration, with **device authorization enabled** (no client secret or redirect URI required)
 - At least one board registered to your account
 - *(Optional)* Local network access to the board for throw detection (default port: **3180**)
 
@@ -35,7 +40,7 @@ This integration connects to the **Autodarts cloud API** (via OAuth2) to retriev
 
 1. Open HACS in your Home Assistant instance
 2. Go to **Integrations** → click the **three dots** menu → **Custom repositories**
-3. Add `https://github.com/Trkal/HACSAutodarts` as an **Integration**
+3. Add `https://github.com/Dennis-Otto/HACSAutodarts` as an **Integration**
 4. Search for **Autodarts** and install it
 5. Restart Home Assistant
 
@@ -46,15 +51,34 @@ This integration connects to the **Autodarts cloud API** (via OAuth2) to retriev
 
 ## Configuration
 
-1. Go to **Settings** → **Devices & Services** → **Add Integration**
-2. Search for **Autodarts**
-3. *(Optional)* Enter the **local board IP** for throw detection, then click **Submit**
-4. Click the link to **log in to your Autodarts account** in the browser
-5. After logging in, your browser will redirect — **copy the full URL** from the address bar
-6. Paste the URL into the config flow and click **Submit**
-7. If you have multiple boards, select which one to use
+1. Go to **Settings → Devices & Services → Add Integration → Autodarts**.
+2. Enter the registered **Autodarts client ID**, and optionally your local board IP/port.
+3. Home Assistant shows a code such as `ABCD-EFGH` and a direct login link.
+4. Open the displayed link, or visit `https://auth.autodarts.io/link` on another device and enter the code. Sign in and approve the connection.
+5. Home Assistant waits for approval automatically. If you have several boards, choose one.
 
-The integration authenticates via OAuth2 (Authorization Code + PKCE) to the Autodarts cloud, then creates all sensor entities automatically. Tokens are refreshed automatically and persisted across restarts.
+No passwords or redirect URLs are entered into Home Assistant. Device-code expiry and denied requests offer a new login attempt. Polling follows the server's interval and `slow_down` responses; cancelling setup stops polling.
+
+Access tokens refresh through `/auth/v1/refresh`. Rotated refresh tokens are saved immediately, including when a subsequent cloud request fails. Revoked or expired credentials trigger Home Assistant's reauthentication flow.
+
+### Updating an existing installation
+
+The fork uses the same `autodarts` integration domain as the original, so only one can be installed at a time. Change the HACS repository supplying the integration to this fork, or replace only `config/custom_components/autodarts` manually, then restart Home Assistant. Keep the existing integration entry in **Devices & Services**.
+
+Existing version-2 entries using the old Keycloak flow ask you to **re-authenticate**. Enter the registered client ID and approve the new code using the account that owns the existing board. The entry, board ID, sensor unique IDs and local connection settings are retained. Linking an account without the original board is rejected instead of switching boards.
+
+## Validation
+
+Automated tests use **Home Assistant 2026.9.2 / Python 3.14**, with mocked Autodarts HTTP responses. They cover device approval, polling/backoff, denial/expiry/cancellation, board selection, reauthentication, refresh-token rotation, concurrent requests and integration setup/sensors. Earlier Home Assistant versions have not been validated.
+
+**A successful live account login and real-board session have not been tested**, because a registered client ID is still required.
+
+```sh
+python3.14 -m venv .venv
+.venv/bin/pip install -r requirements-test.txt
+.venv/bin/pytest -q
+.venv/bin/ruff check custom_components/autodarts/api.py custom_components/autodarts/config_flow.py custom_components/autodarts/__init__.py custom_components/autodarts/coordinator.py custom_components/autodarts/const.py tests
+```
 
 ## Sensors
 

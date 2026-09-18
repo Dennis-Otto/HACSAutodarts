@@ -1,176 +1,236 @@
-"""Config flow for the Autodarts integration."""
+"""Home Assistant device-link setup and reauthentication for Autodarts."""
 
 from __future__ import annotations
 
-import time
+import asyncio
+from collections.abc import Mapping
 from typing import Any
-from urllib.parse import parse_qs, urlparse
 
 import voluptuous as vol
-
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import SOURCE_REAUTH, ConfigFlow, ConfigFlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
     AutodartsAuthError,
     AutodartsCloudClient,
     AutodartsConnectionError,
-    build_authorize_url,
-    exchange_code,
-    generate_pkce,
+    DeviceAuthorization,
+    request_device_code,
+    wait_for_device_token,
 )
-from .const import CONF_BOARD_ID, CONF_HOST, CONF_PORT, CONF_TOKEN, DEFAULT_PORT, DOMAIN
+from .const import (
+    CONF_BOARD_ID,
+    CONF_CLIENT_ID,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_TOKEN,
+    DEFAULT_PORT,
+    DOMAIN,
+)
+
+
+def _auth_error(error: AutodartsAuthError) -> str:
+    """Map server errors to translated, actionable messages."""
+    if error.code in ("invalid_client", "unauthorized_client"):
+        return "invalid_client"
+    if error.code in ("expired_token", "access_denied"):
+        return error.code
+    return "invalid_auth"
 
 
 class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Autodarts."""
+    """Link an account using a registered public OAuth client and a short code."""
 
     VERSION = 2
 
     def __init__(self) -> None:
-        """Initialize the config flow."""
-        self._code_verifier: str | None = None
         self._token: dict[str, Any] = {}
         self._boards: dict[str, str] = {}
         self._user_input: dict[str, Any] = {}
+        self._device: DeviceAuthorization | None = None
+        self._auth_task: asyncio.Task[dict[str, Any]] | None = None
+        self._auth_error: str | None = None
 
     async def async_step_user(
-        self,
-        user_input: dict[str, Any] | None = None,
+        self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 1: Optional local board IP, then redirect to auth step."""
-        if user_input is not None:
-            self._user_input = user_input
-            return await self.async_step_auth()
+        """Collect the registered client ID and optional local connection."""
+        return await self._async_setup_form("user", user_input)
 
-        schema = vol.Schema(
-            {
-                vol.Optional(CONF_HOST): str,
-                vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
-            }
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """Relink an existing board, including entries using retired Keycloak tokens."""
+        self._user_input = {
+            key: entry_data[key]
+            for key in (CONF_CLIENT_ID, CONF_HOST, CONF_PORT)
+            if key in entry_data
+        }
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm relinking while retaining board and local settings."""
+        return await self._async_setup_form("reauth_confirm", user_input)
+
+    async def _async_setup_form(
+        self, step_id: str, user_input: dict[str, Any] | None
+    ) -> ConfigFlowResult:
+        errors = {}
+        if user_input is not None:
+            self._user_input.update(user_input)
+            self._user_input[CONF_CLIENT_ID] = user_input[CONF_CLIENT_ID].strip()
+            try:
+                self._device = await request_device_code(
+                    async_get_clientsession(self.hass),
+                    self._user_input[CONF_CLIENT_ID],
+                )
+            except AutodartsAuthError as err:
+                errors["base"] = _auth_error(err)
+            except AutodartsConnectionError:
+                errors["base"] = "cannot_connect"
+            else:
+                self._auth_task = None
+                self._auth_error = None
+                return await self.async_step_auth()
+
+        schema = {
+            vol.Required(
+                CONF_CLIENT_ID, default=self._user_input.get(CONF_CLIENT_ID, "")
+            ): vol.All(str, vol.Strip, vol.Length(min=1)),
+        }
+        if step_id == "user":
+            schema.update(
+                {
+                    vol.Optional(CONF_HOST): str,
+                    vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
+                        int, vol.Range(min=1, max=65535)
+                    ),
+                }
+            )
+        return self.async_show_form(
+            step_id=step_id, data_schema=vol.Schema(schema), errors=errors
         )
-        return self.async_show_form(step_id="user", data_schema=schema)
 
     async def async_step_auth(
-        self,
-        user_input: dict[str, Any] | None = None,
+        self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 2: User logs in via browser and pastes the redirect URL."""
-        errors: dict[str, str] = {}
-
-        if user_input is None:
-            # Generate PKCE pair and build authorize URL
-            self._code_verifier, challenge = generate_pkce()
-            auth_url = build_authorize_url(challenge)
-            return self.async_show_form(
-                step_id="auth",
-                data_schema=vol.Schema({vol.Required("redirect_url"): str}),
-                description_placeholders={"authorize_url": auth_url},
+        """Show the public code while Home Assistant polls in the background."""
+        assert self._device is not None
+        if self._auth_task is None:
+            self._auth_task = self.hass.async_create_task(
+                wait_for_device_token(
+                    async_get_clientsession(self.hass),
+                    self._user_input[CONF_CLIENT_ID],
+                    self._device,
+                )
             )
+        if self._auth_task.done():
+            try:
+                self._token = self._auth_task.result()
+            except AutodartsAuthError as err:
+                self._auth_error = _auth_error(err)
+            except AutodartsConnectionError:
+                self._auth_error = "cannot_connect"
+            if self._auth_error:
+                return self.async_show_progress_done(next_step_id="auth_retry")
+            return self.async_show_progress_done(next_step_id="boards")
 
-        # User pasted the redirect URL — extract the code
-        redirect_url = user_input["redirect_url"].strip()
-        parsed = urlparse(redirect_url)
-        qs = parse_qs(parsed.query)
-        code = qs.get("code", [None])[0]
+        return self.async_show_progress(
+            step_id="auth",
+            progress_action="wait_for_device",
+            description_placeholders={
+                "user_code": self._device.user_code,
+                "verification_uri": self._device.verification_uri,
+                "verification_uri_complete": self._device.verification_uri_complete,
+            },
+            progress_task=self._auth_task,
+        )
 
-        if not code:
-            errors["redirect_url"] = "no_code"
-            # Regenerate auth URL
-            self._code_verifier, challenge = generate_pkce()
-            auth_url = build_authorize_url(challenge)
-            return self.async_show_form(
-                step_id="auth",
-                data_schema=vol.Schema({vol.Required("redirect_url"): str}),
-                description_placeholders={"authorize_url": auth_url},
-                errors=errors,
-            )
+    async def async_step_auth_retry(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Let the user restart linking after expiry or denial."""
+        if user_input is not None:
+            if self.source == SOURCE_REAUTH:
+                return await self.async_step_reauth_confirm()
+            return await self.async_step_user()
+        return self.async_show_form(
+            step_id="auth_retry",
+            data_schema=vol.Schema({}),
+            errors={"base": self._auth_error or "invalid_auth"},
+        )
 
-        # Exchange the code for tokens
-        session = async_get_clientsession(self.hass)
-        try:
-            token_data = await exchange_code(session, code, self._code_verifier)  # type: ignore[arg-type]
-        except AutodartsAuthError:
-            errors["redirect_url"] = "invalid_code"
-            self._code_verifier, challenge = generate_pkce()
-            auth_url = build_authorize_url(challenge)
-            return self.async_show_form(
-                step_id="auth",
-                data_schema=vol.Schema({vol.Required("redirect_url"): str}),
-                description_placeholders={"authorize_url": auth_url},
-                errors=errors,
-            )
-        except AutodartsConnectionError:
-            errors["base"] = "cannot_connect"
-            self._code_verifier, challenge = generate_pkce()
-            auth_url = build_authorize_url(challenge)
-            return self.async_show_form(
-                step_id="auth",
-                data_schema=vol.Schema({vol.Required("redirect_url"): str}),
-                description_placeholders={"authorize_url": auth_url},
-                errors=errors,
-            )
-
-        # Normalise token for storage
-        self._token = {
-            "access_token": token_data["access_token"],
-            "refresh_token": token_data.get("refresh_token"),
-            "expires_at": time.time() + token_data.get("expires_in", 300),
-        }
-
-        # Fetch boards
-        cloud = AutodartsCloudClient(session, self._token)
+    async def async_step_boards(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Fetch boards after approval; retry outages without consuming a new code."""
+        cloud = AutodartsCloudClient(
+            async_get_clientsession(self.hass),
+            self._token,
+            self._user_input[CONF_CLIENT_ID],
+            on_token_update=self._update_token,
+        )
         try:
             boards = await cloud.get_boards()
+        except AutodartsAuthError as err:
+            self._auth_error = _auth_error(err)
+            return await self.async_step_auth_retry()
         except AutodartsConnectionError:
-            errors["base"] = "cannot_connect"
-            self._code_verifier, challenge = generate_pkce()
-            auth_url = build_authorize_url(challenge)
             return self.async_show_form(
-                step_id="auth",
-                data_schema=vol.Schema({vol.Required("redirect_url"): str}),
-                description_placeholders={"authorize_url": auth_url},
-                errors=errors,
+                step_id="boards",
+                data_schema=vol.Schema({}),
+                errors={"base": "cannot_connect"},
             )
+        self._boards = {
+            board["id"]: board.get("name") or board["id"] for board in boards
+        }
 
-        self._boards = {b["id"]: b.get("name", b["id"]) for b in boards}
-
+        if self.source == SOURCE_REAUTH:
+            entry = self._get_reauth_entry()
+            if entry.data[CONF_BOARD_ID] not in self._boards:
+                return self.async_abort(reason="wrong_account")
+            return self.async_update_reload_and_abort(
+                entry,
+                data_updates={
+                    CONF_TOKEN: self._token,
+                    CONF_CLIENT_ID: self._user_input[CONF_CLIENT_ID],
+                },
+            )
         if not self._boards:
             return self.async_abort(reason="no_boards")
         if len(self._boards) == 1:
-            return self._create_entry(next(iter(self._boards)))
+            return await self._async_create_board_entry(next(iter(self._boards)))
         return await self.async_step_board()
 
-    async def async_step_board(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
-        """Step 3: Select which board to use."""
-        if user_input is not None:
-            return self._create_entry(user_input[CONF_BOARD_ID])
+    def _update_token(self, token: dict[str, Any]) -> None:
+        self._token = token
 
-        board_schema = vol.Schema(
-            {vol.Required(CONF_BOARD_ID): vol.In(self._boards)}
-        )
+    async def async_step_board(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Select a board when the account has several."""
+        if user_input is not None:
+            return await self._async_create_board_entry(user_input[CONF_BOARD_ID])
         return self.async_show_form(
             step_id="board",
-            data_schema=board_schema,
+            data_schema=vol.Schema({vol.Required(CONF_BOARD_ID): vol.In(self._boards)}),
         )
 
-    def _create_entry(self, board_id: str) -> ConfigFlowResult:
-        """Create the config entry."""
+    async def _async_create_board_entry(self, board_id: str) -> ConfigFlowResult:
+        """Preserve legacy board identifiers and prevent duplicate entries."""
+        await self.async_set_unique_id(board_id)
+        self._abort_if_unique_id_configured()
         self._async_abort_entries_match({CONF_BOARD_ID: board_id})
-
-        board_name = self._boards.get(board_id, board_id)
-        data: dict[str, Any] = {
+        data = {
             CONF_TOKEN: self._token,
+            CONF_CLIENT_ID: self._user_input[CONF_CLIENT_ID],
             CONF_BOARD_ID: board_id,
         }
         if self._user_input.get(CONF_HOST):
             data[CONF_HOST] = self._user_input[CONF_HOST]
             data[CONF_PORT] = self._user_input.get(CONF_PORT, DEFAULT_PORT)
-
         return self.async_create_entry(
-            title=f"Autodarts ({board_name})",
-            data=data,
+            title=f"Autodarts ({self._boards[board_id]})", data=data
         )

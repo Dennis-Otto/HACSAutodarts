@@ -1,27 +1,23 @@
-"""API clients for Autodarts (local board + cloud)."""
+"""Async clients for the Autodarts device-link, cloud and local APIs."""
 
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import logging
-import secrets
+import math
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlencode
 
 import aiohttp
 
-_LOGGER = logging.getLogger(__name__)
-
 DEFAULT_TIMEOUT = 10
-
-# Keycloak / OAuth2 constants
-CLIENT_ID = "autodarts-play"
-AUTH_URL = "https://login.autodarts.io/realms/autodarts/protocol/openid-connect/auth"
-TOKEN_URL = "https://login.autodarts.io/realms/autodarts/protocol/openid-connect/token"
-REDIRECT_URI = "https://play.autodarts.io/hacs-auth"
 API_BASE = "https://api.autodarts.io"
+AUTH_BASE = f"{API_BASE}/auth/v1"
+DEVICE_CODE_URL = f"{AUTH_BASE}/device/code"
+DEVICE_TOKEN_URL = f"{AUTH_BASE}/device/token"
+REFRESH_URL = f"{AUTH_BASE}/refresh"
+DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
 
 
 class AutodartsApiError(Exception):
@@ -29,73 +25,145 @@ class AutodartsApiError(Exception):
 
 
 class AutodartsConnectionError(AutodartsApiError):
-    """Exception for connection errors."""
+    """Transport, service or malformed response error."""
 
 
 class AutodartsAuthError(AutodartsApiError):
-    """Exception for authentication errors."""
+    """Authentication failed with a machine-readable OAuth error."""
+
+    def __init__(self, code: str = "invalid_token") -> None:
+        self.code = code
+        super().__init__(code)
 
 
-# ---------------------------------------------------------------------------
-# OAuth2 helpers (Authorization Code + PKCE)
-# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class DeviceAuthorization:
+    """A short-lived device grant. Never expose the private device code."""
+
+    device_code: str = field(repr=False)
+    user_code: str
+    verification_uri: str
+    verification_uri_complete: str
+    expires_at: float
+    interval: float
 
 
-def generate_pkce() -> tuple[str, str]:
-    """Generate a PKCE code_verifier and code_challenge (S256)."""
-    verifier = secrets.token_urlsafe(64)
-    digest = hashlib.sha256(verifier.encode("ascii")).digest()
-    import base64
-
-    challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
-    return verifier, challenge
-
-
-def build_authorize_url(code_challenge: str) -> str:
-    """Build the Keycloak authorization URL for the user to open."""
-    params = {
-        "client_id": CLIENT_ID,
-        "response_type": "code",
-        "redirect_uri": REDIRECT_URI,
-        "scope": "openid",
-        "code_challenge": code_challenge,
-        "code_challenge_method": "S256",
-    }
-    return f"{AUTH_URL}?{urlencode(params)}"
+def _positive_number(value: Any) -> float:
+    """Validate server-provided lifetimes and intervals."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AutodartsConnectionError("Invalid authentication response")
+    if not math.isfinite(value) or value <= 0:
+        raise AutodartsConnectionError("Invalid authentication response")
+    return float(value)
 
 
-async def exchange_code(
-    session: aiohttp.ClientSession,
-    code: str,
-    code_verifier: str,
+def _required_string(body: dict[str, Any], key: str) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value:
+        raise AutodartsConnectionError("Incomplete authentication response")
+    return value
+
+
+async def _auth_request(
+    session: aiohttp.ClientSession, url: str, payload: dict[str, str]
 ) -> dict[str, Any]:
-    """Exchange an authorization code for tokens."""
-    data = {
-        "grant_type": "authorization_code",
-        "client_id": CLIENT_ID,
-        "code": code,
-        "redirect_uri": REDIRECT_URI,
-        "code_verifier": code_verifier,
-    }
+    """Send JSON to the new auth service, without logging tokens or responses."""
     try:
         async with asyncio.timeout(DEFAULT_TIMEOUT):
-            resp = await session.post(TOKEN_URL, data=data)
-            if resp.status in (400, 401):
-                body = await resp.json()
-                raise AutodartsAuthError(
-                    body.get("error_description", "Token exchange failed")
-                )
-            resp.raise_for_status()
-            return await resp.json()
-    except asyncio.TimeoutError as err:
-        raise AutodartsConnectionError("Timeout during token exchange") from err
-    except aiohttp.ClientError as err:
-        raise AutodartsConnectionError(f"Token exchange failed: {err}") from err
+            async with session.post(url, json=payload) as response:
+                if response.status >= 500 or response.status == 429:
+                    raise AutodartsConnectionError("Authentication service unavailable")
+                body = await response.json()
+                if not isinstance(body, dict):
+                    raise AutodartsConnectionError("Invalid authentication response")
+                if response.status in (400, 401, 403):
+                    error = body.get("error")
+                    known_errors = {
+                        "authorization_pending",
+                        "slow_down",
+                        "access_denied",
+                        "expired_token",
+                        "invalid_client",
+                        "unauthorized_client",
+                        "invalid_grant",
+                        "invalid_token",
+                        "invalid_request",
+                    }
+                    raise AutodartsAuthError(
+                        error
+                        if isinstance(error, str) and error in known_errors
+                        else "invalid_token"
+                    )
+                response.raise_for_status()
+                return body
+    except (TimeoutError, aiohttp.ClientError, ValueError) as err:
+        raise AutodartsConnectionError(
+            "Could not contact authentication service"
+        ) from err
 
 
-# ---------------------------------------------------------------------------
-# Local board API client (http://<board-ip>:3180)
-# ---------------------------------------------------------------------------
+def normalize_token(body: dict[str, Any]) -> dict[str, Any]:
+    """Require both tokens: the new service rotates refresh tokens on every use."""
+    return {
+        "access_token": _required_string(body, "access_token"),
+        "refresh_token": _required_string(body, "refresh_token"),
+        "expires_at": time.time() + _positive_number(body.get("expires_in", 900)),
+    }
+
+
+async def request_device_code(
+    session: aiohttp.ClientSession, client_id: str
+) -> DeviceAuthorization:
+    """Request a code using a public client registered for device authorization."""
+    body = await _auth_request(session, DEVICE_CODE_URL, {"client_id": client_id})
+    verification_uri = _required_string(body, "verification_uri")
+    return DeviceAuthorization(
+        device_code=_required_string(body, "device_code"),
+        user_code=_required_string(body, "user_code"),
+        verification_uri=verification_uri,
+        verification_uri_complete=body.get("verification_uri_complete")
+        or verification_uri,
+        expires_at=time.monotonic() + _positive_number(body.get("expires_in", 600)),
+        interval=_positive_number(body.get("interval", 5)),
+    )
+
+
+async def wait_for_device_token(
+    session: aiohttp.ClientSession, client_id: str, device: DeviceAuthorization
+) -> dict[str, Any]:
+    """Poll until approval, cancellation or expiry, respecting RFC 8628 backoff."""
+    interval = device.interval
+    remaining = device.expires_at - time.monotonic()
+    if remaining <= 0:
+        raise AutodartsAuthError("expired_token")
+    try:
+        async with asyncio.timeout(remaining):
+            while True:
+                await asyncio.sleep(interval)
+                try:
+                    body = await _auth_request(
+                        session,
+                        DEVICE_TOKEN_URL,
+                        {
+                            "grant_type": DEVICE_GRANT_TYPE,
+                            "device_code": device.device_code,
+                            "client_id": client_id,
+                        },
+                    )
+                except AutodartsAuthError as err:
+                    if err.code == "authorization_pending":
+                        continue
+                    if err.code == "slow_down":
+                        interval += 5
+                        continue
+                    raise
+                except AutodartsConnectionError:
+                    # A temporary outage must not discard the code already shown.
+                    interval = min(max(interval * 2, 5), max(interval, 60))
+                    continue
+                return normalize_token(body)
+    except TimeoutError as err:
+        raise AutodartsAuthError("expired_token") from err
 
 
 class AutodartsLocalClient:
@@ -135,103 +203,91 @@ class AutodartsLocalClient:
         return True
 
 
-# ---------------------------------------------------------------------------
-# Cloud API client (api.autodarts.io — OAuth2 / Keycloak)
-# ---------------------------------------------------------------------------
-
-
 class AutodartsCloudClient:
-    """Async client for the Autodarts cloud API with token-based auth."""
+    """Cloud API client with serialized refresh and immediate token persistence."""
 
     def __init__(
         self,
         session: aiohttp.ClientSession,
         token: dict[str, Any],
+        client_id: str,
+        on_token_update: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
-        """Initialize the cloud API client with an existing token dict."""
         self._session = session
-        self._access_token: str = token["access_token"]
-        self._refresh_token: str | None = token.get("refresh_token")
-        self._token_expiry: float = token.get("expires_at", 0)
+        self._token = dict(token)
+        self._client_id = client_id
+        self._on_token_update = on_token_update
+        self._refresh_lock = asyncio.Lock()
 
     @property
     def token(self) -> dict[str, Any]:
-        """Return the current token dict for persistence."""
-        return {
-            "access_token": self._access_token,
-            "refresh_token": self._refresh_token,
-            "expires_at": self._token_expiry,
-        }
+        """Return a copy of the current credentials for persistence."""
+        return dict(self._token)
 
-    # -- authentication -----------------------------------------------------
-
-    async def _ensure_token(self) -> None:
-        """Refresh the token if it is about to expire."""
-        if time.time() < self._token_expiry - 30:
-            return
-        if not self._refresh_token:
-            raise AutodartsAuthError("No refresh token available — re-authenticate")
-        await self._do_refresh()
-
-    async def _do_refresh(self) -> None:
-        data = {
-            "grant_type": "refresh_token",
-            "client_id": CLIENT_ID,
-            "refresh_token": self._refresh_token,
-        }
-        try:
-            async with asyncio.timeout(DEFAULT_TIMEOUT):
-                resp = await self._session.post(TOKEN_URL, data=data)
-                if resp.status in (400, 401):
-                    raise AutodartsAuthError("Refresh token expired — re-authenticate")
-                resp.raise_for_status()
-                body = await resp.json()
-        except asyncio.TimeoutError as err:
-            raise AutodartsConnectionError("Timeout refreshing token") from err
-        except aiohttp.ClientError as err:
-            raise AutodartsConnectionError(f"Token refresh failed: {err}") from err
-
-        self._access_token = body["access_token"]
-        self._refresh_token = body.get("refresh_token", self._refresh_token)
-        self._token_expiry = time.time() + body.get("expires_in", 300)
-
-    async def _headers(self) -> dict[str, str]:
-        await self._ensure_token()
-        return {"Authorization": f"Bearer {self._access_token}"}
-
-    # -- API requests --------------------------------------------------------
+    async def _ensure_token(self, rejected_token: str | None = None) -> None:
+        async with self._refresh_lock:
+            if rejected_token is not None:
+                if self._token.get("access_token") != rejected_token:
+                    return  # Another request has already refreshed this token.
+            elif time.time() < self._token.get("expires_at", 0) - 30:
+                return
+            refresh_token = self._token.get("refresh_token")
+            if not refresh_token:
+                raise AutodartsAuthError("invalid_grant")
+            body = await _auth_request(
+                self._session,
+                REFRESH_URL,
+                {
+                    "client_id": self._client_id,
+                    "refresh_token": refresh_token,
+                },
+            )
+            self._token = normalize_token(body)
+            # Persist BEFORE any following API request can fail or HA can restart.
+            if self._on_token_update is not None:
+                self._on_token_update(self.token)
 
     async def _get(self, path: str) -> Any:
-        url = f"{API_BASE}{path}"
-        headers = await self._headers()
-        try:
-            async with asyncio.timeout(DEFAULT_TIMEOUT):
-                resp = await self._session.get(url, headers=headers)
-                resp.raise_for_status()
-                return await resp.json()
-        except asyncio.TimeoutError as err:
-            raise AutodartsConnectionError(f"Timeout fetching {path}") from err
-        except aiohttp.ClientError as err:
-            raise AutodartsConnectionError(f"Error fetching {path}: {err}") from err
-
-    # -- boards --------------------------------------------------------------
+        await self._ensure_token()
+        for attempt in range(2):
+            access_token = self._token["access_token"]
+            try:
+                async with asyncio.timeout(DEFAULT_TIMEOUT):
+                    async with self._session.get(
+                        f"{API_BASE}{path}",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    ) as response:
+                        if response.status == 401:
+                            if attempt:
+                                raise AutodartsAuthError("invalid_token")
+                        elif response.status == 403:
+                            raise AutodartsAuthError("access_denied")
+                        else:
+                            response.raise_for_status()
+                            return await response.json()
+            except (TimeoutError, aiohttp.ClientError, ValueError) as err:
+                raise AutodartsConnectionError(f"Could not fetch {path}") from err
+            await self._ensure_token(rejected_token=access_token)
+        raise AutodartsAuthError("invalid_token")
 
     async def get_boards(self) -> list[dict[str, Any]]:
-        """List all boards for the authenticated user."""
-        return await self._get("/bs/v0/boards/")
+        """List boards belonging to the authenticated user."""
+        boards = await self._get("/bs/v0/boards/")
+        if not isinstance(boards, list) or any(
+            not isinstance(board, dict) or not isinstance(board.get("id"), str)
+            for board in boards
+        ):
+            raise AutodartsConnectionError("Invalid boards response")
+        return boards
 
     async def get_board(self, board_id: str) -> dict[str, Any]:
-        """Get a single board by ID."""
+        """Fetch a board's connection and match status."""
         return await self._get(f"/bs/v0/boards/{board_id}")
 
-    # -- matches -------------------------------------------------------------
-
     async def get_match(self, match_id: str) -> dict[str, Any]:
-        """Get match metadata (players, variant, settings)."""
+        """Fetch match metadata."""
         return await self._get(f"/gs/v0/matches/{match_id}")
 
     async def get_match_state(self, match_id: str) -> dict[str, Any]:
-        """Get live match game state (scores, turns, stats, etc.)."""
+        """Fetch live game state."""
         return await self._get(f"/gs/v0/matches/{match_id}/state")
-
-
