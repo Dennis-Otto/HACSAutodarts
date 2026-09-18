@@ -2,15 +2,6 @@
   "title": "Autodarts",
   "config": {
     "step": {
-      "user": {
-        "title": "Autodarts einrichten",
-        "description": "Trage die öffentliche Client-ID ein, die Autodarts für diese Integration mit Geräteanmeldung freigeschaltet hat. Das ist eine Anwendungs-ID, keine E-Mail-Adresse, Board-ID oder ein Passwort. Optional kannst du die lokale Board-IP angeben. Anschließend wird dein Anmeldecode angezeigt.",
-        "data": {
-          "client_id": "Autodarts-Client-ID",
-          "host": "Lokale Board-IP (optional)",
-          "port": "Lokaler Board-Port"
-        }
-      },
       "reauth_confirm": {
         "title": "Autodarts erneut verknüpfen",
         "description": "Verknüpfe dein Konto mit der neuen Autodarts-Geräteanmeldung. Trage eine für diese Integration registrierte öffentliche Client-ID mit freigeschalteter Geräteanmeldung ein. Dein Board, deine Entitäten und die lokalen Einstellungen bleiben erhalten.",
@@ -32,23 +23,61 @@
         "data": {
           "board_id": "Board"
         }
+      },
+      "cloud": {
+        "title": "Autodarts einrichten",
+        "description": "Trage die öffentliche Client-ID ein, die Autodarts für diese Integration mit Geräteanmeldung freigeschaltet hat. Das ist eine Anwendungs-ID, keine E-Mail-Adresse, Board-ID oder ein Passwort. Optional kannst du die lokale Board-IP angeben. Anschließend wird dein Anmeldecode angezeigt.",
+        "data": {
+          "client_id": "Autodarts-Client-ID",
+          "host": "Lokale Board-IP (optional)",
+          "port": "Lokaler Board-Port"
+        }
+      },
+      "user": {
+        "title": "Autodarts einrichten",
+        "description": "Wähle die lokale Board-Steuerung ohne Cloud-Anmeldung oder verknüpfe dein Autodarts-Konto.",
+        "menu_options": {
+          "local": "Lokales Board",
+          "cloud": "Cloud-Konto verknüpfen"
+        }
+      },
+      "reconfigure": {
+        "title": "Autodarts anpassen",
+        "description": "Ändere die lokale Board-Adresse oder ergänze die Cloud-Anmeldung. Das bestehende Board und seine Entitäten bleiben erhalten.",
+        "menu_options": {
+          "local": "Lokales Board",
+          "cloud": "Cloud-Konto verknüpfen"
+        }
+      },
+      "local": {
+        "title": "Lokales Board verbinden",
+        "description": "IP-Adresse oder Hostname des Board Managers eingeben, ohne http:// und ohne Port. Keine Client-ID nötig. Das Board muss bereits im Board Manager eingerichtet sein.",
+        "data": {
+          "host": "Board-IP oder Hostname",
+          "port": "Port"
+        }
       }
     },
     "progress": {
       "wait_for_device": "Öffne die [Autodarts-Anmeldung]({verification_uri_complete}) und bestätige die Verknüpfung. Alternativ kannst du [{verification_uri}]({verification_uri}) auf einem anderen Gerät öffnen und **{user_code}** eingeben.\n\nNach der Freigabe geht es hier automatisch weiter. Gib diesen Code nur bei deiner eigenen Autodarts-Anmeldung ein."
     },
     "error": {
-      "invalid_client": "Diese Client-ID ist ungültig oder nicht für die Geräteanmeldung freigeschaltet. Prüfe die Client-ID für diese Integration.",
+      "invalid_client": "Diese Client-ID ist ungültig oder nicht für die Geräteanmeldung freigeschaltet. Prüfe die Client-ID für diese Integration. Die Einrichtung über Lokales Board ist ohne Client-ID möglich.",
       "expired_token": "Der Anmeldecode ist abgelaufen. Bitte fordere einen neuen Code an.",
       "access_denied": "Die Verknüpfung wurde abgelehnt. Bitte starte die Anmeldung neu und bestätige sie.",
       "invalid_auth": "Autodarts konnte diese Verbindung nicht autorisieren. Bitte verknüpfe dein Konto erneut.",
-      "cannot_connect": "Autodarts ist nicht erreichbar. Bitte versuche es erneut."
+      "cannot_connect": "Autodarts ist nicht erreichbar. Bitte versuche es erneut.",
+      "invalid_host": "Bitte nur IP-Adresse oder Hostname eingeben.",
+      "cannot_connect_local": "Der lokale Board Manager ist nicht erreichbar oder liefert keine gültigen Daten.",
+      "board_not_configured": "Im Board Manager ist noch keine Board-ID hinterlegt. Bitte dort zuerst das Board einrichten."
     },
     "abort": {
       "already_configured": "Dieses Autodarts-Board ist bereits eingerichtet.",
       "no_boards": "Für dieses Konto wurden keine Boards gefunden.",
       "wrong_account": "Das verknüpfte Konto hat keinen Zugriff auf das bisherige Board. Bitte verwende das Konto, dem dieses Board gehört.",
-      "reauth_successful": "Autodarts wurde erfolgreich verknüpft. Dein Board und deine Entitäten bleiben erhalten."
+      "reauth_successful": "Autodarts wurde erfolgreich verknüpft. Dein Board und deine Entitäten bleiben erhalten.",
+      "wrong_board": "Diese Adresse gehört zu einem anderen Board.",
+      "reconfigure_successful": "Autodarts wurde aktualisiert."
     }
   },
   "entity": {
@@ -79,6 +108,82 @@
       },
       "darts_thrown": {
         "name": "Aufnahmen gesamt"
+      },
+      "local_status": {
+        "name": "Lokaler Erkennungsstatus"
+      },
+      "last_throw_score": {
+        "name": "Punkte letzter Wurf"
+      },
+      "local_visit_score": {
+        "name": "Erkannte Aufnahmepunkte"
+      },
+      "detection_fps": {
+        "name": "Erkennungsbildrate"
+      },
+      "camera_fps": {
+        "name": "Kamera {number} Bildrate"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "Erkennung starten"
+      },
+      "stop": {
+        "name": "Erkennung stoppen"
+      },
+      "reset": {
+        "name": "Erkennung zurücksetzen"
+      },
+      "restart": {
+        "name": "Board Manager neu starten"
+      },
+      "calibrate": {
+        "name": "Automatische Kalibrierung starten"
+      },
+      "connect": {
+        "name": "Mit Autodarts-Cloud verbinden"
+      },
+      "disconnect": {
+        "name": "Autodarts-Cloud trennen"
+      },
+      "start_streams": {
+        "name": "Kamerastreams starten"
+      },
+      "stop_streams": {
+        "name": "Kamerastreams stoppen"
+      }
+    },
+    "switch": {
+      "detection": {
+        "name": "Erkennung"
+      },
+      "upstream": {
+        "name": "Autodarts-Cloud-Verbindung"
+      },
+      "auto_calibrate_on_start": {
+        "name": "Beim Start kalibrieren"
+      },
+      "auto_calibrate": {
+        "name": "Automatisch nachkalibrieren"
+      },
+      "auto_distortion": {
+        "name": "Automatische Verzerrungskorrektur"
+      }
+    },
+    "select": {
+      "standby_minutes": {
+        "name": "Kamera-Standby (Minuten)"
+      }
+    },
+    "binary_sensor": {
+      "local_connected": {
+        "name": "Board-Manager-Verbindung"
+      }
+    },
+    "camera": {
+      "board_camera": {
+        "name": "Kamera {number}"
       }
     }
   }

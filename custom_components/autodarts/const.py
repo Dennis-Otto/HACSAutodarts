@@ -10,11 +10,12 @@ DEFAULT_SCAN_INTERVAL: Final = 5  # seconds
 # Config entry keys
 CONF_TOKEN: Final = "token"
 CONF_CLIENT_ID: Final = "client_id"
+CONF_LOCAL_ONLY: Final = "local_only"
 CONF_BOARD_ID: Final = "board_id"
 CONF_HOST: Final = "host"
 CONF_PORT: Final = "port"
 
-PLATFORMS: Final = ["sensor"]
+PLATFORMS: Final = ["sensor", "binary_sensor", "button", "switch", "select", "camera"]
 
 # Sensor keys — board
 SENSOR_BOARD_STATUS: Final = "board_status"

@@ -2,15 +2,6 @@
   "title": "Autodarts",
   "config": {
     "step": {
-      "user": {
-        "title": "Set up Autodarts",
-        "description": "Enter the public client ID registered with Autodarts for this integration, with device authorization enabled. This is an application ID, not your email, board ID or a secret. Optionally enter your local board IP. The next screen will show your login code.",
-        "data": {
-          "client_id": "Autodarts client ID",
-          "host": "Local board IP (optional)",
-          "port": "Local board port"
-        }
-      },
       "reauth_confirm": {
         "title": "Link Autodarts again",
         "description": "Link your account with the new Autodarts device login. Enter a public client ID registered for this integration with device authorization enabled. Your board, entities and local settings will be kept.",
@@ -32,23 +23,61 @@
         "data": {
           "board_id": "Board"
         }
+      },
+      "cloud": {
+        "title": "Set up Autodarts",
+        "description": "Enter the public client ID registered with Autodarts for this integration, with device authorization enabled. This is an application ID, not your email, board ID or a secret. Optionally enter your local board IP. The next screen will show your login code.",
+        "data": {
+          "client_id": "Autodarts client ID",
+          "host": "Local board IP (optional)",
+          "port": "Local board port"
+        }
+      },
+      "user": {
+        "title": "Set up Autodarts",
+        "description": "Choose local board control without a cloud login, or link your Autodarts account.",
+        "menu_options": {
+          "local": "Local board",
+          "cloud": "Link cloud account"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Autodarts",
+        "description": "Change the local board address or add cloud login. Your existing board and entities are retained.",
+        "menu_options": {
+          "local": "Local board",
+          "cloud": "Link cloud account"
+        }
+      },
+      "local": {
+        "title": "Connect local board",
+        "description": "Enter the Board Manager IP address or hostname, without http:// or a port. No client ID is required. The board must already be configured in Board Manager.",
+        "data": {
+          "host": "Board IP or hostname",
+          "port": "Port"
+        }
       }
     },
     "progress": {
       "wait_for_device": "Open [Autodarts login]({verification_uri_complete}) and approve the connection. Alternatively, open [{verification_uri}]({verification_uri}) on another device and enter **{user_code}**.\n\nThis screen continues automatically after approval. Only share this code with your own Autodarts login."
     },
     "error": {
-      "invalid_client": "This client ID is invalid or is not enabled for device login. Check the client ID for this integration.",
+      "invalid_client": "This client ID is invalid or is not enabled for device login. Check the client ID for this integration. Local board setup is available without a client ID.",
       "expired_token": "The login code expired. Please request a new code.",
       "access_denied": "The connection was denied. Please restart login and approve it.",
       "invalid_auth": "Autodarts could not authorize this connection. Please link your account again.",
-      "cannot_connect": "Unable to connect to Autodarts. Please try again."
+      "cannot_connect": "Unable to connect to Autodarts. Please try again.",
+      "invalid_host": "Enter an IP address or hostname only.",
+      "cannot_connect_local": "Cannot reach the local Board Manager or its response is invalid.",
+      "board_not_configured": "No board ID is configured in Board Manager. Complete board setup there first."
     },
     "abort": {
       "already_configured": "This Autodarts board is already configured.",
       "no_boards": "No boards found for this account.",
       "wrong_account": "The linked account does not have access to the existing board. Please link the account that owns this board.",
-      "reauth_successful": "Autodarts was linked successfully. Your board and entities have been kept."
+      "reauth_successful": "Autodarts was linked successfully. Your board and entities have been kept.",
+      "wrong_board": "This address belongs to a different board.",
+      "reconfigure_successful": "Autodarts configuration updated."
     }
   },
   "entity": {
@@ -79,6 +108,82 @@
       },
       "darts_thrown": {
         "name": "Total Turns"
+      },
+      "local_status": {
+        "name": "Local detection status"
+      },
+      "last_throw_score": {
+        "name": "Last throw score"
+      },
+      "local_visit_score": {
+        "name": "Detected visit score"
+      },
+      "detection_fps": {
+        "name": "Detection frame rate"
+      },
+      "camera_fps": {
+        "name": "Camera {number} frame rate"
+      }
+    },
+    "button": {
+      "start": {
+        "name": "Start detection"
+      },
+      "stop": {
+        "name": "Stop detection"
+      },
+      "reset": {
+        "name": "Reset detection"
+      },
+      "restart": {
+        "name": "Restart Board Manager"
+      },
+      "calibrate": {
+        "name": "Start automatic calibration"
+      },
+      "connect": {
+        "name": "Connect to Autodarts cloud"
+      },
+      "disconnect": {
+        "name": "Disconnect from Autodarts cloud"
+      },
+      "start_streams": {
+        "name": "Start camera streams"
+      },
+      "stop_streams": {
+        "name": "Stop camera streams"
+      }
+    },
+    "switch": {
+      "detection": {
+        "name": "Detection"
+      },
+      "upstream": {
+        "name": "Autodarts cloud connection"
+      },
+      "auto_calibrate_on_start": {
+        "name": "Calibrate on start"
+      },
+      "auto_calibrate": {
+        "name": "Automatic recalibration"
+      },
+      "auto_distortion": {
+        "name": "Automatic distortion correction"
+      }
+    },
+    "select": {
+      "standby_minutes": {
+        "name": "Camera standby (minutes)"
+      }
+    },
+    "binary_sensor": {
+      "local_connected": {
+        "name": "Board Manager connection"
+      }
+    },
+    "camera": {
+      "board_camera": {
+        "name": "Camera {number}"
       }
     }
   }

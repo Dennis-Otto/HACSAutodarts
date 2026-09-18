@@ -11,6 +11,10 @@ from typing import Any
 
 import aiohttp
 
+from .errors import AutodartsApiError as AutodartsApiError
+from .errors import AutodartsAuthError, AutodartsConnectionError
+from .local_api import AutodartsLocalClient as AutodartsLocalClient
+
 DEFAULT_TIMEOUT = 10
 API_BASE = "https://api.autodarts.io"
 AUTH_BASE = f"{API_BASE}/auth/v1"
@@ -18,22 +22,6 @@ DEVICE_CODE_URL = f"{AUTH_BASE}/device/code"
 DEVICE_TOKEN_URL = f"{AUTH_BASE}/device/token"
 REFRESH_URL = f"{AUTH_BASE}/refresh"
 DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
-
-
-class AutodartsApiError(Exception):
-    """Base exception for Autodarts API errors."""
-
-
-class AutodartsConnectionError(AutodartsApiError):
-    """Transport, service or malformed response error."""
-
-
-class AutodartsAuthError(AutodartsApiError):
-    """Authentication failed with a machine-readable OAuth error."""
-
-    def __init__(self, code: str = "invalid_token") -> None:
-        self.code = code
-        super().__init__(code)
 
 
 @dataclass(frozen=True)
@@ -164,43 +152,6 @@ async def wait_for_device_token(
                 return normalize_token(body)
     except TimeoutError as err:
         raise AutodartsAuthError("expired_token") from err
-
-
-class AutodartsLocalClient:
-    """Async client for the Autodarts local board API."""
-
-    def __init__(self, host: str, port: int, session: aiohttp.ClientSession) -> None:
-        """Initialize the local API client."""
-        self._session = session
-        self._base_url = f"http://{host}:{port}"
-
-    async def _request(self, path: str) -> dict[str, Any]:
-        url = f"{self._base_url}{path}"
-        try:
-            async with asyncio.timeout(DEFAULT_TIMEOUT):
-                response = await self._session.get(url)
-                response.raise_for_status()
-                return await response.json()
-        except asyncio.TimeoutError as err:
-            raise AutodartsConnectionError(
-                f"Timeout connecting to board at {self._base_url}"
-            ) from err
-        except aiohttp.ClientError as err:
-            raise AutodartsConnectionError(
-                f"Error communicating with board at {self._base_url}: {err}"
-            ) from err
-
-    async def get_state(self) -> dict[str, Any]:
-        """Get the current detection state (throws, status)."""
-        return await self._request("/api/state")
-
-    async def test_connection(self) -> bool:
-        """Test if the board is reachable."""
-        try:
-            await self.get_state()
-        except AutodartsApiError:
-            return False
-        return True
 
 
 class AutodartsCloudClient:

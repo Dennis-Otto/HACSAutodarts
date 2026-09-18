@@ -75,9 +75,7 @@ async def complete_link(hass, result, future, boards):
 
 async def test_device_login_creates_board_entry(hass):
     future = asyncio.get_running_loop().create_future()
-    result = await hass.config_entries.flow.async_init(
-        "autodarts", context={"source": SOURCE_USER}
-    )
+    result = await init_cloud_flow(hass)
     result = await start_link(hass, result, future)
     result = await complete_link(hass, result, future, [BOARD])
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -91,9 +89,7 @@ async def test_device_login_creates_board_entry(hass):
 
 async def test_multiple_boards(hass):
     future = asyncio.get_running_loop().create_future()
-    result = await hass.config_entries.flow.async_init(
-        "autodarts", context={"source": SOURCE_USER}
-    )
+    result = await init_cloud_flow(hass)
     result = await start_link(hass, result, future)
     result = await complete_link(
         hass, result, future, [BOARD, {"id": "board-2", "name": "Second"}]
@@ -117,9 +113,7 @@ async def test_no_boards_and_legacy_duplicates(hass, boards, reason):
         )
         entry.add_to_hass(hass)
     future = asyncio.get_running_loop().create_future()
-    result = await hass.config_entries.flow.async_init(
-        "autodarts", context={"source": SOURCE_USER}
-    )
+    result = await init_cloud_flow(hass)
     result = await start_link(hass, result, future)
     result = await complete_link(hass, result, future, boards)
     assert result["type"] == FlowResultType.ABORT
@@ -170,25 +164,21 @@ async def test_legacy_reauth_preserves_entry_and_local_settings(hass, boards, re
     ],
 )
 async def test_code_request_errors(hass, error, translation):
-    result = await hass.config_entries.flow.async_init(
-        "autodarts", context={"source": SOURCE_USER}
-    )
+    result = await init_cloud_flow(hass)
     with patch(
         "custom_components.autodarts.config_flow.request_device_code", side_effect=error
     ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"client_id": CLIENT_ID}
         )
-    assert result["step_id"] == "user"
+    assert result["step_id"] == "cloud"
     assert result["errors"] == {"base": translation}
 
 
 @pytest.mark.parametrize("code", ["expired_token", "access_denied"])
 async def test_device_error_can_restart(hass, code):
     future = asyncio.get_running_loop().create_future()
-    result = await hass.config_entries.flow.async_init(
-        "autodarts", context={"source": SOURCE_USER}
-    )
+    result = await init_cloud_flow(hass)
     result = await start_link(hass, result, future)
     future.set_exception(AutodartsAuthError(code))
     await hass.async_block_till_done()
@@ -196,14 +186,12 @@ async def test_device_error_can_restart(hass, code):
     assert result["step_id"] == "auth_retry"
     assert result["errors"] == {"base": code}
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
-    assert result["step_id"] == "user"
+    assert result["step_id"] == "cloud"
 
 
 async def test_abort_cancels_device_polling(hass):
     future = asyncio.get_running_loop().create_future()
-    result = await hass.config_entries.flow.async_init(
-        "autodarts", context={"source": SOURCE_USER}
-    )
+    result = await init_cloud_flow(hass)
     result = await start_link(hass, result, future)
     hass.config_entries.flow.async_abort(result["flow_id"])
     await hass.async_block_till_done()
@@ -212,9 +200,7 @@ async def test_abort_cancels_device_polling(hass):
 
 async def test_board_outage_retries_without_new_device_code(hass):
     future = asyncio.get_running_loop().create_future()
-    result = await hass.config_entries.flow.async_init(
-        "autodarts", context={"source": SOURCE_USER}
-    )
+    result = await init_cloud_flow(hass)
     result = await start_link(hass, result, future)
     future.set_result(TOKEN)
     await hass.async_block_till_done()
@@ -241,8 +227,15 @@ async def test_board_outage_retries_without_new_device_code(hass):
 
 async def test_setup_requests_registered_client_id(hass):
     """Do not send users to the retired Keycloak client/redirect flow."""
+    result = await init_cloud_flow(hass)
+    assert result["step_id"] == "cloud"
+    assert "client_id" in result["data_schema"].schema
+
+
+async def init_cloud_flow(hass):
     result = await hass.config_entries.flow.async_init(
         "autodarts", context={"source": SOURCE_USER}
     )
-    assert result["step_id"] == "user"
-    assert "client_id" in result["data_schema"].schema
+    return await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "cloud"}
+    )

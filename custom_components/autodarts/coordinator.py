@@ -6,7 +6,6 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -16,7 +15,6 @@ from .api import (
     AutodartsApiError,
     AutodartsAuthError,
     AutodartsCloudClient,
-    AutodartsLocalClient,
 )
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 
@@ -24,16 +22,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Coordinator to manage fetching Autodarts data from cloud + local board."""
+    """Fetch cloud match data independently of the local Board Manager."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         cloud: AutodartsCloudClient,
         board_id: str,
-        local: AutodartsLocalClient | None = None,
         entry: ConfigEntry | None = None,
-        session: aiohttp.ClientSession | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -45,12 +41,9 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.cloud = cloud
         self.board_id = board_id
-        self.local = local
-        self._entry = entry
-        self._session = session
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from cloud API (and optionally local board)."""
+        """Fetch board and match data from the cloud API."""
         result: dict[str, Any] = {
             "board": {},
             "match": None,
@@ -88,28 +81,5 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ) from err
             except AutodartsApiError as err:
                 _LOGGER.warning("Could not fetch match %s: %s", match_id, err)
-
-        # 3. Local board: auto-discover from cloud if not configured
-        if self.local is None and self._session is not None:
-            board_ip = board.get("ip", "")
-            if board_ip:
-                from urllib.parse import urlparse
-
-                parsed = urlparse(board_ip)
-                host = parsed.hostname
-                port = parsed.port or 3180
-                if host:
-                    self.local = AutodartsLocalClient(
-                        host=host,
-                        port=port,
-                        session=self._session,
-                    )
-                    _LOGGER.debug("Auto-discovered local board at %s:%s", host, port)
-
-        if self.local:
-            try:
-                result["local"] = await self.local.get_state()
-            except AutodartsApiError:
-                _LOGGER.debug("Local board not reachable")
 
         return result

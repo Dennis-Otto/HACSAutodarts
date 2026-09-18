@@ -12,11 +12,11 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    DOMAIN,
     SENSOR_BOARD_EVENT,
     SENSOR_BOARD_STATUS,
     SENSOR_DARTS_THROWN,
@@ -28,13 +28,13 @@ from .const import (
     SENSOR_VISIT_SCORE,
 )
 from .coordinator import AutodartsDataUpdateCoordinator
-from .entity import AutodartsEntity
-
+from .entity import AutodartsEntity, AutodartsLocalEntity
 
 # ---------------------------------------------------------------------------
 # Helpers to extract values from coordinator data
 # ---------------------------------------------------------------------------
 # coordinator.data = {"board": {...}, "match": {...} | None, "local": {...}}
+
 
 def _board(data: dict[str, Any]) -> dict[str, Any]:
     return data.get("board") or {}
@@ -50,6 +50,7 @@ def _local(data: dict[str, Any]) -> dict[str, Any]:
 
 # -- value extractors -------------------------------------------------------
 
+
 def _get_board_status(data: dict[str, Any]) -> str:
     """Board connected / disconnected (from cloud board state)."""
     board = _board(data)
@@ -63,7 +64,7 @@ def _get_board_event(data: dict[str, Any]) -> str | None:
     """Last board event from local detection or cloud."""
     local = _local(data)
     if local:
-        return local.get("status") or local.get("event")
+        return local.get("event") or local.get("status")
     board = _board(data)
     state = board.get("state") or {}
     return state.get("event") or board.get("status")
@@ -98,10 +99,10 @@ def _get_round(data: dict[str, Any]) -> int | None:
 def _get_last_throw(data: dict[str, Any]) -> str | None:
     """Last detected throw segment name (e.g. T20, D16, S5, M2)."""
     local = _local(data)
-    throws = local.get("throws", [])
+    throws = local.get("throws") or []
     if throws:
         last = throws[-1]
-        segment = last.get("segment", {})
+        segment = last.get("segment") or {}
         return segment.get("name")
     return None
 
@@ -214,14 +215,57 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Autodarts sensors from a config entry."""
-    coordinator: AutodartsDataUpdateCoordinator = entry.runtime_data
-
-    entities: list[SensorEntity] = [
-        AutodartsSensor(coordinator, description)
-        for description in STATIC_SENSORS
-    ]
-
+    runtime = entry.runtime_data
+    entities: list[SensorEntity] = []
+    local_keys = {SENSOR_BOARD_EVENT, SENSOR_LAST_THROW, SENSOR_NUM_THROWS}
+    if runtime.cloud:
+        entities.extend(
+            AutodartsSensor(runtime.cloud, description)
+            for description in STATIC_SENSORS
+            if runtime.local is None or description.key not in local_keys
+        )
+    if runtime.local:
+        entities.extend(
+            AutodartsLocalSensor(runtime.local, description)
+            for description in STATIC_SENSORS
+            if description.key in local_keys
+        )
+        entities.extend(
+            AutodartsLocalSensor(runtime.local, description)
+            for description in LOCAL_SENSORS
+        )
     async_add_entities(entities)
+    if coordinator := runtime.local:
+        known: set[int] = set()
+
+        @callback
+        def discover_cameras():
+            count = (coordinator.data or {}).get("settings", {}).get("camera_count", 0)
+            new = set(range(count)) - known
+            if not new:
+                return
+            known.update(new)
+            async_add_entities(
+                [
+                    AutodartsLocalSensor(
+                        coordinator,
+                        AutodartsSensorEntityDescription(
+                            key=f"camera_{index}_fps",
+                            translation_key="camera_fps",
+                            translation_placeholders={"number": str(index + 1)},
+                            icon="mdi:speedometer",
+                            native_unit_of_measurement="fps",
+                            entity_category=EntityCategory.DIAGNOSTIC,
+                            entity_registry_enabled_default=False,
+                            value_fn=lambda data, i=index: _camera_fps(data, i),
+                        ),
+                    )
+                    for index in sorted(new)
+                ]
+            )
+
+        discover_cameras()
+        entry.async_on_unload(coordinator.async_add_listener(discover_cameras))
 
 
 # ---------------------------------------------------------------------------
@@ -247,4 +291,74 @@ class AutodartsSensor(AutodartsEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         """Return the sensor value."""
+        return self.entity_description.value_fn(self.coordinator.data or {})
+
+
+def _last_throw_score(data: dict[str, Any]) -> int | None:
+    throws = _local(data).get("throws") or []
+    if not throws:
+        return None
+    segment = throws[-1].get("segment") or {}
+    return segment.get("number", 0) * segment.get("multiplier", 0)
+
+
+def _local_visit_score(data: dict[str, Any]) -> int | None:
+    throws = _local(data).get("throws") or []
+    if not throws:
+        return 0
+    return sum(
+        (throw.get("segment") or {}).get("number", 0)
+        * (throw.get("segment") or {}).get("multiplier", 0)
+        for throw in throws
+    )
+
+
+def _camera_fps(data: dict[str, Any], index: int) -> float | None:
+    fps = data.get("camera_stats", {}).get("fps")
+    return fps[index] if isinstance(fps, list) and index < len(fps) else None
+
+
+LOCAL_SENSORS = (
+    AutodartsSensorEntityDescription(
+        key="local_status",
+        translation_key="local_status",
+        icon="mdi:bullseye",
+        value_fn=lambda data: _local(data).get("status"),
+    ),
+    AutodartsSensorEntityDescription(
+        key="last_throw_score",
+        translation_key="last_throw_score",
+        native_unit_of_measurement="points",
+        icon="mdi:counter",
+        value_fn=_last_throw_score,
+    ),
+    AutodartsSensorEntityDescription(
+        key="local_visit_score",
+        translation_key="local_visit_score",
+        native_unit_of_measurement="points",
+        icon="mdi:counter",
+        value_fn=_local_visit_score,
+    ),
+    AutodartsSensorEntityDescription(
+        key="detection_fps",
+        translation_key="detection_fps",
+        native_unit_of_measurement="fps",
+        icon="mdi:speedometer",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: data.get("stats", {}).get("fps"),
+    ),
+)
+
+
+class AutodartsLocalSensor(AutodartsLocalEntity, SensorEntity):
+    def __init__(
+        self, coordinator, description: AutodartsSensorEntityDescription
+    ) -> None:
+        super().__init__(coordinator, description.key)
+        self.entity_description = description
+        self._attr_translation_key = description.translation_key
+
+    @property
+    def native_value(self) -> Any:
         return self.entity_description.value_fn(self.coordinator.data or {})

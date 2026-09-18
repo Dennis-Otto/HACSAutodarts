@@ -4,10 +4,16 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from ipaddress import ip_address
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import SOURCE_REAUTH, ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    SOURCE_REAUTH,
+    SOURCE_RECONFIGURE,
+    ConfigFlow,
+    ConfigFlowResult,
+)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
@@ -22,11 +28,25 @@ from .const import (
     CONF_BOARD_ID,
     CONF_CLIENT_ID,
     CONF_HOST,
+    CONF_LOCAL_ONLY,
     CONF_PORT,
     CONF_TOKEN,
     DEFAULT_PORT,
     DOMAIN,
 )
+from .errors import AutodartsApiError
+from .local_api import AutodartsLocalClient
+
+
+def _valid_host(host: str) -> bool:
+    if not host or any(char.isspace() or char in "/?#@\\[]" for char in host):
+        return False
+    if ":" in host:
+        try:
+            return ip_address(host).version == 6
+        except ValueError:
+            return False
+    return True
 
 
 def _auth_error(error: AutodartsAuthError) -> str:
@@ -54,8 +74,86 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Collect the registered client ID and optional local connection."""
-        return await self._async_setup_form("user", user_input)
+        """Choose local-only setup or cloud account linking."""
+        return self.async_show_menu(step_id="user", menu_options=["local", "cloud"])
+
+    async def async_step_cloud(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return await self._async_setup_form("cloud", user_input)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        entry = self._get_reconfigure_entry()
+        self._user_input = {
+            key: entry.data[key]
+            for key in (CONF_HOST, CONF_PORT, CONF_CLIENT_ID)
+            if key in entry.data
+        }
+        return self.async_show_menu(
+            step_id="reconfigure", menu_options=["local", "cloud"]
+        )
+
+    async def async_step_local(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Create a local entry, or update an existing entry's local address."""
+        errors = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip().lower()
+            port = user_input.get(CONF_PORT, DEFAULT_PORT)
+            if not _valid_host(host):
+                errors[CONF_HOST] = "invalid_host"
+            else:
+                try:
+                    client = AutodartsLocalClient(
+                        host, port, async_get_clientsession(self.hass)
+                    )
+                    await client.get_state()
+                    config = await client.get_config()
+                except (AutodartsApiError, ValueError):
+                    errors["base"] = "cannot_connect_local"
+                else:
+                    board_id = config.get(CONF_BOARD_ID)
+                    if not board_id:
+                        errors["base"] = "board_not_configured"
+                    elif self.source == SOURCE_RECONFIGURE:
+                        entry = self._get_reconfigure_entry()
+                        if board_id != entry.data[CONF_BOARD_ID]:
+                            return self.async_abort(reason="wrong_board")
+                        return self.async_update_reload_and_abort(
+                            entry,
+                            data_updates={CONF_HOST: host, CONF_PORT: port},
+                            reason="reconfigure_successful",
+                        )
+                    else:
+                        await self.async_set_unique_id(board_id)
+                        self._abort_if_unique_id_configured()
+                        self._async_abort_entries_match({CONF_BOARD_ID: board_id})
+                        return self.async_create_entry(
+                            title=f"Autodarts ({host})",
+                            data={
+                                CONF_BOARD_ID: board_id,
+                                CONF_HOST: host,
+                                CONF_PORT: port,
+                                CONF_LOCAL_ONLY: True,
+                            },
+                        )
+        return self.async_show_form(
+            step_id="local",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_HOST, default=self._user_input.get(CONF_HOST, "")
+                    ): str,
+                    vol.Required(
+                        CONF_PORT, default=self._user_input.get(CONF_PORT, DEFAULT_PORT)
+                    ): vol.All(int, vol.Range(min=1, max=65535)),
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
@@ -78,6 +176,15 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
         self, step_id: str, user_input: dict[str, Any] | None
     ) -> ConfigFlowResult:
         errors = {}
+        if user_input is not None and step_id == "cloud" and user_input.get(CONF_HOST):
+            user_input = {
+                **user_input,
+                CONF_HOST: user_input[CONF_HOST].strip().lower(),
+            }
+            if not _valid_host(user_input[CONF_HOST]):
+                errors[CONF_HOST] = "invalid_host"
+                self._user_input.update(user_input)
+                user_input = None
         if user_input is not None:
             self._user_input.update(user_input)
             self._user_input[CONF_CLIENT_ID] = user_input[CONF_CLIENT_ID].strip()
@@ -100,13 +207,15 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_CLIENT_ID, default=self._user_input.get(CONF_CLIENT_ID, "")
             ): vol.All(str, vol.Strip, vol.Length(min=1)),
         }
-        if step_id == "user":
+        if step_id == "cloud":
             schema.update(
                 {
-                    vol.Optional(CONF_HOST): str,
-                    vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
-                        int, vol.Range(min=1, max=65535)
-                    ),
+                    vol.Optional(
+                        CONF_HOST, default=self._user_input.get(CONF_HOST, "")
+                    ): str,
+                    vol.Optional(
+                        CONF_PORT, default=self._user_input.get(CONF_PORT, DEFAULT_PORT)
+                    ): vol.All(int, vol.Range(min=1, max=65535)),
                 }
             )
         return self.async_show_form(
@@ -155,7 +264,7 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             if self.source == SOURCE_REAUTH:
                 return await self.async_step_reauth_confirm()
-            return await self.async_step_user()
+            return await self.async_step_cloud()
         return self.async_show_form(
             step_id="auth_retry",
             data_schema=vol.Schema({}),
@@ -187,16 +296,28 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
             board["id"]: board.get("name") or board["id"] for board in boards
         }
 
-        if self.source == SOURCE_REAUTH:
-            entry = self._get_reauth_entry()
+        if self.source in (SOURCE_REAUTH, SOURCE_RECONFIGURE):
+            entry = (
+                self._get_reauth_entry()
+                if self.source == SOURCE_REAUTH
+                else self._get_reconfigure_entry()
+            )
             if entry.data[CONF_BOARD_ID] not in self._boards:
                 return self.async_abort(reason="wrong_account")
+            updates = {
+                CONF_TOKEN: self._token,
+                CONF_CLIENT_ID: self._user_input[CONF_CLIENT_ID],
+                CONF_LOCAL_ONLY: False,
+            }
+            for key in (CONF_HOST, CONF_PORT):
+                if key in self._user_input:
+                    updates[key] = self._user_input[key]
             return self.async_update_reload_and_abort(
                 entry,
-                data_updates={
-                    CONF_TOKEN: self._token,
-                    CONF_CLIENT_ID: self._user_input[CONF_CLIENT_ID],
-                },
+                reason="reauth_successful"
+                if self.source == SOURCE_REAUTH
+                else "reconfigure_successful",
+                data_updates=updates,
             )
         if not self._boards:
             return self.async_abort(reason="no_boards")

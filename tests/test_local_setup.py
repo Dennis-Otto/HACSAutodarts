@@ -1,0 +1,306 @@
+"""Exercise local entities, services and cloud independence in real HA setup."""
+
+from copy import deepcopy
+from unittest.mock import patch
+
+import pytest
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.autodarts.api import API_BASE, REFRESH_URL
+from custom_components.autodarts.camera import AutodartsCamera
+from custom_components.autodarts.diagnostics import async_get_config_entry_diagnostics
+from custom_components.autodarts.errors import (
+    AutodartsAuthError,
+    AutodartsConnectionError,
+)
+
+from .local_helpers import BASE, CONFIG, STATE, local_entry_data, mock_board
+from .test_setup import entry_data
+
+
+async def setup_local(hass, aioclient_mock, **kwargs):
+    mock_board(aioclient_mock, **kwargs)
+    entry = MockConfigEntry(domain="autodarts", version=2, data=local_entry_data())
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state == ConfigEntryState.LOADED
+    return entry
+
+
+def entity_id(hass, platform, key):
+    result = er.async_get(hass).async_get_entity_id(
+        platform, "autodarts", f"board-1_{key}"
+    )
+    assert result is not None
+    return result
+
+
+def state(hass, platform, key):
+    return hass.states.get(entity_id(hass, platform, key)).state
+
+
+async def test_local_only_setup_entities_and_private_diagnostics(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock)
+    assert entry.runtime_data.cloud is None
+    assert all(str(call[1]).startswith(BASE) for call in aioclient_mock.mock_calls)
+    registry = er.async_get(hass)
+    entities = er.async_entries_for_config_entry(registry, entry.entry_id)
+    assert len(entities) == 29
+    assert state(hass, "switch", "detection") == "off"
+    assert state(hass, "switch", "upstream") == "on"
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    assert state(hass, "select", "standby_minutes") == "15"
+    assert state(hass, "sensor", "local_status") == "Stopped"
+    assert state(hass, "sensor", "local_visit_score") == "0"
+    camera = registry.async_get(entity_id(hass, "camera", "camera_0"))
+    assert camera.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    assert (
+        registry.async_get(entity_id(hass, "button", "calibrate")).disabled_by is None
+    )
+    device = dr.async_get(hass).async_get_device_by_identifier(
+        ("autodarts", "board-1"), entry.entry_id
+    )
+    assert device.name == "Autodarts Board"
+    assert device.sw_version == "1.0.7"
+    assert device.configuration_url == BASE
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["local_available"] is True
+    assert diagnostics["cloud_configured"] is False
+    assert diagnostics["local"]["settings"]["board_id"] == "**REDACTED**"
+    for sensitive in ("private-board-api-key", "api_key", "192.0.2.10", "/dev/video0"):
+        assert sensitive not in str(diagnostics)
+    coordinator = entry.runtime_data.local
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert not list(coordinator.async_contexts())
+
+
+@pytest.mark.parametrize(
+    "key,method,path",
+    [
+        ("calibrate", "post", "/api/config/calibration/auto"),
+        ("reset", "post", "/api/reset"),
+        ("restart", "post", "/api/restart"),
+        ("start", "put", "/api/start"),
+        ("stop", "put", "/api/stop"),
+    ],
+)
+async def test_button_services_send_commands(hass, aioclient_mock, key, method, path):
+    await setup_local(hass, aioclient_mock)
+    getattr(aioclient_mock, method)(BASE + path, status=204)
+    await hass.services.async_call(
+        "button", "press", {"entity_id": entity_id(hass, "button", key)}, blocking=True
+    )
+    calls = [call for call in aioclient_mock.mock_calls if call[0] != "GET"]
+    assert [(call[0], str(call[1])) for call in calls] == [
+        (method.upper(), BASE + path)
+    ]
+
+
+async def test_switch_and_select_refresh_actual_board_state(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock)
+    aioclient_mock.put(BASE + "/api/start", status=204)
+    # An accepted command need not have changed the physical state yet.
+    await hass.services.async_call(
+        "switch",
+        "turn_on",
+        {"entity_id": entity_id(hass, "switch", "detection")},
+        blocking=True,
+    )
+    assert state(hass, "switch", "detection") == "off"
+    with patch.object(
+        entry.runtime_data.local.client,
+        "get_state",
+        return_value={**STATE, "running": True},
+    ):
+        await entry.runtime_data.local.async_refresh()
+    assert state(hass, "switch", "detection") == "on"
+    aioclient_mock.patch(BASE + "/api/config", status=204)
+    await hass.services.async_call(
+        "switch",
+        "turn_off",
+        {"entity_id": entity_id(hass, "switch", "auto_calibrate")},
+        blocking=True,
+    )
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": entity_id(hass, "select", "standby_minutes"), "option": "30"},
+        blocking=True,
+    )
+    writes = [call[2] for call in aioclient_mock.mock_calls if call[0] == "PATCH"]
+    assert writes == [
+        {"cam": {"auto_calibrate": False}},
+        {"motion": {"standby_minutes": 30}},
+    ]
+
+
+async def test_command_rejection_is_visible_to_user(hass, aioclient_mock):
+    await setup_local(hass, aioclient_mock)
+    aioclient_mock.post(BASE + "/api/config/calibration/auto", status=409)
+    with pytest.raises(HomeAssistantError, match="Local board action failed"):
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": entity_id(hass, "button", "calibrate")},
+            blocking=True,
+        )
+
+
+async def test_disconnect_and_recovery_updates_entities(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock)
+    coordinator = entry.runtime_data.local
+    with patch.object(
+        coordinator.client, "get_state", side_effect=AutodartsConnectionError
+    ):
+        await coordinator.async_refresh()
+    assert state(hass, "binary_sensor", "local_connected") == "off"
+    assert state(hass, "button", "calibrate") == "unavailable"
+    assert state(hass, "switch", "detection") == "unavailable"
+    await coordinator.async_refresh()
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    assert state(hass, "switch", "detection") == "off"
+
+
+@pytest.mark.parametrize("failure", ["expired", "unavailable", "legacy"])
+async def test_local_controls_survive_cloud_setup_failure(
+    hass, aioclient_mock, failure
+):
+    mock_board(aioclient_mock)
+    data = {**entry_data(), **local_entry_data(), "local_only": False}
+    if failure == "legacy":
+        data.pop("client_id")
+    elif failure == "expired":
+        aioclient_mock.post(REFRESH_URL, status=400, json={"error": "invalid_grant"})
+    else:
+        aioclient_mock.post(REFRESH_URL, status=503)
+    entry = MockConfigEntry(domain="autodarts", version=2, data=data)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert state(hass, "switch", "detection") == "off"
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    if failure != "unavailable":
+        assert any(
+            flow["step_id"] == "reauth_confirm"
+            for flow in hass.config_entries.flow.async_progress()
+        )
+
+
+async def test_cloud_works_when_local_temporarily_unavailable(hass, aioclient_mock):
+    data = {**entry_data(), **local_entry_data(), "local_only": False}
+    aioclient_mock.get(BASE + "/api/state", status=503)
+    aioclient_mock.post(
+        REFRESH_URL,
+        json={"access_token": "new", "refresh_token": "new-refresh", "expires_in": 900},
+    )
+    aioclient_mock.get(
+        API_BASE + "/bs/v0/boards/board-1",
+        json={"id": "board-1", "state": {"connected": True}},
+    )
+    entry = MockConfigEntry(domain="autodarts", version=2, data=data)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert state(hass, "sensor", "board_status") == "connected"
+    assert state(hass, "binary_sensor", "local_connected") == "off"
+    assert state(hass, "switch", "detection") == "unavailable"
+
+
+async def test_optional_endpoints_and_delayed_camera_discovery(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, config_status=404)
+    assert state(hass, "switch", "detection") == "off"
+    assert state(hass, "switch", "auto_calibrate") == "unavailable"
+    registry = er.async_get(hass)
+    assert (
+        registry.async_get_entity_id("camera", "autodarts", "board-1_camera_0") is None
+    )
+    coordinator = entry.runtime_data.local
+    coordinator._metadata_updated = 0
+    with patch.object(
+        coordinator.client, "get_config", return_value={"camera_count": 2}
+    ):
+        await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert entity_id(hass, "camera", "camera_1")
+    assert entity_id(hass, "sensor", "camera_1_fps")
+
+
+async def test_throw_scores_and_snapshot(hass, aioclient_mock):
+    throws = [
+        {"segment": {"name": "T20", "number": 20, "multiplier": 3}},
+        {"segment": {"name": "D16", "number": 16, "multiplier": 2}},
+    ]
+    entry = await setup_local(
+        hass, aioclient_mock, state={**STATE, "numThrows": 2, "throws": throws}
+    )
+    assert state(hass, "sensor", "last_throw") == "D16"
+    assert state(hass, "sensor", "last_throw_score") == "32"
+    assert state(hass, "sensor", "local_visit_score") == "92"
+    assert state(hass, "sensor", "num_throws") == "2"
+    aioclient_mock.get(
+        BASE + "/api/img/cams/0",
+        content=b"jpeg",
+        headers={"Content-Type": "image/jpeg"},
+    )
+    camera = AutodartsCamera(entry.runtime_data.local, 0)
+    assert await camera.async_camera_image() == b"jpeg"
+    assert not any(call[0] != "GET" for call in aioclient_mock.mock_calls)
+
+
+async def test_wrong_board_at_configured_address_cannot_be_controlled(
+    hass, aioclient_mock
+):
+    config = deepcopy(CONFIG)
+    config["auth"]["board_id"] = "another-board"
+    mock_board(aioclient_mock, config=config)
+    entry = MockConfigEntry(domain="autodarts", version=2, data=local_entry_data())
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    assert entry.state == ConfigEntryState.SETUP_RETRY
+
+
+async def test_discovered_host_saved_and_later_cloud_auth_failure_is_isolated(
+    hass, aioclient_mock
+):
+    mock_board(aioclient_mock)
+    aioclient_mock.post(
+        REFRESH_URL,
+        json={"access_token": "new", "refresh_token": "new-refresh", "expires_in": 900},
+    )
+    aioclient_mock.get(
+        API_BASE + "/bs/v0/boards/board-1",
+        json={
+            "id": "board-1",
+            "name": "Match Board",
+            "ip": BASE,
+            "state": {"connected": True},
+        },
+    )
+    entry = MockConfigEntry(domain="autodarts", version=2, data=entry_data())
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.data["host"] == "192.0.2.10"
+    assert entry.data["port"] == 3180
+    registry = er.async_get(hass)
+    assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 35
+    assert state(hass, "sensor", "board_status") == "connected"
+    with patch.object(
+        entry.runtime_data.cloud.cloud,
+        "get_board",
+        side_effect=AutodartsAuthError("invalid_token"),
+    ):
+        await entry.runtime_data.cloud.async_refresh()
+    await hass.async_block_till_done()
+    assert state(hass, "sensor", "board_status") == "unavailable"
+    assert state(hass, "switch", "detection") == "off"
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    assert any(
+        flow["step_id"] == "reauth_confirm"
+        for flow in hass.config_entries.flow.async_progress()
+    )

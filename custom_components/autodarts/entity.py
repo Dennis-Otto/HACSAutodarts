@@ -7,6 +7,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import AutodartsDataUpdateCoordinator
+from .local_coordinator import AutodartsLocalCoordinator
 
 
 class AutodartsEntity(CoordinatorEntity[AutodartsDataUpdateCoordinator]):
@@ -27,4 +28,23 @@ class AutodartsEntity(CoordinatorEntity[AutodartsDataUpdateCoordinator]):
             name=board_name,
             manufacturer="Autodarts",
             model="Dart Board",
+        )
+
+
+class AutodartsLocalEntity(CoordinatorEntity[AutodartsLocalCoordinator]):
+    """All local entities remain independent of cloud availability."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.board_id}_{key}"
+        self._attr_translation_key = key
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.board_id)},
+            name=coordinator.device_name,
+            manufacturer="Autodarts",
+            model="Dart Board",
+            configuration_url=coordinator.client.base_url,
+            sw_version=(coordinator.data or {}).get("version"),
         )
