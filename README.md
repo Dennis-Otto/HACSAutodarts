@@ -1,4 +1,6 @@
-# Autodarts for Home Assistant
+# Autodarts for Home Assistant — WIP
+
+> **Work in progress — not ready for general use.** The new device-link login is implemented, but an Autodarts-approved client ID and a successful live login/board test are still pending.
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
