@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 
 from .api import AutodartsCloudClient
 from .const import (
@@ -127,8 +128,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
             device.name if device and device.name else "Autodarts Board"
         )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if runtime.local:
+        runtime.local.async_start()
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) -> None:
+    """Deleting the integration also deletes its local training session."""
+    await Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.training").async_remove()

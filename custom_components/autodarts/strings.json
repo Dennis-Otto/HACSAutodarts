@@ -123,6 +123,24 @@
       },
       "camera_fps": {
         "name": "Camera {number} frame rate"
+      },
+      "training_darts": {
+        "name": "Training darts"
+      },
+      "training_triples": {
+        "name": "Training triples"
+      },
+      "training_bulls": {
+        "name": "Training bull hits"
+      },
+      "training_scores_180": {
+        "name": "Training 180s"
+      },
+      "training_points": {
+        "name": "Training points"
+      },
+      "training_started": {
+        "name": "Training session started"
       }
     },
     "button": {
@@ -152,6 +170,12 @@
       },
       "stop_streams": {
         "name": "Stop camera streams"
+      },
+      "calibrate_camera": {
+        "name": "Calibrate camera {number}"
+      },
+      "reset_training": {
+        "name": "Reset training statistics"
       }
     },
     "switch": {
@@ -179,11 +203,54 @@
     "binary_sensor": {
       "local_connected": {
         "name": "Board Manager connection"
+      },
+      "hand_detected": {
+        "name": "Hand detected"
+      },
+      "image_stable": {
+        "name": "Image stable"
+      },
+      "takeout_partial": {
+        "name": "Darts partially removed"
+      },
+      "takeout_full": {
+        "name": "Darts fully removed"
+      },
+      "cameras_active": {
+        "name": "Cameras active"
+      },
+      "calibrating": {
+        "name": "Calibration in progress"
+      },
+      "realtime_connected": {
+        "name": "Realtime connection"
+      },
+      "camera_problem": {
+        "name": "Camera problem"
+      },
+      "individual_camera_problem": {
+        "name": "Camera {number} problem"
       }
     },
     "camera": {
       "board_camera": {
         "name": "Camera {number}"
+      }
+    },
+    "event": {
+      "board_events": {
+        "name": "Board events",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "dart_detected": "Dart detected",
+              "dart_corrected": "Dart corrected",
+              "takeout_started": "Takeout started",
+              "takeout_finished": "Takeout finished",
+              "status_changed": "Status changed"
+            }
+          }
+        }
       }
     }
   }

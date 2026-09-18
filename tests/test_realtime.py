@@ -1,0 +1,350 @@
+"""Push/poll reconciliation, native HA events, persistence and camera controls."""
+
+import asyncio
+import json
+from unittest.mock import AsyncMock, patch
+
+import aiohttp
+import pytest
+from homeassistant.core import callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.storage import Store
+
+from custom_components.autodarts.errors import AutodartsConnectionError
+from custom_components.autodarts.local_api import AutodartsLocalClient
+
+from .local_helpers import BASE, STATE
+from .test_local_setup import entity_id, setup_local, state
+from .test_training import BULL, S20, T20, board
+
+REAL_EVENTS = AutodartsLocalClient.events
+
+
+class Socket:
+    def __init__(self, frames):
+        self.frames = frames
+        self.closed = False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        self.closed = True
+
+    async def __aiter__(self):
+        for frame in self.frames:
+            yield aiohttp.WSMessage(aiohttp.WSMsgType.TEXT, frame, None)
+
+
+async def test_socket_frames_are_filtered_and_closed(hass):
+    session = async_get_clientsession(hass)
+    client = AutodartsLocalClient("192.0.2.10", 3180, session)
+    socket = Socket(
+        [
+            "bad json",
+            "[]",
+            '{"type":"auth","data":{"token":"secret"}}',
+            '{"type":"state","data":null}',
+            json.dumps({"type": "state", "data": STATE}),
+            '{"type":"cam_stats","data":{"id":0,"fps":30}}',
+        ]
+    )
+    with patch.object(
+        session, "ws_connect", new=AsyncMock(return_value=socket)
+    ) as connect:
+        frames = [frame async for frame in REAL_EVENTS(client)]
+    assert frames == [
+        ("connected", {}),
+        ("state", STATE),
+        ("cam_stats", {"id": 0, "fps": 30}),
+    ]
+    assert socket.closed
+    assert connect.call_args.args == (BASE + "/api/events",)
+
+
+async def test_socket_handshake_failure_is_recoverable(hass):
+    session = async_get_clientsession(hass)
+    client = AutodartsLocalClient("192.0.2.10", 3180, session)
+    with patch.object(session, "ws_connect", side_effect=aiohttp.ClientConnectionError):
+        with pytest.raises(AutodartsConnectionError):
+            await anext(REAL_EVENTS(client))
+
+
+async def test_push_updates_entities_and_emits_one_event_per_dart(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    event_id = entity_id(hass, "event", "board_events")
+    for count in range(1, 4):
+        coordinator.async_receive("state", board(*([T20] * count)))
+        await hass.async_block_till_done()
+        event = hass.states.get(event_id)
+        assert event.attributes["event_type"] == "dart_detected"
+        assert event.attributes["dart_index"] == count
+        assert event.attributes["source"] == "websocket"
+    assert state(hass, "sensor", "training_darts") == "3"
+    assert state(hass, "sensor", "training_scores_180") == "1"
+    last_event = hass.states.get(event_id).state
+    coordinator.async_receive("state", board(T20, T20, T20))
+    await hass.async_block_till_done()
+    assert hass.states.get(event_id).state == last_event
+    coordinator.async_receive("state", board(T20, S20, T20))
+    await hass.async_block_till_done()
+    assert state(hass, "sensor", "training_darts") == "3"
+    assert state(hass, "sensor", "training_scores_180") == "0"
+    assert hass.states.get(event_id).attributes["event_type"] == "dart_corrected"
+
+
+async def test_motion_sensors_and_takeout_events_are_not_replayed(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    coordinator.async_receive("state", board(T20))
+    coordinator.async_receive(
+        "motion_state",
+        {
+            "isHand": True,
+            "isStable": False,
+            "isTakeoutPartial": True,
+            "isTakeoutFull": False,
+        },
+    )
+    await hass.async_block_till_done()
+    event_id = entity_id(hass, "event", "board_events")
+    assert hass.states.get(event_id).attributes["event_type"] == "takeout_started"
+    assert state(hass, "binary_sensor", "hand_detected") == "on"
+    assert state(hass, "binary_sensor", "takeout_partial") == "on"
+    first = hass.states.get(event_id).state
+    coordinator.async_receive("state", board(T20, event="Takeout started"))
+    await hass.async_block_till_done()
+    assert hass.states.get(event_id).state == first
+    coordinator.async_receive(
+        "motion_state",
+        {
+            "isHand": False,
+            "isStable": True,
+            "isTakeoutFull": True,
+            "isTakeoutPartial": False,
+        },
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(event_id).attributes["event_type"] == "takeout_finished"
+    finished = hass.states.get(event_id).state
+    coordinator.async_receive("state", board(event="Takeout finished"))
+    await hass.async_block_till_done()
+    assert hass.states.get(event_id).state == finished
+    assert state(hass, "sensor", "training_darts") == "1"
+    coordinator.async_receive("state", {**STATE})
+    assert state(hass, "binary_sensor", "takeout_full") == "off"
+
+
+async def test_inflight_poll_never_rolls_back_newer_push(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+
+    async def stale_read():
+        coordinator.async_receive("state", board(BULL))
+        return board()
+
+    with patch.object(coordinator.client, "get_state", side_effect=stale_read):
+        await coordinator.async_refresh()
+    assert state(hass, "sensor", "last_throw") == "Bull"
+    assert state(hass, "sensor", "training_darts") == "1"
+    assert state(hass, "sensor", "training_bulls") == "1"
+
+
+async def test_event_consumers_see_updated_sensor_values(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    received = []
+
+    @callback
+    def capture(kind, attributes):
+        received.append((kind, state(hass, "sensor", "training_points")))
+
+    unsubscribe = async_dispatcher_connect(hass, coordinator.event_signal, capture)
+    coordinator.async_receive("state", board(T20))
+    await hass.async_block_till_done()
+    unsubscribe()
+    assert received == [("dart_detected", "60")]
+
+
+async def test_training_survives_reload_and_reset_does_not_touch_board(
+    hass, aioclient_mock
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    entry.runtime_data.local.async_receive("state", board(T20, T20, T20))
+    task = entry.runtime_data.local._stream_task
+    with patch.object(
+        AutodartsLocalClient, "get_state", return_value=board(T20, T20, T20)
+    ):
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+    assert task.done()
+    assert state(hass, "sensor", "training_darts") == "3"
+    assert state(hass, "sensor", "training_scores_180") == "1"
+    await hass.services.async_call(
+        "button",
+        "press",
+        {"entity_id": entity_id(hass, "button", "reset_training")},
+        blocking=True,
+    )
+    entry.runtime_data.local.async_receive("state", board(T20, T20, T20))
+    assert state(hass, "sensor", "training_darts") == "0"
+    assert all(call[0] == "GET" for call in aioclient_mock.mock_calls)
+    with patch.object(
+        entry.runtime_data.local.client,
+        "get_state",
+        side_effect=AutodartsConnectionError,
+    ):
+        await entry.runtime_data.local.async_refresh()
+    assert state(hass, "sensor", "training_darts") == "0"
+    assert state(hass, "button", "reset_training") != "unavailable"
+
+
+@pytest.mark.parametrize("index", [0, 1, 2])
+async def test_individual_calibration_button(hass, aioclient_mock, index):
+    await setup_local(hass, aioclient_mock)
+    url = f"{BASE}/api/config/calibration/auto/{index}?distortion=true"
+    aioclient_mock.post(url, status=204)
+    await hass.services.async_call(
+        "button",
+        "press",
+        {"entity_id": entity_id(hass, "button", f"calibrate_camera_{index}")},
+        blocking=True,
+    )
+    writes = [call for call in aioclient_mock.mock_calls if call[0] != "GET"]
+    assert [(call[0], str(call[1])) for call in writes] == [("POST", url)]
+
+
+async def test_disconnection_never_rewrites_previously_counted_darts(
+    hass, aioclient_mock
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    coordinator.async_receive("state", board(T20, T20, T20))
+    with patch.object(
+        coordinator.client, "get_state", side_effect=AutodartsConnectionError
+    ):
+        await coordinator.async_refresh()
+    coordinator.async_receive("state", board(S20, S20, S20))
+    assert state(hass, "sensor", "training_darts") == "3"
+    assert state(hass, "sensor", "training_points") == "180"
+    coordinator.async_receive("state", board())
+    coordinator.async_receive("state", board(BULL))
+    assert state(hass, "sensor", "training_darts") == "4"
+    assert state(hass, "sensor", "training_points") == "230"
+
+
+async def test_poll_fallback_produces_events_and_counts_once(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    with patch.object(coordinator.client, "get_state", return_value=board(T20)):
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    event = hass.states.get(entity_id(hass, "event", "board_events"))
+    assert event.attributes["source"] == "poll"
+    assert event.attributes["event_type"] == "dart_detected"
+    assert state(hass, "sensor", "training_darts") == "1"
+
+
+async def test_calibration_hides_stale_motion_flags(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    coordinator.async_receive("motion_state", {"isHand": True, "isStable": True})
+    assert state(hass, "binary_sensor", "hand_detected") == "on"
+    coordinator.async_receive("state", board(status="Calibrating"))
+    assert state(hass, "binary_sensor", "calibrating") == "on"
+    assert state(hass, "binary_sensor", "hand_detected") == "off"
+    assert state(hass, "binary_sensor", "image_stable") == "off"
+
+
+async def test_removing_integration_deletes_saved_session(
+    hass, aioclient_mock, hass_storage
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    entry.runtime_data.local.async_receive("state", board(T20))
+    store = Store(hass, 1, f"autodarts.{entry.entry_id}.training")
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert (await store.async_load())["darts"] == 1
+    await hass.config_entries.async_remove(entry.entry_id)
+    assert f"autodarts.{entry.entry_id}.training" not in hass_storage
+
+
+async def test_wrong_board_mutes_push_and_keeps_controls_unavailable(
+    hass, aioclient_mock
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    coordinator._metadata_updated = 0
+    with patch.object(
+        coordinator.client, "get_config", return_value={"board_id": "other"}
+    ):
+        await coordinator.async_refresh()
+    coordinator.async_receive("state", board(T20))
+    assert state(hass, "button", "calibrate") == "unavailable"
+    assert state(hass, "sensor", "training_darts") == "0"
+    with patch.object(
+        coordinator.client, "get_config", side_effect=AutodartsConnectionError
+    ):
+        await coordinator.async_refresh()
+    coordinator.async_receive("state", board(T20))
+    assert state(hass, "button", "calibrate") == "unavailable"
+
+
+async def test_camera_stats_push_merges_individual_camera_and_raises_alarm(
+    hass, aioclient_mock
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    coordinator.async_receive("cam_state", {"isRunning": True, "isOpened": True})
+    with patch(
+        "custom_components.autodarts.local_coordinator.time.monotonic", return_value=100
+    ):
+        coordinator.async_receive("cam_stats", {"id": 1, "fps": 0})
+    assert coordinator.data["camera_stats"]["fps"] == [29.9, 0, 29.8]
+    with patch(
+        "custom_components.autodarts.local_coordinator.time.monotonic", return_value=115
+    ):
+        coordinator.async_receive("cam_stats", {"id": 1, "fps": 0})
+    coordinator.async_update_listeners()
+    assert state(hass, "binary_sensor", "camera_problem") == "on"
+    assert state(hass, "binary_sensor", "camera_1_problem") == "on"
+    assert state(hass, "binary_sensor", "camera_0_problem") == "off"
+    coordinator.async_receive("cam_state", {"isRunning": False})
+    assert state(hass, "binary_sensor", "camera_problem") == "off"
+
+
+async def test_stream_reconnects_polling_continues_and_unload_cancels(
+    hass, aioclient_mock
+):
+    messages = asyncio.Queue()
+    closed = asyncio.Event()
+    calls = 0
+
+    async def stream(self):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise AutodartsConnectionError()
+        try:
+            yield "connected", {}
+            while True:
+                yield await messages.get()
+        finally:
+            closed.set()
+
+    with patch.object(AutodartsLocalClient, "events", stream):
+        entry = await setup_local(hass, aioclient_mock, state=board())
+        assert state(hass, "binary_sensor", "realtime_connected") == "off"
+        await entry.runtime_data.local.async_refresh()
+        assert state(hass, "binary_sensor", "local_connected") == "on"
+        async with asyncio.timeout(3):
+            while calls < 2:
+                await asyncio.sleep(0.05)
+        assert state(hass, "binary_sensor", "realtime_connected") == "on"
+        await messages.put(("state", board(T20)))
+        await hass.async_block_till_done()
+        assert state(hass, "sensor", "training_darts") == "1"
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        assert closed.is_set()

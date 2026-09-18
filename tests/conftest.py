@@ -1,6 +1,8 @@
 """Home Assistant fixtures for Autodarts."""
 
+import asyncio
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -15,3 +17,17 @@ custom_components.__path__.insert(
 @pytest.fixture(autouse=True)
 def custom_integration(enable_custom_integrations):
     """Enable discovery of the real integration from this repository."""
+
+
+@pytest.fixture(autouse=True)
+def local_stream():
+    """No external sockets in tests; stream-specific tests override this source."""
+
+    async def idle_stream(self):
+        await asyncio.Future()
+        yield  # pragma: no cover
+
+    with patch(
+        "custom_components.autodarts.local_api.AutodartsLocalClient.events", idle_stream
+    ):
+        yield

@@ -123,6 +123,24 @@
       },
       "camera_fps": {
         "name": "Kamera {number} Bildrate"
+      },
+      "training_darts": {
+        "name": "Training: Würfe"
+      },
+      "training_triples": {
+        "name": "Training: Triple"
+      },
+      "training_bulls": {
+        "name": "Training: Bull-Treffer"
+      },
+      "training_scores_180": {
+        "name": "Training: 180er"
+      },
+      "training_points": {
+        "name": "Training: Punkte"
+      },
+      "training_started": {
+        "name": "Trainingssitzung seit"
       }
     },
     "button": {
@@ -152,6 +170,12 @@
       },
       "stop_streams": {
         "name": "Kamerastreams stoppen"
+      },
+      "calibrate_camera": {
+        "name": "Kamera {number} kalibrieren"
+      },
+      "reset_training": {
+        "name": "Trainingsstatistik zurücksetzen"
       }
     },
     "switch": {
@@ -179,11 +203,54 @@
     "binary_sensor": {
       "local_connected": {
         "name": "Board-Manager-Verbindung"
+      },
+      "hand_detected": {
+        "name": "Hand erkannt"
+      },
+      "image_stable": {
+        "name": "Bild stabil"
+      },
+      "takeout_partial": {
+        "name": "Darts teilweise entfernt"
+      },
+      "takeout_full": {
+        "name": "Darts vollständig entfernt"
+      },
+      "cameras_active": {
+        "name": "Kameras aktiv"
+      },
+      "calibrating": {
+        "name": "Kalibrierung läuft"
+      },
+      "realtime_connected": {
+        "name": "Echtzeit-Verbindung"
+      },
+      "camera_problem": {
+        "name": "Kamerastörung"
+      },
+      "individual_camera_problem": {
+        "name": "Kamera {number} Störung"
       }
     },
     "camera": {
       "board_camera": {
         "name": "Kamera {number}"
+      }
+    },
+    "event": {
+      "board_events": {
+        "name": "Board-Ereignisse",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "dart_detected": "Dart erkannt",
+              "dart_corrected": "Wurf korrigiert",
+              "takeout_started": "Herausnehmen begonnen",
+              "takeout_finished": "Herausnehmen abgeschlossen",
+              "status_changed": "Status geändert"
+            }
+          }
+        }
       }
     }
   }

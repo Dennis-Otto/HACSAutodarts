@@ -27,13 +27,17 @@ The device-link implementation follows the [Autodarts authentication migration g
 
 ### Local board control (no integration client ID needed)
 
-- **Buttons:** start/stop detection, reset detection, restart Board Manager, start automatic calibration.
+- **Buttons:** start/stop detection, reset detection, restart Board Manager, start automatic calibration for all cameras or an individual camera, reset local training statistics.
 - **Additional buttons, disabled by default:** connect/disconnect the board’s cloud connection, start/stop camera streams.
 - **Switches:** detection, board cloud connection, calibration on start, automatic recalibration, automatic distortion correction.
 - **Select:** camera standby after 5, 10, 15, 30 or 60 minutes.
 - **Sensors:** local connectivity, detection status/event, last segment, number of detected darts, last dart score and sum of detected darts.
 - **Optional diagnostics:** detection/camera FPS and one snapshot camera per configured camera, disabled by default.
-- Local status is polled independently every 2 seconds; settings and firmware version every 30 seconds. Actions request an immediate refresh.
+- **Realtime events:** detected/corrected darts, takeout start/finish and status changes as a native HA event entity, with WebSocket reconnect and HTTP fallback.
+- **Detection states:** hand detected, stable image, partial/full takeout, cameras active and calibration in progress.
+- **Camera health:** per-camera and combined problem sensors after 15 seconds of zero FPS during active detection; normal stops, calibration and standby are excluded.
+- **Persistent local training session:** observed darts, triples, bull hits, 180s, points and session start, with a reset button. Current-visit corrections adjust counts; startup/reconnection snapshots are not replayed as new darts. No player assignment or game rules are inferred.
+- Local reads every 2 seconds complement immediate push updates; settings and firmware version every 30 seconds. Actions request a refresh.
 
 See [local setup, controls and examples (German)](docs/LOCAL-CONTROL.md).
 
@@ -84,9 +88,9 @@ Existing version-2 entries using the old Keycloak flow ask you to **re-authentic
 
 ## Validation
 
-Automated tests use **Home Assistant 2026.9.2 / Python 3.14**, with mocked Autodarts HTTP responses. They cover device approval, polling/backoff, denial/expiry/cancellation, board selection, reauthentication, refresh-token rotation, local onboarding/upgrading, entity services, partial settings updates, command errors, connectivity recovery and operation during cloud failures. Earlier Home Assistant versions have not been validated.
+Automated tests use **Home Assistant 2026.9.2 / Python 3.14**, with mocked Autodarts HTTP responses. They cover device approval, polling/backoff, denial/expiry/cancellation, board selection, reauthentication, refresh-token rotation, local onboarding/upgrading, entity services, partial settings updates, command errors, connectivity recovery operation during cloud failures, push/poll races, reconnect/cancellation, camera failure thresholds and training persistence/corrections. Earlier Home Assistant versions have not been validated.
 
-Local status, version, sanitized settings and FPS reads have been verified with Board Manager 1.0.7. Hardware validation of control actions, and live validation of cloud login and match data, are still pending.
+Local status, version, sanitized settings, FPS, motion and camera state reads, and WebSocket connection handling have been verified with Board Manager 1.0.7. Hardware validation of control actions and dart sequences, and live validation of cloud login and match data, are still pending.
 
 ```sh
 python3.14 -m venv .venv

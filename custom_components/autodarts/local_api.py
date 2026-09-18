@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from typing import Any
 
 import aiohttp
@@ -121,6 +122,66 @@ class AutodartsLocalClient:
         if not isinstance(result, dict):
             raise AutodartsConnectionError("Invalid camera statistics")
         return result
+
+    async def get_motion_state(self) -> dict[str, Any]:
+        result = await self._request("GET", "/api/state/motion")
+        if not isinstance(result, dict):
+            raise AutodartsConnectionError("Invalid motion state")
+        return result
+
+    async def get_camera_state(self) -> dict[str, Any]:
+        result = await self._request("GET", "/api/cams/state")
+        if not isinstance(result, dict):
+            raise AutodartsConnectionError("Invalid camera state")
+        return result
+
+    async def events(self) -> AsyncIterator[tuple[str, dict]]:
+        """Receive local notifications; no subscription or control writes needed."""
+        try:
+            async with asyncio.timeout(10):
+                socket = await self._session.ws_connect(
+                    f"{self.base_url}/api/events",
+                    heartbeat=30,
+                    timeout=aiohttp.ClientWSTimeout(ws_close=5),
+                    max_msg_size=1024 * 1024,
+                )
+            async with socket:
+                yield "connected", {}
+                async for message in socket:
+                    if message.type == aiohttp.WSMsgType.ERROR:
+                        raise AutodartsConnectionError("Local event connection failed")
+                    if message.type != aiohttp.WSMsgType.TEXT:
+                        continue
+                    try:
+                        envelope = message.json()
+                    except (ValueError, TypeError):
+                        continue
+                    if not isinstance(envelope, dict):
+                        continue
+                    kind, data = envelope.get("type"), envelope.get("data")
+                    if kind in (
+                        "state",
+                        "motion_state",
+                        "cam_state",
+                        "stats",
+                        "cam_stats",
+                    ) and isinstance(data, dict):
+                        yield kind, data
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise AutodartsConnectionError(
+                "Local event connection unavailable"
+            ) from err
+
+    async def calibrate_camera(self, index: int) -> None:
+        if type(index) is not int or index < 0:
+            raise ValueError("Invalid camera index")
+        async with self._command_lock:
+            await self._request(
+                "POST",
+                f"/api/config/calibration/auto/{index}?distortion=true",
+                response_type="none",
+                timeout=60,
+            )
 
     async def get_camera_image(self, index: int) -> bytes:
         return await self._request(

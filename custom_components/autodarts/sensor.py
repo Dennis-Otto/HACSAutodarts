@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
@@ -15,6 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .const import (
     SENSOR_BOARD_EVENT,
@@ -29,6 +31,7 @@ from .const import (
 )
 from .coordinator import AutodartsDataUpdateCoordinator
 from .entity import AutodartsEntity, AutodartsLocalEntity
+from .training import COUNTERS
 
 # ---------------------------------------------------------------------------
 # Helpers to extract values from coordinator data
@@ -226,6 +229,10 @@ async def async_setup_entry(
         )
     if runtime.local:
         entities.extend(
+            AutodartsTrainingSensor(runtime.local, key)
+            for key in (*COUNTERS, "started")
+        )
+        entities.extend(
             AutodartsLocalSensor(runtime.local, description)
             for description in STATIC_SENSORS
             if description.key in local_keys
@@ -362,3 +369,24 @@ class AutodartsLocalSensor(AutodartsLocalEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         return self.entity_description.value_fn(self.coordinator.data or {})
+
+
+class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
+    """Locally stored session totals remain readable while the board is offline."""
+
+    def __init__(self, coordinator, key: str) -> None:
+        super().__init__(coordinator, f"training_{key}")
+        self._key = key
+        self._attr_icon = "mdi:counter"
+        if key == "started":
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+            self._attr_icon = "mdi:clock-start"
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self):
+        value = self.coordinator.training.snapshot()[self._key]
+        return dt_util.parse_datetime(value) if self._key == "started" else value

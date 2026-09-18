@@ -35,6 +35,16 @@ def mock_board(mock, *, state=None, config=None, config_status=200):
     mock.get(f"{BASE}/api/version", text="1.0.7")
     mock.get(f"{BASE}/api/state/stats", json={"fps": 12.5})
     mock.get(f"{BASE}/api/cams/stats", json={"fps": [29.9, 30, 29.8]})
+    mock.get(f"{BASE}/api/cams/state", json={"isRunning": False, "isOpened": False})
+    mock.get(
+        f"{BASE}/api/state/motion",
+        json={
+            "isStable": True,
+            "isHand": False,
+            "isTakeoutPartial": False,
+            "isTakeoutFull": False,
+        },
+    )
 
 
 def local_entry_data():
