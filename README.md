@@ -109,10 +109,16 @@ python3.14 -m venv .venv
 
 Dependabot checks Python dependencies and GitHub Actions weekly on Monday mornings
 (Europe/Berlin). Patch and minor updates are grouped and automatically squash-merged
-after the required `test` check passes, including pytest and Ruff. Major updates
-remain separate pull requests for manual review. Repository auto-merge and the
-required status check are enforced through the repository settings and main-branch
-ruleset. Dependency merges do not install updates into Home Assistant automatically.
+after all required checks pass. Major updates remain separate pull requests for
+manual review. Repository auto-merge and required checks are enforced through the
+repository settings and main-branch ruleset. Dependency merges do not install
+updates into Home Assistant automatically.
+
+Pull requests are checked with pytest, Ruff, HACS validation, Home Assistant
+hassfest, workflow linting, Python CodeQL analysis, dependency vulnerability review,
+and Gitleaks. HACS/hassfest and CodeQL also run weekly to detect changes in platform
+requirements and security checks. GitHub Actions are pinned to commit hashes or
+container digests and maintained by Dependabot.
 
 ## Sensors
 
