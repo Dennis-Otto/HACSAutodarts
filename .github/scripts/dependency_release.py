@@ -6,6 +6,7 @@ starts normal PR checks. No candidate code execution, main pushes or bypasses.
 
 from __future__ import annotations
 
+import argparse
 import base64
 import json
 import os
@@ -31,6 +32,12 @@ CHECKS = {
     "codeql",
     "gitleaks",
     "dependency-review",
+}
+MAIN_CHECKS = {
+    "tests.yml": {"test"},
+    "validate.yml": {"hacs", "hassfest", "workflow-lint"},
+    "codeql.yml": {"codeql"},
+    "secret-scan.yml": {"gitleaks"},
 }
 
 
@@ -232,6 +239,48 @@ def merge_ready(github, number, head_sha, base_sha):
     if pr.get("mergeable") is False:
         raise RuntimeError("Release PR has conflicts; resolve them before retrying.")
     return pr.get("mergeable_state") == "clean"
+
+
+def main_checks_ready(github, sha):
+    """Require successful push checks for the exact commit being published."""
+    selected = {}
+    for run in github.items(
+        f"actions/runs?event=push&branch=main&head_sha={sha}&per_page=100",
+        "workflow_runs",
+    ):
+        workflow = run["path"].removeprefix(".github/workflows/")
+        if (
+            run["event"] == "push"
+            and run["head_branch"] == "main"
+            and run["head_sha"] == sha
+            and workflow in MAIN_CHECKS
+            and run["id"] > selected.get(workflow, {}).get("id", 0)
+        ):
+            selected[workflow] = run
+    if set(selected) != set(MAIN_CHECKS):
+        return False
+    for workflow, run in selected.items():
+        if run["status"] != "completed":
+            return False
+        if run["conclusion"] != "success":
+            raise RuntimeError(
+                f"Main workflow {workflow}: {run['conclusion']}; release blocked."
+            )
+        checks = latest_checks(
+            github.items(
+                f"check-suites/{run['check_suite_id']}/check-runs?per_page=100&filter=latest",
+                "check_runs",
+            )
+        )
+        for name in MAIN_CHECKS[workflow]:
+            check = checks.get(name)
+            if not check or check["status"] != "completed":
+                return False
+            if check["conclusion"] != "success":
+                raise RuntimeError(
+                    f"Main check {name}: {check['conclusion']}; release blocked."
+                )
+    return True
 
 
 def wait_until(predicate, description, timeout=900):
@@ -489,8 +538,24 @@ def run(github):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--verify-commit",
+        help="Wait for all main-branch CI checks on this commit, without publishing.",
+    )
+    args = parser.parse_args()
     try:
-        run(GitHub(os.environ["GH_REPO"]))
+        github = GitHub(os.environ["GH_REPO"])
+        if args.verify_commit:
+            if not re.fullmatch(r"[0-9a-f]{40}", args.verify_commit):
+                parser.error("--verify-commit requires a full commit SHA")
+            wait_until(
+                lambda: main_checks_ready(github, args.verify_commit),
+                "all main commit checks",
+            )
+            summary(f"All main commit checks passed for {args.verify_commit}.")
+        else:
+            run(github)
     except subprocess.CalledProcessError as error:
         print(error.stderr, flush=True)
         raise

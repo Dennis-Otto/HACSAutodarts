@@ -1,12 +1,14 @@
 """Exercise release eligibility, protected merges and recovery without GitHub writes."""
 
 import importlib.util
+import re
 import subprocess
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock, call
 
 import pytest
+import yaml
 
 SPEC = importlib.util.spec_from_file_location(
     "dependency_release",
@@ -453,3 +455,121 @@ def test_candidate_changes_during_merge_wait_are_rejected():
     github.api.return_value = {"head": {"sha": "unexpected"}, "state": "open"}
     with pytest.raises(RuntimeError, match="candidate changed"):
         release.merge_ready(github, 4, "candidate", "base")
+
+
+def test_ci_runs_cannot_cancel_other_commits_or_release_callers():
+    workflows = Path(__file__).parents[1] / ".github/workflows"
+    release_name = yaml.safe_load((workflows / "release.yml").read_text())["name"]
+    for filename in release.WORKFLOWS:
+        workflow = yaml.safe_load((workflows / filename).read_text())
+        policies = [workflow.get("concurrency")] + [
+            job.get("concurrency") for job in workflow["jobs"].values()
+        ]
+        for policy in filter(None, policies):
+            expression = policy["group"] if isinstance(policy, dict) else policy
+            groups = []
+            # Consecutive commits and a release reusing CI on the same branch
+            # must never compete in GitHub's cancellation/limited pending queue.
+            for run_id, caller in enumerate(
+                [workflow["name"], workflow["name"], release_name]
+            ):
+                context = {
+                    "github.workflow": caller,
+                    "github.ref": "refs/heads/main",
+                    "github.run_id": str(run_id),
+                }
+                groups.append(
+                    re.sub(
+                        r"\$\{\{\s*(.*?)\s*\}\}",
+                        lambda match: context[match[1]],
+                        expression,
+                    )
+                )
+            assert len(set(groups)) == len(groups), (
+                f"{filename}: overlapping CI runs share {groups}"
+            )
+
+
+def main_runs(sha="release-commit"):
+    return [
+        dict(run, event="push", head_branch="main", head_sha=sha, conclusion="success")
+        for run in workflow_runs()
+        if not run["path"].endswith("dependency-review.yml")
+    ]
+
+
+def main_check_repository(runs=None):
+    github = Mock()
+    github.items.side_effect = lambda path, key: (
+        (main_runs() if runs is None else runs)
+        if path.startswith("actions/runs?")
+        else [check(name) for name in release.CHECKS]
+    )
+    return github
+
+
+def test_release_gate_requires_all_main_workflows_on_exact_commit():
+    assert release.main_checks_ready(main_check_repository(), "release-commit")
+    for changes in (
+        {"event": "workflow_dispatch"},
+        {"head_branch": "feature"},
+        {"head_sha": "previous-commit"},
+    ):
+        github = main_check_repository([dict(run, **changes) for run in main_runs()])
+        assert not release.main_checks_ready(github, "release-commit")
+    assert not release.main_checks_ready(
+        main_check_repository(main_runs()[:-1]), "release-commit"
+    )
+
+
+@pytest.mark.parametrize("conclusion", ["failure", "cancelled", "skipped", "timed_out"])
+def test_failed_or_cancelled_main_checks_prevent_publication(conclusion):
+    runs = main_runs()
+    runs[-1]["conclusion"] = conclusion
+    with pytest.raises(RuntimeError, match="Main workflow"):
+        release.main_checks_ready(main_check_repository(runs), "release-commit")
+
+
+def test_running_main_checks_delay_publication():
+    runs = [dict(run, status="in_progress", conclusion=None) for run in main_runs()]
+    assert not release.main_checks_ready(main_check_repository(runs), "release-commit")
+
+
+@pytest.mark.parametrize(
+    "invalid_checks",
+    [[], [check("test", app=999)], [check("test", status="in_progress")]],
+)
+def test_successful_workflow_still_requires_its_expected_checks(invalid_checks):
+    github = Mock()
+    github.items.side_effect = lambda path, key: (
+        main_runs() if path.startswith("actions/runs?") else invalid_checks
+    )
+    assert not release.main_checks_ready(github, "release-commit")
+
+
+def test_failed_job_cannot_hide_behind_successful_workflow():
+    github = Mock()
+    github.items.side_effect = lambda path, key: (
+        main_runs()
+        if path.startswith("actions/runs?")
+        else [check("test", conclusion="failure")]
+    )
+    with pytest.raises(RuntimeError, match="Main check test"):
+        release.main_checks_ready(github, "release-commit")
+
+
+def test_latest_main_run_failure_cannot_be_hidden_by_older_success():
+    runs = main_runs()
+    runs.append(dict(runs[-1], id=99, conclusion="failure"))
+    with pytest.raises(RuntimeError, match="Main workflow"):
+        release.main_checks_ready(main_check_repository(runs), "release-commit")
+
+
+def test_release_job_requires_main_commit_gate():
+    path = Path(__file__).parents[1] / ".github/workflows/release.yml"
+    workflow = yaml.safe_load(path.read_text())
+    assert "commit-checks" in workflow["jobs"]["release"]["needs"]
+    gate = workflow["jobs"]["commit-checks"]
+    assert any(
+        '--verify-commit "$GITHUB_SHA"' in step.get("run", "") for step in gate["steps"]
+    )

@@ -19,7 +19,14 @@ need a maintainer to merge them. Once merged, both follow the same release proce
    review and secret scan run against the release candidate. GitHub's normal
    branch protection remains in force; no required checks or approvals are bypassed.
 4. After merging the checked version PR, the existing **Release integration**
-   workflow validates the release and publishes its generated changelog.
+   workflow validates the release and waits for every main-branch commit check
+   (tests, HACS, hassfest, workflow lint, CodeQL and secret scan) to succeed on the
+   exact commit being published. Missing, failed, cancelled or skipped checks
+   prevent publication. It then publishes the generated changelog.
+
+CI runs independently for every commit and caller. A new commit or release does
+not cancel an earlier commit's tests, validation or security checks. Publication
+remains serialized to prevent competing release writes.
 
 The workflow starts after a Dependabot merge. A scheduled reconciliation runs at
 minutes 13 and 43 of each hour to catch merges whose events GitHub suppresses for

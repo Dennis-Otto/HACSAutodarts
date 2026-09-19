@@ -36,9 +36,27 @@ jobs:
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/validate.yml
 
+  commit-checks:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require successful checks on the published commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 .github/scripts/dependency_release.py --verify-commit "$GITHUB_SHA"
+
   release:
     if: github.ref == 'refs/heads/main'
-    needs: [tests, validation]
+    needs: [tests, validation, commit-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
