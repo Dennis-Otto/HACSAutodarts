@@ -253,7 +253,9 @@ def test_closed_release_pr_is_not_silently_recreated():
 def test_candidate_runs_real_checks_before_sha_guarded_merge(monkeypatch):
     github = Mock(repository=REPOSITORY)
     pr = pull(number=4, author="github-actions[bot]")
-    pr.update(state="open", merged_at=None, body=release.MARKER)
+    pr.update(
+        state="open", merged_at=None, body=release.MARKER, mergeable_state="clean"
+    )
     pr["head"]["ref"] = "automation/dependency-release-v0.4.3"
     base = {"domain": "autodarts", "version": "0.4.2"}
     github.manifest.side_effect = lambda ref: (
@@ -425,3 +427,29 @@ def test_only_configured_app_or_legacy_bot_can_own_release_pr(monkeypatch):
     assert not release.owned_release_pr(pr, branch, REPOSITORY)
     pr["user"]["login"] = "github-actions[bot]"
     assert release.owned_release_pr(pr, branch, REPOSITORY)
+
+
+@pytest.mark.parametrize("state", ["blocked", "unstable", "unknown", None])
+def test_parallel_checks_and_pending_protection_calculation_delay_merge(state):
+    github = Mock()
+    github.api.side_effect = [
+        {"head": {"sha": "candidate"}, "state": "open", "mergeable_state": state},
+        {"object": {"sha": "base"}},
+    ]
+    assert not release.merge_ready(github, 4, "candidate", "base")
+
+
+def test_new_main_exits_wait_so_candidate_is_revalidated():
+    github = Mock()
+    github.api.side_effect = [
+        {"head": {"sha": "candidate"}, "state": "open", "mergeable_state": "behind"},
+        {"object": {"sha": "new-base"}},
+    ]
+    assert release.merge_ready(github, 4, "candidate", "base")
+
+
+def test_candidate_changes_during_merge_wait_are_rejected():
+    github = Mock()
+    github.api.return_value = {"head": {"sha": "unexpected"}, "state": "open"}
+    with pytest.raises(RuntimeError, match="candidate changed"):
+        release.merge_ready(github, 4, "candidate", "base")

@@ -220,6 +220,20 @@ def pr_checks_ready(github, attempts):
     return checks_ready(checks, {})
 
 
+def merge_ready(github, number, head_sha, base_sha):
+    """Wait for GitHub's aggregate protection result, including parallel push CI."""
+    pr = github.api(f"pulls/{number}")
+    if pr["head"]["sha"] != head_sha or pr["state"] != "open":
+        raise RuntimeError(
+            "Release candidate changed while waiting for merge readiness."
+        )
+    if github.api("git/ref/heads/main")["object"]["sha"] != base_sha:
+        return True  # Let the caller update the branch and validate the new candidate.
+    if pr.get("mergeable") is False:
+        raise RuntimeError("Release PR has conflicts; resolve them before retrying.")
+    return pr.get("mergeable_state") == "clean"
+
+
 def wait_until(predicate, description, timeout=900):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -352,6 +366,10 @@ def validate_and_merge(github, pr, version):
         wait_until(
             lambda: pr_checks_ready(github, attempts),
             "required release PR checks",
+        )
+        wait_until(
+            lambda: merge_ready(github, number, head_sha, base_sha),
+            "GitHub branch protection and parallel checks",
         )
         if github.api("git/ref/heads/main")["object"]["sha"] != base_sha:
             continue  # Rebase through the API and rerun checks on the new candidate.
