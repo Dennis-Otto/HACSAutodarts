@@ -1,0 +1,46 @@
+name: Release dependency updates
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+  # GitHub suppresses events caused by GITHUB_TOKEN. Reconcile automatically
+  # merged PRs too, without storing a personal access token or bypassing main.
+  schedule:
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.repository == 'Dennis-Otto/HACSAutodarts' &&
+      (github.event_name != 'pull_request_target' ||
+        (github.event.pull_request.merged &&
+         github.event.pull_request.user.login == 'dependabot[bot]' &&
+         github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+      checks: read
+    steps:
+      # Only trusted default-branch code executes with this token. Candidate
+      # integration code runs in the existing, separately dispatched CI jobs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Prepare, validate and publish dependency release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 .github/scripts/dependency_release.py

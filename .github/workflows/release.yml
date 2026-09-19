@@ -107,7 +107,9 @@ jobs:
           RELEASE_PRERELEASE: ${{ inputs.prerelease || steps.version.outputs.is_prerelease == 'true' }}
           RELEASE_DRAFT: ${{ inputs.draft }}
         run: |
-          args=("$RELEASE_TAG" --target "$GITHUB_SHA" --title "Autodarts $RELEASE_TAG"
+          title="Autodarts $RELEASE_TAG"
+          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then title+=" — WIP"; fi
+          args=("$RELEASE_TAG" --target "$GITHUB_SHA" --title "$title"
                 --notes-file "$RUNNER_TEMP/release-notes.md" --fail-on-no-commits)
           if [[ "$RELEASE_PRERELEASE" == "true" ]]; then args+=(--prerelease); fi
           if [[ "$RELEASE_DRAFT" == "true" ]]; then args+=(--draft); fi

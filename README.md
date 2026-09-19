@@ -111,7 +111,10 @@ Dependabot checks Python dependencies and GitHub Actions weekly on Monday mornin
 (Europe/Berlin). Patch and minor updates are grouped and automatically squash-merged
 after all required checks pass. Major updates remain separate pull requests for
 manual review. Repository auto-merge and required checks are enforced through the
-repository settings and main-branch ruleset. Dependency merges do not install
+repository settings and main-branch ruleset. Merged dependency updates automatically
+produce a checked maintenance release with a new patch version and changelog,
+including test dependencies and GitHub Actions updates. Major dependency updates
+enter the same release process after a maintainer merges them. This does not install
 updates into Home Assistant automatically.
 
 Pull requests are checked with pytest, Ruff, HACS validation, Home Assistant
@@ -125,7 +128,11 @@ container digests and maintained by Dependabot.
 The **Release integration** workflow generates categorized release notes for the
 HACS/Home Assistant update dialog. An optional introduction appears above the
 automatic changelog. It verifies that the version matches `manifest.json` and can
-save a draft or publish a stable/prerelease version. See the [release guide](docs/releases.md).
+save a draft or publish a stable/prerelease version. **Release dependency updates**
+automatically prepares and publishes maintenance versions after Dependabot merges,
+with a scheduled fallback every 30 minutes. It retains the latest release's channel:
+WIP updates require the repository's prerelease switch in HACS to be enabled.
+See the [release guide](docs/releases.md).
 
 ## Sensors
 

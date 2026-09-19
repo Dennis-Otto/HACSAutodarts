@@ -1,0 +1,402 @@
+"""Publish merged dependency updates through protected, fully checked release PRs.
+
+Uses only the workflow's short-lived GITHUB_TOKEN. No checkout or execution of
+candidate code, synthetic check results, direct main pushes, or branch bypasses.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import re
+import subprocess
+import time
+from pathlib import Path
+
+MANIFEST = "custom_components/autodarts/manifest.json"
+MARKER = "<!-- autodarts-automated-dependency-release -->"
+WORKFLOWS = (
+    "tests.yml",
+    "validate.yml",
+    "codeql.yml",
+    "secret-scan.yml",
+    "dependency-review.yml",
+)
+CHECKS = {
+    "test",
+    "hacs",
+    "hassfest",
+    "workflow-lint",
+    "codeql",
+    "gitleaks",
+    "dependency-review",
+}
+
+
+class GitHub:
+    def __init__(self, repository: str):
+        self.repository = repository
+
+    def api(self, path, *, method=None, data=None, pages=False):
+        command = ["gh", "api", f"repos/{self.repository}/{path}"]
+        if method:
+            command += ["--method", method]
+        if pages:
+            command += ["--paginate", "--slurp"]
+        if data is not None:
+            command += ["--input", "-"]
+        result = subprocess.run(
+            command,
+            input=json.dumps(data) if data is not None else None,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return json.loads(result.stdout) if result.stdout.strip() else None
+
+    def items(self, path, key=None):
+        pages = self.api(path, pages=True)
+        return [item for page in pages for item in (page[key] if key else page)]
+
+    def manifest(self, ref):
+        result = self.api(f"contents/{MANIFEST}?ref={ref}")
+        return json.loads(base64.b64decode(result["content"])), result["sha"]
+
+    def dispatch(self, workflow, ref, inputs=None):
+        self.api(
+            f"actions/workflows/{workflow}/dispatches",
+            method="POST",
+            data={"ref": ref, "inputs": inputs or {}},
+        )
+
+
+def version_tuple(version):
+    value = version.removeprefix("v")
+    if not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", value):
+        raise ValueError(
+            f"Automatic maintenance releases require an x.y.z version: {version}"
+        )
+    return tuple(map(int, value.split(".")))
+
+
+def next_version(version):
+    major, minor, patch = version_tuple(version)
+    return f"{major}.{minor}.{patch + 1}"
+
+
+def dependency_prs(pulls, commits, repository):
+    return [
+        pr
+        for pr in pulls
+        if (
+            pr.get("merged_at")
+            and pr["merge_commit_sha"] in commits
+            and pr["user"]["login"] == "dependabot[bot]"
+            and pr["base"]["ref"] == "main"
+            and (pr["head"].get("repo") or {}).get("full_name") == repository
+        )
+    ]
+
+
+def owned_release_pr(pr, branch, repository):
+    return (
+        pr["user"]["login"] == "github-actions[bot]"
+        and pr["head"]["ref"] == branch
+        and (pr["head"].get("repo") or {}).get("full_name") == repository
+        and pr["base"]["ref"] == "main"
+        and MARKER in (pr.get("body") or "")
+    )
+
+
+def validate_version_only(base, candidate, version, files):
+    expected = dict(base, version=version)
+    if candidate != expected or files != [MANIFEST]:
+        raise RuntimeError(
+            "Release PR must change only the manifest version; refusing to merge."
+        )
+
+
+def latest_checks(runs):
+    result = {}
+    for run in runs:
+        if run["name"] in CHECKS and run["app"]["id"] == 15368:
+            if run["id"] > result.get(run["name"], {}).get("id", 0):
+                result[run["name"]] = run
+    return result
+
+
+def checks_ready(runs, previous):
+    current = latest_checks(runs)
+    for name in CHECKS:
+        check = current.get(name)
+        if not check or check["id"] <= previous.get(name, {}).get("id", 0):
+            return False
+        if check["status"] != "completed":
+            return False
+        if check["conclusion"] != "success":
+            raise RuntimeError(f"Required check failed: {name} ({check['conclusion']})")
+    return True
+
+
+def get_checks(github, sha):
+    return github.items(
+        f"commits/{sha}/check-runs?per_page=100&filter=latest", "check_runs"
+    )
+
+
+def wait_until(predicate, description, timeout=900):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        value = predicate()
+        if value:
+            return value
+        time.sleep(15)
+    raise TimeoutError(f"Timed out waiting for {description}; rerun to resume.")
+
+
+def summary(message):
+    print(message, flush=True)
+    if path := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(path).open("a") as output:
+            output.write(message + "\n\n")
+
+
+def prepare_pr(github, version, base_sha, dependencies, pulls):
+    branch = f"automation/dependency-release-v{version}"
+    matches = [pr for pr in pulls if pr["head"]["ref"] == branch]
+    for pr in matches:
+        if not owned_release_pr(pr, branch, github.repository):
+            raise RuntimeError(
+                f"Unexpected owner or contents for release PR #{pr['number']}."
+            )
+        if pr.get("merged_at") or pr["state"] == "open":
+            return pr
+    if matches:
+        raise RuntimeError(
+            "The release PR was closed without merging; reopen it to resume."
+        )
+
+    refs = github.api(f"git/matching-refs/heads/{branch}")
+    if not any(ref["ref"] == f"refs/heads/{branch}" for ref in refs):
+        github.api(
+            "git/refs",
+            method="POST",
+            data={"ref": f"refs/heads/{branch}", "sha": base_sha},
+        )
+    base, _ = github.manifest(base_sha)
+    candidate, blob_sha = github.manifest(branch)
+    if candidate == base:
+        candidate["version"] = version
+        content = base64.b64encode(
+            (json.dumps(candidate, indent=2) + "\n").encode()
+        ).decode()
+        # The Contents API creates a GitHub-signed bot commit. Never impersonate
+        # a maintainer or store a signing key in the workflow.
+        github.api(
+            f"contents/{MANIFEST}",
+            method="PUT",
+            data={
+                "branch": branch,
+                "sha": blob_sha,
+                "content": content,
+                "message": f"chore(release): prepare v{version}",
+            },
+        )
+    comparison = github.api(f"compare/{base_sha}...{branch}")
+    candidate, _ = github.manifest(branch)
+    validate_version_only(
+        base, candidate, version, [f["filename"] for f in comparison["files"]]
+    )
+    references = ", ".join(f"#{pr['number']}" for pr in dependencies)
+    body = (
+        f"{MARKER}\n\nPrepare maintenance release **v{version}** after merged Dependabot "
+        f"updates: {references}. Only the integration manifest version changes here.\n\n"
+        "The release workflow runs every required check and merges this PR through normal "
+        "branch protection. It then publishes release notes in the existing stable or "
+        "prerelease channel. Closing this PR without merging pauses this release."
+    )
+    pr = github.api(
+        "pulls",
+        method="POST",
+        data={
+            "head": branch,
+            "base": "main",
+            "title": f"chore(release): prepare v{version}",
+            "body": body,
+        },
+    )
+    github.api(
+        f"issues/{pr['number']}/labels", method="POST", data={"labels": ["release"]}
+    )
+    return pr
+
+
+def validate_and_merge(github, pr, version):
+    number = pr["number"]
+    branch = pr["head"]["ref"]
+    for _ in range(3):
+        pr = github.api(f"pulls/{number}")
+        if pr.get("merged"):
+            return pr["merge_commit_sha"]
+        if pr["state"] != "open" or not owned_release_pr(pr, branch, github.repository):
+            raise RuntimeError(
+                "Release PR was closed or changed; refusing automatic publication."
+            )
+        base_sha = github.api("git/ref/heads/main")["object"]["sha"]
+        head_sha = pr["head"]["sha"]
+        if github.api(f"compare/{base_sha}...{head_sha}")["status"] != "ahead":
+            github.api(
+                f"pulls/{number}/update-branch",
+                method="PUT",
+                data={"expected_head_sha": head_sha},
+            )
+            wait_until(
+                lambda: github.api(f"pulls/{number}")["head"]["sha"] != head_sha,
+                "release branch update",
+                timeout=120,
+            )
+            continue
+        base, _ = github.manifest(base_sha)
+        candidate, _ = github.manifest(head_sha)
+        files = [
+            f["filename"] for f in github.items(f"pulls/{number}/files?per_page=100")
+        ]
+        validate_version_only(base, candidate, version, files)
+        previous = latest_checks(get_checks(github, head_sha))
+        for workflow in WORKFLOWS:
+            inputs = (
+                {"base_ref": base_sha, "head_ref": head_sha}
+                if workflow == "dependency-review.yml"
+                else None
+            )
+            github.dispatch(workflow, branch, inputs)
+        summary(
+            f"Running required checks for [release PR #{number}]({pr['html_url']})."
+        )
+        wait_until(
+            lambda: checks_ready(get_checks(github, head_sha), previous),
+            "required release PR checks",
+        )
+        if github.api("git/ref/heads/main")["object"]["sha"] != base_sha:
+            continue  # Rebase through the API and rerun checks on the new candidate.
+        merged = github.api(
+            f"pulls/{number}/merge",
+            method="PUT",
+            data={
+                "sha": head_sha,
+                "merge_method": "squash",
+                "commit_title": f"chore(release): prepare v{version} (#{number})",
+            },
+        )
+        if not merged.get("merged"):
+            raise RuntimeError("GitHub did not merge the checked release PR.")
+        return merged["sha"]
+    raise RuntimeError(
+        "Main kept changing; rerun to validate the release PR against the latest main."
+    )
+
+
+def publish(github, version, prerelease, dependencies):
+    introduction = (
+        "## WIP – automatisches Wartungsupdate\n\n"
+        "Diese Vorabversion enthält übernommene Abhängigkeitsupdates. "
+        "Für Update-Benachrichtigungen muss der Beta-Schalter dieses Repositorys in HACS eingeschaltet sein."
+        if prerelease
+        else "## Wartungsupdate\n\nDiese Version enthält übernommene Abhängigkeitsupdates."
+    )
+    changed = [
+        f["filename"]
+        for pr in dependencies
+        for f in github.items(f"pulls/{pr['number']}/files?per_page=100")
+    ]
+    if changed and all(
+        f == "requirements-test.txt" or f.startswith(".github/") for f in changed
+    ):
+        introduction += (
+            "\n\nDie Dependabot-Änderungen betreffen Testabhängigkeiten oder GitHub-Abläufe; "
+            "sie führen selbst keine neuen Integrationsfunktionen ein."
+        )
+    introduction += (
+        "\n\nAlle Änderungen stehen im folgenden automatisch erzeugten Changelog."
+    )
+    # A failed publishing run can be resumed without creating another version PR.
+    github.dispatch(
+        "release.yml",
+        "main",
+        {
+            "version": version,
+            "prerelease": prerelease,
+            "draft": False,
+            "introduction": introduction,
+        },
+    )
+    tag = f"v{version}"
+
+    def published():
+        releases = github.items("releases?per_page=100")
+        matches = [r for r in releases if r["tag_name"] == tag and not r["draft"]]
+        if not matches:
+            return None
+        release = matches[0]
+        if release["prerelease"] != prerelease:
+            raise RuntimeError("Published release channel changed unexpectedly.")
+        manifest, _ = github.manifest(tag)
+        if manifest["version"] != version:
+            raise RuntimeError("Published tag and integration version do not match.")
+        return release
+
+    release = wait_until(published, f"publication of {tag}", timeout=900)
+    summary(f"Published [{tag}]({release['html_url']}) with generated release notes.")
+
+
+def run(github):
+    releases = [r for r in github.items("releases?per_page=100") if not r["draft"]]
+    if not releases:
+        summary(
+            "No published release yet. Publish the first version manually to choose the release channel."
+        )
+        return
+    latest = max(releases, key=lambda r: version_tuple(r["tag_name"]))
+    version = next_version(latest["tag_name"])
+    base_sha = github.api("git/ref/heads/main")["object"]["sha"]
+    pages = github.api(
+        f"compare/{latest['tag_name']}...{base_sha}?per_page=100", pages=True
+    )
+    if pages[0]["status"] == "identical":
+        summary("No unreleased commits.")
+        return
+    if pages[0]["status"] != "ahead":
+        raise RuntimeError(
+            "Latest release is not an ancestor of main; refusing automatic publication."
+        )
+    commits = {c["sha"] for page in pages for c in page["commits"]}
+    pulls = github.items("pulls?state=all&base=main&per_page=100")
+    dependencies = dependency_prs(pulls, commits, github.repository)
+    if not dependencies:
+        summary("No merged, unreleased Dependabot updates. No release needed.")
+        return
+    manifest, _ = github.manifest(base_sha)
+    branch = f"automation/dependency-release-v{version}"
+    resumed = any(
+        owned_release_pr(pr, branch, github.repository)
+        and pr.get("merged_at")
+        and pr["merge_commit_sha"] in commits
+        for pr in pulls
+    )
+    expected = version if resumed else latest["tag_name"].removeprefix("v")
+    if manifest["version"] != expected:
+        raise RuntimeError(
+            "Main has a manually changed version; publish it manually before resuming dependency releases."
+        )
+    pr = prepare_pr(github, version, base_sha, dependencies, pulls)
+    validate_and_merge(github, pr, version)
+    publish(github, version, latest["prerelease"], dependencies)
+
+
+if __name__ == "__main__":
+    try:
+        run(GitHub(os.environ["GH_REPO"]))
+    except subprocess.CalledProcessError as error:
+        print(error.stderr, flush=True)
+        raise
