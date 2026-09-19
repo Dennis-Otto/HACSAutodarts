@@ -1,0 +1,21 @@
+changelog:
+  categories:
+    - title: Wichtige Änderungen und Migration
+      labels:
+        - breaking-change
+    - title: Neue Funktionen
+      labels:
+        - enhancement
+    - title: Fehlerbehebungen
+      labels:
+        - bug
+    - title: Abhängigkeiten und Wartung
+      labels:
+        - dependencies
+        - maintenance
+    - title: Dokumentation
+      labels:
+        - documentation
+    - title: Weitere Änderungen
+      labels:
+        - "*"

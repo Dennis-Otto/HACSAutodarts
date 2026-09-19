@@ -107,6 +107,26 @@ python3.14 -m venv .venv
 .venv/bin/ruff check custom_components tests
 ```
 
+Dependabot checks Python dependencies and GitHub Actions weekly on Monday mornings
+(Europe/Berlin). Patch and minor updates are grouped and automatically squash-merged
+after all required checks pass. Major updates remain separate pull requests for
+manual review. Repository auto-merge and required checks are enforced through the
+repository settings and main-branch ruleset. Dependency merges do not install
+updates into Home Assistant automatically.
+
+Pull requests are checked with pytest, Ruff, HACS validation, Home Assistant
+hassfest, workflow linting, Python CodeQL analysis, dependency vulnerability review,
+and Gitleaks. HACS/hassfest and CodeQL also run weekly to detect changes in platform
+requirements and security checks. GitHub Actions are pinned to commit hashes or
+container digests and maintained by Dependabot.
+
+## Releases and changelogs
+
+The **Release integration** workflow generates categorized release notes for the
+HACS/Home Assistant update dialog. An optional introduction appears above the
+automatic changelog. It verifies that the version matches `manifest.json` and can
+save a draft or publish a stable/prerelease version. See the [release guide](docs/releases.md).
+
 ## Sensors
 
 | Sensor | Source | Description | Unit |

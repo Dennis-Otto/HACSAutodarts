@@ -1,0 +1,114 @@
+name: Release integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version aus manifest.json, z. B. 0.4.3"
+        required: true
+        type: string
+      introduction:
+        description: "Optionaler eigener Text oberhalb des automatischen Changelogs (Markdown)"
+        required: false
+        type: string
+      prerelease:
+        description: "Als Vorabversion markieren (für WIP empfohlen)"
+        default: true
+        type: boolean
+      draft:
+        description: "Als Entwurf speichern und vor Veröffentlichung prüfen"
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-integration
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/tests.yml
+
+  validation:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/validate.yml
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: [tests, validation]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_INTRODUCTION: ${{ inputs.introduction }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate release version
+        id: version
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["RELEASE_VERSION"].strip()
+          if not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?", version):
+              raise SystemExit("Use a version such as 0.4.3 or 0.4.3-rc.1, without the v prefix.")
+          manifest = json.loads(Path("custom_components/autodarts/manifest.json").read_text())
+          if manifest["version"] != version:
+              raise SystemExit(f"Release version {version} does not match manifest version {manifest['version']}.")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"tag=v{version}\n")
+              output.write(f"is_prerelease={'true' if '-' in version else 'false'}\n")
+          PY
+
+      - name: Generate changelog from merged pull requests
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh api --method POST "repos/$GH_REPO/releases/generate-notes" \
+            -f tag_name="$RELEASE_TAG" \
+            -f target_commitish="$GITHUB_SHA" \
+            -f configuration_file_path=.github/release.yml \
+            --jq .body > "$RUNNER_TEMP/generated-notes.md"
+
+      - name: Prepend optional introduction
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          directory = Path(os.environ["RUNNER_TEMP"])
+          introduction = os.environ.get("RELEASE_INTRODUCTION", "").strip()
+          changelog = (directory / "generated-notes.md").read_text().strip()
+          if not changelog:
+              raise SystemExit("GitHub returned an empty changelog.")
+          sections = [section for section in (introduction, changelog) if section]
+          notes = "\n\n".join(sections) + "\n"
+          (directory / "release-notes.md").write_text(notes)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(notes)
+          PY
+
+      - name: Create release with changelog for HACS
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease || steps.version.outputs.is_prerelease == 'true' }}
+          RELEASE_DRAFT: ${{ inputs.draft }}
+        run: |
+          args=("$RELEASE_TAG" --target "$GITHUB_SHA" --title "Autodarts $RELEASE_TAG"
+                --notes-file "$RUNNER_TEMP/release-notes.md" --fail-on-no-commits)
+          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then args+=(--prerelease); fi
+          if [[ "$RELEASE_DRAFT" == "true" ]]; then args+=(--draft); fi
+          gh release create "${args[@]}"

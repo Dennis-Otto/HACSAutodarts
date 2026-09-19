@@ -1,0 +1,67 @@
+name: Integration validation
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "30 4 * * 3"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate the license in the proposed revision
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          license_text = Path("LICENSE").read_text()
+          if not license_text.startswith("MIT License\n") or "Copyright (c)" not in license_text:
+              raise SystemExit("The MIT license and copyright attribution must be preserved.")
+          terms = license_text[license_text.index("Permission is hereby granted"):]
+          digest = hashlib.sha256(" ".join(terms.split()).encode()).hexdigest()
+          # Canonical MIT grant and disclaimer, independent of copyright names and wrapping.
+          if digest != "fe2a9817987f862eaced948f0468c7f51d2fedfc48c5c505b246a49a3870e9a5":
+              raise SystemExit("The MIT license terms differ from the declared license.")
+          PY
+      - name: Validate HACS integration metadata
+        uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
+        with:
+          category: integration
+          comment: false
+          # HACS reads the default-branch license; the preceding step checks this revision.
+          ignore: license
+
+  hassfest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Home Assistant integration
+        uses: home-assistant/actions/hassfest@58bff37c8947f690ace498be413a9b78d6f30f93 # master
+
+  workflow-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate GitHub Actions workflows
+        uses: docker://rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 # v1.7.7
