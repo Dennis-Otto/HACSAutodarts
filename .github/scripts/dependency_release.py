@@ -1,7 +1,7 @@
 """Publish merged dependency updates through protected, fully checked release PRs.
 
-Uses only the workflow's short-lived GITHUB_TOKEN. No checkout or execution of
-candidate code, synthetic check results, direct main pushes, or branch bypasses.
+Uses a repository-scoped GitHub App token for release branches and PRs so GitHub
+starts normal PR checks. No candidate code execution, main pushes or bypasses.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ class GitHub:
     def __init__(self, repository: str):
         self.repository = repository
 
-    def api(self, path, *, method=None, data=None, pages=False):
+    def api(self, path, *, method=None, data=None, pages=False, release_write=False):
         command = ["gh", "api", f"repos/{self.repository}/{path}"]
         if method:
             command += ["--method", method]
@@ -46,12 +46,21 @@ class GitHub:
             command += ["--paginate", "--slurp"]
         if data is not None:
             command += ["--input", "-"]
+        environment = os.environ.copy()
+        if release_write:
+            if not environment.get("GH_RELEASE_TOKEN"):
+                raise RuntimeError(
+                    "Configure the release GitHub App before publishing automatically."
+                )
+            environment["GH_TOKEN"] = environment["GH_RELEASE_TOKEN"]
+        environment.pop("GH_RELEASE_TOKEN", None)
         result = subprocess.run(
             command,
             input=json.dumps(data) if data is not None else None,
             text=True,
             capture_output=True,
             check=True,
+            env=environment,
         )
         return json.loads(result.stdout) if result.stdout.strip() else None
 
@@ -100,8 +109,11 @@ def dependency_prs(pulls, commits, repository):
 
 
 def owned_release_pr(pr, branch, repository):
+    authors = {"github-actions[bot]"}  # Resume version PRs from the earlier workflow.
+    if slug := os.environ.get("GH_RELEASE_APP_SLUG"):
+        authors.add(f"{slug}[bot]")
     return (
-        pr["user"]["login"] == "github-actions[bot]"
+        pr["user"]["login"] in authors
         and pr["head"]["ref"] == branch
         and (pr["head"].get("repo") or {}).get("full_name") == repository
         and pr["base"]["ref"] == "main"
@@ -139,10 +151,73 @@ def checks_ready(runs, previous):
     return True
 
 
-def get_checks(github, sha):
-    return github.items(
-        f"commits/{sha}/check-runs?per_page=100&filter=latest", "check_runs"
+def pr_workflow_runs(runs, number, head_sha):
+    """Select only actual PR runs, never unrelated workflow_dispatch checks."""
+    selected = {}
+    for run in runs:
+        workflow = run["path"].removeprefix(".github/workflows/")
+        if (
+            run["event"] == "pull_request"
+            and run["head_sha"] == head_sha
+            and workflow in WORKFLOWS
+            and any(pr["number"] == number for pr in run["pull_requests"])
+            and run["id"] > selected.get(workflow, {}).get("id", 0)
+        ):
+            selected[workflow] = run
+    return selected if set(selected) == set(WORKFLOWS) else None
+
+
+def start_pr_checks(github, number, head_sha):
+    # App-authored changes start real PR checks without a GITHUB_TOKEN approval gate.
+    runs = wait_until(
+        lambda: pr_workflow_runs(
+            github.items(
+                f"actions/runs?event=pull_request&head_sha={head_sha}&per_page=100",
+                "workflow_runs",
+            ),
+            number,
+            head_sha,
+        ),
+        "PR workflow registration",
+        timeout=120,
     )
+    attempts = {}
+    for run in runs.values():
+        current = github.api(f"actions/runs/{run['id']}")
+        attempt = current["run_attempt"]
+        if current["conclusion"] == "action_required":
+            raise RuntimeError(
+                "PR checks require approval. Verify the release App configuration; "
+                "never substitute separately dispatched checks."
+            )
+        elif current["status"] == "completed" and current["conclusion"] != "success":
+            github.api(f"actions/runs/{run['id']}/rerun", method="POST")
+            attempt += 1
+        attempts[run["id"]] = attempt
+    return attempts
+
+
+def pr_checks_ready(github, attempts):
+    checks = []
+    for run_id, attempt in attempts.items():
+        run = github.api(f"actions/runs/{run_id}")
+        if (
+            run["run_attempt"] < attempt
+            or run["status"] != "completed"
+            or run["conclusion"] == "action_required"
+        ):
+            return False
+        if run["conclusion"] != "success":
+            raise RuntimeError(
+                f"Required PR workflow failed: {run['path']} ({run['conclusion']})"
+            )
+        checks.extend(
+            github.items(
+                f"check-suites/{run['check_suite_id']}/check-runs?per_page=100&filter=latest",
+                "check_runs",
+            )
+        )
+    return checks_ready(checks, {})
 
 
 def wait_until(predicate, description, timeout=900):
@@ -183,6 +258,7 @@ def prepare_pr(github, version, base_sha, dependencies, pulls):
             "git/refs",
             method="POST",
             data={"ref": f"refs/heads/{branch}", "sha": base_sha},
+            release_write=True,
         )
     base, _ = github.manifest(base_sha)
     candidate, blob_sha = github.manifest(branch)
@@ -202,6 +278,7 @@ def prepare_pr(github, version, base_sha, dependencies, pulls):
                 "content": content,
                 "message": f"chore(release): prepare v{version}",
             },
+            release_write=True,
         )
     comparison = github.api(f"compare/{base_sha}...{branch}")
     candidate, _ = github.manifest(branch)
@@ -225,9 +302,13 @@ def prepare_pr(github, version, base_sha, dependencies, pulls):
             "title": f"chore(release): prepare v{version}",
             "body": body,
         },
+        release_write=True,
     )
     github.api(
-        f"issues/{pr['number']}/labels", method="POST", data={"labels": ["release"]}
+        f"issues/{pr['number']}/labels",
+        method="POST",
+        data={"labels": ["release"]},
+        release_write=True,
     )
     return pr
 
@@ -250,6 +331,7 @@ def validate_and_merge(github, pr, version):
                 f"pulls/{number}/update-branch",
                 method="PUT",
                 data={"expected_head_sha": head_sha},
+                release_write=True,
             )
             wait_until(
                 lambda: github.api(f"pulls/{number}")["head"]["sha"] != head_sha,
@@ -263,19 +345,12 @@ def validate_and_merge(github, pr, version):
             f["filename"] for f in github.items(f"pulls/{number}/files?per_page=100")
         ]
         validate_version_only(base, candidate, version, files)
-        previous = latest_checks(get_checks(github, head_sha))
-        for workflow in WORKFLOWS:
-            inputs = (
-                {"base_ref": base_sha, "head_ref": head_sha}
-                if workflow == "dependency-review.yml"
-                else None
-            )
-            github.dispatch(workflow, branch, inputs)
+        attempts = start_pr_checks(github, number, head_sha)
         summary(
             f"Running required checks for [release PR #{number}]({pr['html_url']})."
         )
         wait_until(
-            lambda: checks_ready(get_checks(github, head_sha), previous),
+            lambda: pr_checks_ready(github, attempts),
             "required release PR checks",
         )
         if github.api("git/ref/heads/main")["object"]["sha"] != base_sha:
@@ -288,6 +363,7 @@ def validate_and_merge(github, pr, version):
                 "merge_method": "squash",
                 "commit_title": f"chore(release): prepare v{version} (#{number})",
             },
+            release_write=True,
         )
         if not merged.get("merged"):
             raise RuntimeError("GitHub did not merge the checked release PR.")

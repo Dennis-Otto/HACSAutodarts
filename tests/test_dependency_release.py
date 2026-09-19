@@ -1,6 +1,7 @@
 """Exercise release eligibility, protected merges and recovery without GitHub writes."""
 
 import importlib.util
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import Mock, call
@@ -267,21 +268,14 @@ def test_candidate_runs_real_checks_before_sha_guarded_merge(monkeypatch):
         "pulls/4/merge": {"merged": True, "sha": "merged"},
     }
     github.api.side_effect = lambda path, **kwargs: responses[path]
-    monkeypatch.setattr(
-        release,
-        "get_checks",
-        Mock(side_effect=[[], [check(name) for name in release.CHECKS]]),
-    )
+    start = Mock(return_value={42: 1})
+    ready = Mock(return_value=True)
+    monkeypatch.setattr(release, "start_pr_checks", start)
+    monkeypatch.setattr(release, "pr_checks_ready", ready)
     assert release.validate_and_merge(github, pr, "0.4.3") == "merged"
-    assert github.dispatch.call_count == len(release.WORKFLOWS)
-    assert (
-        call(
-            "dependency-review.yml",
-            pr["head"]["ref"],
-            {"base_ref": "main", "head_ref": "head"},
-        )
-        in github.dispatch.call_args_list
-    )
+    start.assert_called_once_with(github, 4, "head")
+    ready.assert_called_once_with(github, {42: 1})
+    github.dispatch.assert_not_called()
     assert github.api.call_args == call(
         "pulls/4/merge",
         method="PUT",
@@ -290,6 +284,7 @@ def test_candidate_runs_real_checks_before_sha_guarded_merge(monkeypatch):
             "merge_method": "squash",
             "commit_title": "chore(release): prepare v0.4.3 (#4)",
         },
+        release_write=True,
     )
 
 
@@ -324,3 +319,109 @@ def test_retry_after_merged_version_pr_does_not_bump_again(monkeypatch):
     assert all(
         kwargs.get("method") != "POST" for _, kwargs in github.api.call_args_list
     )
+
+
+def workflow_runs():
+    return [
+        {
+            "id": index,
+            "path": f".github/workflows/{workflow}",
+            "event": "pull_request",
+            "head_sha": "head",
+            "pull_requests": [{"number": 4}],
+            "conclusion": "action_required",
+            "status": "completed",
+            "run_attempt": 1,
+            "check_suite_id": index,
+        }
+        for index, workflow in enumerate(release.WORKFLOWS, start=1)
+    ]
+
+
+def test_dispatch_checks_cannot_replace_pr_associated_checks():
+    runs = workflow_runs()
+    assert release.pr_workflow_runs(runs, 4, "head")
+    assert (
+        release.pr_workflow_runs(
+            [dict(r, event="workflow_dispatch") for r in runs], 4, "head"
+        )
+        is None
+    )
+    assert release.pr_workflow_runs(runs, 99, "head") is None
+    assert release.pr_workflow_runs(runs, 4, "other-head") is None
+    assert release.pr_workflow_runs(runs[:-1], 4, "head") is None
+
+
+def test_gated_pr_runs_fail_without_approving_or_substituting_checks():
+    github = Mock()
+    runs = workflow_runs()
+    github.items.return_value = runs
+    github.api.return_value = runs[0]
+    with pytest.raises(RuntimeError, match="PR checks require approval"):
+        release.start_pr_checks(github, 4, "head")
+    assert all(
+        kwargs.get("method") != "POST" for _, kwargs in github.api.call_args_list
+    )
+    github.dispatch.assert_not_called()
+
+
+def test_app_triggered_pr_checks_run_without_workflow_approval():
+    github = Mock()
+    runs = [dict(r, conclusion=None, status="in_progress") for r in workflow_runs()]
+    github.items.return_value = runs
+    github.api.side_effect = lambda path, **kwargs: runs[
+        int(path.rsplit("/", 1)[1]) - 1
+    ]
+    assert release.start_pr_checks(github, 4, "head") == {r["id"]: 1 for r in runs}
+    assert all(
+        kwargs.get("method") != "POST" for _, kwargs in github.api.call_args_list
+    )
+    github.dispatch.assert_not_called()
+
+
+def test_pr_check_wait_does_not_use_branch_dispatch_success():
+    github = Mock()
+    github.api.return_value = dict(workflow_runs()[0], conclusion="action_required")
+    assert not release.pr_checks_ready(github, {1: 1})
+    github.items.assert_not_called()
+    github.api.return_value = dict(workflow_runs()[0], conclusion="success")
+    github.items.return_value = [check(name) for name in release.CHECKS]
+    assert release.pr_checks_ready(github, {1: 1})
+    github.items.assert_called_once_with(
+        "check-suites/1/check-runs?per_page=100&filter=latest", "check_runs"
+    )
+
+
+def test_only_release_writes_use_app_token(monkeypatch):
+    monkeypatch.setenv("GH_TOKEN", "workflow-test-token")
+    monkeypatch.setenv("GH_RELEASE_TOKEN", "release-test-token")
+    execute = Mock(return_value=subprocess.CompletedProcess([], 0, stdout="{}"))
+    monkeypatch.setattr(release.subprocess, "run", execute)
+    github = release.GitHub(REPOSITORY)
+    github.api("git/ref/heads/main")
+    assert execute.call_args.kwargs["env"]["GH_TOKEN"] == "workflow-test-token"
+    assert "GH_RELEASE_TOKEN" not in execute.call_args.kwargs["env"]
+    github.api("pulls", method="POST", release_write=True)
+    assert execute.call_args.kwargs["env"]["GH_TOKEN"] == "release-test-token"
+    assert "release-test-token" not in execute.call_args.args[0]
+
+
+def test_missing_app_token_stops_before_release_write(monkeypatch):
+    monkeypatch.delenv("GH_RELEASE_TOKEN", raising=False)
+    execute = Mock()
+    monkeypatch.setattr(release.subprocess, "run", execute)
+    with pytest.raises(RuntimeError, match="Configure the release GitHub App"):
+        release.GitHub(REPOSITORY).api("pulls", method="POST", release_write=True)
+    execute.assert_not_called()
+
+
+def test_only_configured_app_or_legacy_bot_can_own_release_pr(monkeypatch):
+    monkeypatch.setenv("GH_RELEASE_APP_SLUG", "renamed-release-app")
+    pr = pull(author="renamed-release-app[bot]")
+    pr["body"] = release.MARKER
+    branch = pr["head"]["ref"] = "automation/dependency-release-v0.4.3"
+    assert release.owned_release_pr(pr, branch, REPOSITORY)
+    pr["user"]["login"] = "untrusted-app[bot]"
+    assert not release.owned_release_pr(pr, branch, REPOSITORY)
+    pr["user"]["login"] = "github-actions[bot]"
+    assert release.owned_release_pr(pr, branch, REPOSITORY)

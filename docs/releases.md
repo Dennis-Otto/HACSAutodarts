@@ -39,11 +39,34 @@ are stable as well. HACS users must enable the repository's
 updates. HACS offers releases when it refreshes repository data; publishing does
 not automatically install an update or restart Home Assistant.
 
-The workflow uses GitHub's short-lived token, with no personal access token. The
-repository must allow Actions to create pull requests. Candidate checks are
-explicitly dispatched so bot-created PRs do not depend on suppressed or
-approval-gated PR events. Only trusted default-branch orchestration code runs with
-write permissions; candidate code runs in the normal CI workflows.
+A GitHub App creates and updates the release branch and PR. Unlike
+`GITHUB_TOKEN`-authored changes, these events start normal PR workflows without
+GitHub's bot-PR approval gate. The workflow waits for checks associated with that
+exact PR and commit; separately dispatched branch checks do not count. Only trusted
+default-branch orchestration code receives the App token. Candidate code runs in
+the normal CI workflows, and all branch protection rules remain in force.
+
+### One-time GitHub App setup
+
+Use a private GitHub App owned by the maintainer with **Contents: Read and write**,
+**Pull requests: Read and write** and mandatory **Metadata: Read-only**. No webhook,
+account permissions, Administration, Actions or Workflows write permission is
+needed. An existing release App with those permissions can be reused; add this
+repository to its selected installation repositories.
+
+Create a `release` Actions environment restricted to deployments from the `main`
+branch. Store `RELEASE_AUTOMATION_PRIVATE_KEY` as a secret in that environment,
+and set the repository Actions variable `RELEASE_AUTOMATION_CLIENT_ID` to the App's
+Client ID. Never commit the key. The pinned official `actions/create-github-app-token`
+action mints a short-lived token restricted to this repository and these two write
+permissions, then revokes it when the job finishes. The App identity comes from
+the action's output, so renaming the App does not require changing the workflow.
+GitHub's built-in token is used for reading checks and dispatching the existing
+release workflow. Removing the installation or key revokes future App access.
+
+Until the Client ID variable is configured, scheduled/merge-triggered runs are
+skipped. A manual run reports missing credentials. This GitHub App is separate
+from the Autodarts cloud application's Client ID.
 
 ### Recovery and manual control
 
