@@ -120,6 +120,13 @@ and Gitleaks. HACS/hassfest and CodeQL also run weekly to detect changes in plat
 requirements and security checks. GitHub Actions are pinned to commit hashes or
 container digests and maintained by Dependabot.
 
+## Releases and changelogs
+
+The **Release integration** workflow generates categorized release notes for the
+HACS/Home Assistant update dialog. An optional introduction appears above the
+automatic changelog. It verifies that the version matches `manifest.json` and can
+save a draft or publish a stable/prerelease version. See the [release guide](docs/releases.md).
+
 ## Sensors
 
 | Sensor | Source | Description | Unit |
