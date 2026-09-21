@@ -176,6 +176,10 @@ def pr_workflow_runs(runs, number, head_sha):
 
 def start_pr_checks(github, number, head_sha):
     # App-authored changes start real PR checks without a GITHUB_TOKEN approval gate.
+    # GitHub can take several minutes to register those runs after creating a PR.
+    summary(
+        f"Waiting up to 10 minutes for GitHub to register PR #{number}'s workflows."
+    )
     runs = wait_until(
         lambda: pr_workflow_runs(
             github.items(
@@ -186,7 +190,7 @@ def start_pr_checks(github, number, head_sha):
             head_sha,
         ),
         "PR workflow registration",
-        timeout=120,
+        timeout=600,
     )
     attempts = {}
     for run in runs.values():
