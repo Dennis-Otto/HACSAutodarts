@@ -383,6 +383,57 @@ def test_app_triggered_pr_checks_run_without_workflow_approval():
     github.dispatch.assert_not_called()
 
 
+@pytest.fixture
+def registration_clock(monkeypatch):
+    clock = Mock(elapsed=0)
+    clock.monotonic.side_effect = lambda: clock.elapsed
+
+    def advance(seconds):
+        clock.elapsed += seconds
+
+    clock.sleep.side_effect = advance
+    monkeypatch.setattr(release, "time", clock)
+    return clock
+
+
+@pytest.mark.parametrize("registration_delay", [215, 570])
+def test_delayed_pr_registration_waits_for_all_real_runs(
+    registration_clock, registration_delay
+):
+    # GitHub registered the v0.4.4 PR workflows 215 seconds after PR creation.
+    # Earlier push checks and partial PR registration must not satisfy the gate.
+    github = Mock()
+    runs = [dict(r, conclusion=None, status="queued") for r in workflow_runs()]
+    noise = [dict(r, event="push") for r in runs]
+    noise += [dict(r, head_sha="previous-head") for r in runs]
+    noise += [dict(r, pull_requests=[{"number": 99}]) for r in runs]
+    github.items.side_effect = lambda *args: noise + (
+        runs if registration_clock.elapsed >= registration_delay else runs[:-1]
+    )
+    github.api.side_effect = lambda path, **kwargs: runs[
+        int(path.rsplit("/", 1)[1]) - 1
+    ]
+
+    assert release.start_pr_checks(github, 4, "head") == {r["id"]: 1 for r in runs}
+    assert registration_delay <= registration_clock.elapsed < registration_delay + 15
+    assert all(
+        kwargs.get("method") != "POST" for _, kwargs in github.api.call_args_list
+    )
+    github.dispatch.assert_not_called()
+
+
+def test_missing_pr_workflow_still_times_out_without_merging(registration_clock):
+    github = Mock()
+    github.items.return_value = workflow_runs()[:-1]
+
+    with pytest.raises(TimeoutError, match="PR workflow registration"):
+        release.start_pr_checks(github, 4, "head")
+
+    assert registration_clock.elapsed <= 900
+    github.api.assert_not_called()
+    github.dispatch.assert_not_called()
+
+
 def test_pr_check_wait_does_not_use_branch_dispatch_success():
     github = Mock()
     github.api.return_value = dict(workflow_runs()[0], conclusion="action_required")
