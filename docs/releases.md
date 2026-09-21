@@ -54,10 +54,12 @@ default-branch orchestration code receives the App token. Candidate code runs in
 the normal CI workflows, and all branch protection rules remain in force.
 
 GitHub may register PR workflows several minutes after the PR is created. The
-release workflow allows up to ten minutes for all five PR workflows to appear,
+release workflow allows up to thirty minutes for all five PR workflows to appear,
 then waits for their checks to finish. Partial registration or successful checks
 from another event, PR or commit never permit a merge. If a workflow stays missing,
 the run fails without publishing; a later run reuses the existing version PR.
+The overall job allows up to ninety minutes, including the subsequent checks,
+protected merge and publication.
 
 ### One-time GitHub App setup
 

@@ -396,7 +396,7 @@ def registration_clock(monkeypatch):
     return clock
 
 
-@pytest.mark.parametrize("registration_delay", [215, 570])
+@pytest.mark.parametrize("registration_delay", [215, 570, 1725])
 def test_delayed_pr_registration_waits_for_all_real_runs(
     registration_clock, registration_delay
 ):
@@ -429,7 +429,7 @@ def test_missing_pr_workflow_still_times_out_without_merging(registration_clock)
     with pytest.raises(TimeoutError, match="PR workflow registration"):
         release.start_pr_checks(github, 4, "head")
 
-    assert registration_clock.elapsed <= 900
+    assert registration_clock.elapsed == 1800
     github.api.assert_not_called()
     github.dispatch.assert_not_called()
 

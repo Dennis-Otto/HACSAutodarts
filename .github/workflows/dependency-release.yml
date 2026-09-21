@@ -27,7 +27,8 @@ jobs:
          github.event.pull_request.user.login == 'dependabot[bot]' &&
          github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Allow registration delays plus PR checks, protected merge and publication.
+    timeout-minutes: 90
     environment: release
     permissions:
       contents: read
