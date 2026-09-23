@@ -29,7 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     # Allow registration delays plus PR checks, protected merge and publication.
     timeout-minutes: 90
-    environment: release
+    # Access the App key without recording every reconciliation as a deployment.
+    environment:
+      name: release
+      deployment: false
     permissions:
       contents: read
       pull-requests: read
