@@ -59,6 +59,11 @@ jobs:
     needs: [tests, validation, commit-checks]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Only publication creates a deployment; draft releases remain untracked.
+    environment:
+      name: release
+      deployment: ${{ !inputs.draft }}
+      url: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}
     permissions:
       contents: write
     env:

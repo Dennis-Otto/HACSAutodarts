@@ -34,6 +34,13 @@ minutes 13 and 43 of each hour to catch merges whose events GitHub suppresses fo
 produce another release. Several pending updates can share one release. Other
 changes already merged into `main` are included in the release and its changelog.
 
+Reconciliation uses the protected `release` environment with `deployment: false`.
+It retains access to the App key and the environment's branch restrictions without
+creating deployment records for checks that find nothing to publish. Only the
+publication job in **Release integration** records a deployment, linked to its
+release page. Creating a draft does not create a deployment record. Workflow runs
+remain visible in Actions, including checks that do not produce a release.
+
 Test dependencies and GitHub Actions updates also produce releases. Their release
 introduction explains that those dependency changes do not add integration features.
 Version-only release PRs carry the `release` label and are omitted from the changelog.
