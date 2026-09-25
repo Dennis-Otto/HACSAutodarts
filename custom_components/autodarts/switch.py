@@ -8,6 +8,8 @@ from homeassistant.const import EntityCategory
 from .entity import AutodartsLocalEntity
 from .local_api import CONFIG_SWITCHES
 
+PARALLEL_UPDATES = 1
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     if coordinator := entry.runtime_data.local:
@@ -25,13 +27,6 @@ class AutodartsSwitch(AutodartsLocalEntity, SwitchEntity):
     def __init__(self, coordinator, key: str) -> None:
         super().__init__(coordinator, key)
         self._key = key
-        self._attr_icon = (
-            "mdi:bullseye"
-            if key == "detection"
-            else "mdi:cloud"
-            if key == "upstream"
-            else "mdi:auto-fix"
-        )
         if key in CONFIG_SWITCHES:
             self._attr_entity_category = EntityCategory.CONFIG
 

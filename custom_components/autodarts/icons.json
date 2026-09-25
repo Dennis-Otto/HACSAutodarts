@@ -1,0 +1,186 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "hand_detected": {
+        "default": "mdi:hand-back-right-off",
+        "state": {
+          "on": "mdi:hand-back-right"
+        }
+      },
+      "image_stable": {
+        "default": "mdi:image-filter-center-focus"
+      },
+      "takeout_partial": {
+        "default": "mdi:arrow-up-bold-outline"
+      },
+      "takeout_full": {
+        "default": "mdi:arrow-up-bold-box-outline"
+      },
+      "cameras_active": {
+        "default": "mdi:cctv-off",
+        "state": {
+          "on": "mdi:cctv"
+        }
+      },
+      "calibrating": {
+        "default": "mdi:bullseye-arrow"
+      },
+      "realtime_connected": {
+        "default": "mdi:lan-disconnect",
+        "state": {
+          "on": "mdi:lan-connect"
+        }
+      },
+      "cloud_link": {
+        "default": "mdi:cloud-off-outline",
+        "state": {
+          "on": "mdi:cloud-check-outline"
+        }
+      }
+    },
+    "button": {
+      "start": {
+        "default": "mdi:play"
+      },
+      "stop": {
+        "default": "mdi:stop"
+      },
+      "reset": {
+        "default": "mdi:restore"
+      },
+      "calibrate": {
+        "default": "mdi:bullseye-arrow"
+      },
+      "calibrate_camera": {
+        "default": "mdi:camera-iris"
+      },
+      "connect": {
+        "default": "mdi:cloud-check"
+      },
+      "disconnect": {
+        "default": "mdi:cloud-off-outline"
+      },
+      "start_streams": {
+        "default": "mdi:video"
+      },
+      "stop_streams": {
+        "default": "mdi:video-off"
+      },
+      "reset_training": {
+        "default": "mdi:counter"
+      }
+    },
+    "event": {
+      "board_events": {
+        "default": "mdi:bullseye-arrow"
+      }
+    },
+    "select": {
+      "standby_minutes": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "sensor": {
+      "board_status": {
+        "default": "mdi:bullseye"
+      },
+      "board_event": {
+        "default": "mdi:bell-ring"
+      },
+      "game_mode": {
+        "default": "mdi:gamepad-variant"
+      },
+      "match_state": {
+        "default": "mdi:play-circle"
+      },
+      "round": {
+        "default": "mdi:rotate-right"
+      },
+      "last_throw": {
+        "default": "mdi:arrow-projectile"
+      },
+      "num_throws": {
+        "default": "mdi:counter"
+      },
+      "visit_score": {
+        "default": "mdi:numeric"
+      },
+      "darts_thrown": {
+        "default": "mdi:counter"
+      },
+      "local_status": {
+        "default": "mdi:bullseye",
+        "state": {
+          "offline": "mdi:lan-disconnect",
+          "stopped": "mdi:stop-circle-outline",
+          "starting": "mdi:play-circle-outline",
+          "stopping": "mdi:stop-circle-outline",
+          "throw": "mdi:bullseye-arrow",
+          "takeout": "mdi:arrow-up-bold-outline",
+          "takeout_in_progress": "mdi:arrow-up-bold-outline",
+          "calibrating": "mdi:crosshairs-gps",
+          "error": "mdi:alert-circle-outline"
+        }
+      },
+      "last_throw_score": {
+        "default": "mdi:counter"
+      },
+      "local_visit_score": {
+        "default": "mdi:counter"
+      },
+      "detection_fps": {
+        "default": "mdi:speedometer"
+      },
+      "camera_fps": {
+        "default": "mdi:speedometer"
+      },
+      "cpu_usage": {
+        "default": "mdi:cpu-64-bit"
+      },
+      "memory_usage": {
+        "default": "mdi:memory"
+      },
+      "training_darts": {
+        "default": "mdi:counter"
+      },
+      "training_triples": {
+        "default": "mdi:counter"
+      },
+      "training_bulls": {
+        "default": "mdi:bullseye"
+      },
+      "training_scores_180": {
+        "default": "mdi:trophy-outline"
+      },
+      "training_points": {
+        "default": "mdi:counter"
+      },
+      "training_started": {
+        "default": "mdi:clock-start"
+      }
+    },
+    "switch": {
+      "detection": {
+        "default": "mdi:bullseye",
+        "state": {
+          "off": "mdi:pause-circle-outline"
+        }
+      },
+      "upstream": {
+        "default": "mdi:cloud-off-outline",
+        "state": {
+          "on": "mdi:cloud"
+        }
+      },
+      "auto_calibrate_on_start": {
+        "default": "mdi:auto-fix"
+      },
+      "auto_calibrate": {
+        "default": "mdi:auto-fix"
+      },
+      "auto_distortion": {
+        "default": "mdi:auto-fix"
+      }
+    }
+  }
+}

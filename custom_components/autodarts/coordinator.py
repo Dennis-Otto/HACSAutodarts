@@ -41,6 +41,7 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.cloud = cloud
         self.board_id = board_id
+        self._match_failed = False
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch board and match data from the cloud API."""
@@ -56,10 +57,12 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             result["board"] = board
         except AutodartsAuthError as err:
             raise ConfigEntryAuthFailed(
-                "Autodarts account must be linked again"
+                translation_domain=DOMAIN, translation_key="relink_required"
             ) from err
         except AutodartsApiError as err:
-            raise UpdateFailed(f"Error fetching board data: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN, translation_key="cloud_unavailable"
+            ) from err
 
         # 2. Cloud: if a match is active, fetch match data + live state
         match_id = board.get("matchId")
@@ -77,9 +80,14 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 result["match"] = match
             except AutodartsAuthError as err:
                 raise ConfigEntryAuthFailed(
-                    "Autodarts account must be linked again"
+                    translation_domain=DOMAIN, translation_key="relink_required"
                 ) from err
-            except AutodartsApiError as err:
-                _LOGGER.warning("Could not fetch match %s: %s", match_id, err)
+            except AutodartsApiError:
+                # Log once per outage instead of on every poll.
+                if not self._match_failed:
+                    _LOGGER.warning("Could not fetch the current match")
+                self._match_failed = True
+            else:
+                self._match_failed = False
 
         return result

@@ -14,13 +14,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .camera_health import CameraHealth
-from .const import CONF_API_GENERATION, DOMAIN
+from .const import BOARD_MANAGER_2_URL, CONF_API_GENERATION, DOMAIN
 from .errors import AutodartsApiError
 from .local_api import (
     AutodartsEndpointMissing,
@@ -312,6 +313,40 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if (changed or recovered) and field not in ("stats", "camera_stats"):
             self.async_update_listeners()
 
+    @callback
+    def _report_identity(self) -> None:
+        """A repair issue explains why a board at the wrong address stays offline."""
+        issue = f"wrong_board_{self.config_entry.entry_id}"
+        if self._identity_valid:
+            ir.async_delete_issue(self.hass, DOMAIN, issue)
+            return
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue,
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="wrong_board",
+            translation_placeholders={"address": self.client.base_url},
+        )
+
+    @callback
+    def _report_generation(self) -> None:
+        """Autodarts retires the classic Board Manager; point to the new one."""
+        issue = f"board_manager_1_{self.config_entry.entry_id}"
+        if self.generation != 1:
+            ir.async_delete_issue(self.hass, DOMAIN, issue)
+            return
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="board_manager_1",
+            learn_more_url=BOARD_MANAGER_2_URL,
+        )
+
     @property
     def board_manager_2(self) -> bool:
         """Entities and endpoints of the headless Board Manager 2 apply."""
@@ -321,6 +356,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _set_generation(self, generation: int) -> None:
         """Remember the board's generation; a change rebuilds its entities."""
         self.generation = generation
+        self._report_generation()
         entry = self.config_entry
         if entry.data.get(CONF_API_GENERATION) != generation:
             self.hass.config_entries.async_update_entry(
@@ -394,7 +430,9 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._health = CameraHealth()
             if not self.stream_connected:
                 self._baseline_after_gap()
-            raise UpdateFailed("Local Board Manager unavailable") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN, translation_key="board_unavailable"
+            ) from err
         if self.generation is None:
             # An unknown board reveals its generation through its version first.
             version = await self._optional(self.client.get_version())
@@ -414,8 +452,9 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._identity_valid = (
                 config.get("board_id", self.board_id) == self.board_id
             )
+        self._report_identity()
         if not self._identity_valid:
-            raise UpdateFailed("Local address belongs to a different board")
+            raise UpdateFailed(translation_domain=DOMAIN, translation_key="wrong_board")
         if config is not None:
             # A failed read keeps the last settings instead of hiding controls.
             self._settings = config
@@ -481,7 +520,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await action()
             except AutodartsApiError as err:
                 raise HomeAssistantError(
-                    "Local board action failed. Check the board connection and Board Manager."
+                    translation_domain=DOMAIN, translation_key="action_failed"
                 ) from err
             self._metadata_updated = 0
             await self.async_request_refresh()

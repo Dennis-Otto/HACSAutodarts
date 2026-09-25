@@ -7,6 +7,9 @@
         "description": "Link your account with the new Autodarts device login. Enter a public client ID registered for this integration with device authorization enabled. Your board, entities and local settings will be kept.",
         "data": {
           "client_id": "Autodarts client ID"
+        },
+        "data_description": {
+          "client_id": "Public OAuth client ID with device authorization, issued by Autodarts for this integration."
         }
       },
       "auth_retry": {
@@ -31,6 +34,11 @@
           "client_id": "Autodarts client ID",
           "host": "Local board IP (optional)",
           "port": "Local board port"
+        },
+        "data_description": {
+          "client_id": "Public OAuth client ID with device authorization, issued by Autodarts for this integration. Not your e-mail address, password or board ID.",
+          "host": "Optional. Also connects the board locally, which enables controls and realtime events.",
+          "port": "Board Manager API port, normally 3180."
         }
       },
       "user": {
@@ -57,6 +65,10 @@
         "data": {
           "host": "Board IP or hostname",
           "port": "Port"
+        },
+        "data_description": {
+          "host": "IP address or host name of the PC running Autodarts Board Manager, for example 192.168.1.50. Without http:// and without a port.",
+          "port": "Board Manager API port, normally 3180."
         }
       },
       "discover": {
@@ -64,6 +76,9 @@
         "description": "Autodarts listed these boards for your network. The lookup uses the same service as the Board Manager app and sees your public IP address. The board is then connected locally, without an Autodarts login.",
         "data": {
           "board_id": "Board"
+        },
+        "data_description": {
+          "board_id": "Boards that are already set up are not listed."
         }
       },
       "zeroconf_confirm": {
@@ -92,46 +107,67 @@
       "wrong_account": "The linked account does not have access to the existing board. Please link the account that owns this board.",
       "reauth_successful": "Autodarts was linked successfully. Your board and entities have been kept.",
       "wrong_board": "This address belongs to a different board.",
-      "reconfigure_successful": "Autodarts configuration updated.",
+      "reconfigure_successful": "The Autodarts configuration was updated.",
       "cannot_connect_local": "The board announced on your network does not answer. Check that Board Manager is running.",
-      "board_not_configured": "No board ID is configured in Board Manager. Complete board setup there first."
+      "board_not_configured": "No board ID is configured in Board Manager. Complete board setup there first.",
+      "already_in_progress": "Setup of this board is already in progress."
     },
     "flow_title": "{name}"
   },
   "entity": {
     "sensor": {
       "board_status": {
-        "name": "Board Status"
+        "name": "Board status",
+        "state": {
+          "connected": "Connected",
+          "disconnected": "Disconnected"
+        }
       },
       "board_event": {
-        "name": "Board Event"
+        "name": "Last board event"
       },
       "game_mode": {
-        "name": "Game Mode"
+        "name": "Game mode"
       },
       "match_state": {
-        "name": "Match State"
+        "name": "Match state",
+        "state": {
+          "no_match": "No match",
+          "active": "Active",
+          "finished": "Finished"
+        }
       },
       "round": {
         "name": "Round"
       },
       "last_throw": {
-        "name": "Last Throw"
+        "name": "Last dart"
       },
       "num_throws": {
-        "name": "Throws in Turn"
+        "name": "Darts in visit"
       },
       "visit_score": {
-        "name": "Visit Score"
+        "name": "Visit score"
       },
       "darts_thrown": {
-        "name": "Total Turns"
+        "name": "Darts thrown"
       },
       "local_status": {
-        "name": "Local detection status"
+        "name": "Detection status",
+        "state": {
+          "offline": "Offline",
+          "starting": "Starting",
+          "stopping": "Stopping",
+          "stopped": "Stopped",
+          "throw": "Ready to throw",
+          "takeout": "Takeout",
+          "takeout_in_progress": "Removing darts",
+          "calibrating": "Calibrating",
+          "error": "Error"
+        }
       },
       "last_throw_score": {
-        "name": "Last throw score"
+        "name": "Last dart score"
       },
       "local_visit_score": {
         "name": "Detected visit score"
@@ -158,7 +194,7 @@
         "name": "Training points"
       },
       "training_started": {
-        "name": "Training session started"
+        "name": "Training session start"
       },
       "cpu_usage": {
         "name": "CPU usage"
@@ -184,10 +220,10 @@
         "name": "Start automatic calibration"
       },
       "connect": {
-        "name": "Connect to Autodarts cloud"
+        "name": "Connect board cloud link"
       },
       "disconnect": {
-        "name": "Disconnect from Autodarts cloud"
+        "name": "Disconnect board cloud link"
       },
       "start_streams": {
         "name": "Start camera streams"
@@ -207,7 +243,7 @@
         "name": "Detection"
       },
       "upstream": {
-        "name": "Autodarts cloud connection"
+        "name": "Board cloud link"
       },
       "auto_calibrate_on_start": {
         "name": "Calibrate on start"
@@ -284,6 +320,36 @@
       "board_software": {
         "name": "Board software"
       }
+    }
+  },
+  "exceptions": {
+    "action_failed": {
+      "message": "The board did not accept the action. Check the connection to Board Manager and try again."
+    },
+    "board_unavailable": {
+      "message": "Board Manager does not answer."
+    },
+    "wrong_board": {
+      "message": "The configured address belongs to a different board."
+    },
+    "no_local_address": {
+      "message": "Configure the local Board Manager address."
+    },
+    "relink_required": {
+      "message": "Link your Autodarts account again with a registered client ID."
+    },
+    "cloud_unavailable": {
+      "message": "The Autodarts cloud does not answer."
+    }
+  },
+  "issues": {
+    "wrong_board": {
+      "title": "Autodarts board address points to a different board",
+      "description": "The board at {address} has a different board ID than the one this entry belongs to, so it stays offline. Open the Autodarts integration, choose **Reconfigure** and select the correct board."
+    },
+    "board_manager_1": {
+      "title": "Update the board to the new Autodarts Board Manager",
+      "description": "This board runs the classic Board Manager app. Autodarts replaces it with the headless Board Manager 2 and will turn the old one off once most players have migrated. Install Board Manager 2 on the board PC; the integration switches over automatically and keeps working locally."
     }
   }
 }

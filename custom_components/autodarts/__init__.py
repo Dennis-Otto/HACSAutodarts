@@ -11,6 +11,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -120,7 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
         try:
             if not entry.data.get(CONF_CLIENT_ID):
                 raise ConfigEntryAuthFailed(
-                    "Relink Autodarts using a registered device-flow client ID"
+                    translation_domain=DOMAIN, translation_key="relink_required"
                 )
             runtime.cloud = AutodartsDataUpdateCoordinator(
                 hass,
@@ -151,7 +152,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
             if await discover_local(runtime.cloud.data.get("board", {}).get("ip")):
                 local_error = None
     elif runtime.local is None:
-        raise ConfigEntryNotReady("Configure a local Board Manager address")
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN, translation_key="no_local_address"
+        )
     elif local_error is not None:
         raise local_error
 
@@ -235,3 +238,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) -
 async def async_remove_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) -> None:
     """Deleting the integration also deletes its local training session."""
     await Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.training").async_remove()
+    for issue in ("wrong_board", "board_manager_1"):
+        ir.async_delete_issue(hass, DOMAIN, f"{issue}_{entry.entry_id}")

@@ -55,7 +55,7 @@ async def test_local_only_setup_entities_and_private_diagnostics(hass, aioclient
     assert state(hass, "switch", "upstream") == "on"
     assert state(hass, "binary_sensor", "local_connected") == "on"
     assert state(hass, "select", "standby_minutes") == "15"
-    assert state(hass, "sensor", "local_status") == "Stopped"
+    assert state(hass, "sensor", "local_status") == "stopped"
     assert state(hass, "sensor", "local_visit_score") == "0"
     camera = registry.async_get(entity_id(hass, "camera", "camera_0"))
     assert camera.disabled_by == er.RegistryEntryDisabler.INTEGRATION
@@ -72,6 +72,9 @@ async def test_local_only_setup_entities_and_private_diagnostics(hass, aioclient
     assert diagnostics["local_available"] is True
     assert diagnostics["cloud_configured"] is False
     assert diagnostics["local"]["settings"]["board_id"] == "**REDACTED**"
+    assert diagnostics["entry"]["data"]["host"] == "**REDACTED**"
+    assert diagnostics["entry"]["data"]["port"] == 3180
+    assert diagnostics["poll_interval_seconds"] == 2
     for sensitive in ("private-board-api-key", "api_key", "192.0.2.10", "/dev/video0"):
         assert sensitive not in str(diagnostics)
     coordinator = entry.runtime_data.local
@@ -142,13 +145,16 @@ async def test_switch_and_select_refresh_actual_board_state(hass, aioclient_mock
 async def test_command_rejection_is_visible_to_user(hass, aioclient_mock):
     await setup_local(hass, aioclient_mock)
     aioclient_mock.post(BASE + "/api/config/calibration/auto", status=409)
-    with pytest.raises(HomeAssistantError, match="Local board action failed"):
+    with pytest.raises(HomeAssistantError) as error:
         await hass.services.async_call(
             "button",
             "press",
             {"entity_id": entity_id(hass, "button", "calibrate")},
             blocking=True,
         )
+    # Shown to the user in their language, from the translated exception.
+    assert error.value.translation_key == "action_failed"
+    assert "did not accept the action" in str(error.value)
 
 
 async def test_disconnect_and_recovery_updates_entities(hass, aioclient_mock):

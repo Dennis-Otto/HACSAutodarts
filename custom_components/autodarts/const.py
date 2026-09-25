@@ -17,6 +17,11 @@ CONF_PORT: Final = "port"
 # Major Board Manager version the entities were built for (1 classic, 2 headless).
 CONF_API_GENERATION: Final = "api_generation"
 
+# Autodarts' guide to the headless Board Manager 2, which replaces the app.
+BOARD_MANAGER_2_URL: Final = (
+    "https://docs.autodarts.com/getting-started/detection/headless-installation/"
+)
+
 # Lists boards on the same public network, as the Board Manager app does.
 DISCOVERY_URL: Final = "https://discover.autodarts.com"
 

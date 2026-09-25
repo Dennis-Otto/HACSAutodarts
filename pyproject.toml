@@ -4,6 +4,15 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["."]
 
+[tool.coverage.run]
+branch = true
+source = ["custom_components/autodarts"]
+
+[tool.coverage.report]
+fail_under = 95
+show_missing = true
+skip_covered = true
+
 [tool.ruff]
 target-version = "py313"
 
