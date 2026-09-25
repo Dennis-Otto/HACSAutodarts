@@ -1,0 +1,78 @@
+blueprint:
+  name: "Autodarts: start and stop detection automatically"
+  description: >-
+    Starts the dart detection when someone is at the board and stops it
+    after the board has been unused for a while. The cameras and the board
+    PC rest in between.
+
+
+    Use any on/off entity as presence, such as an occupancy sensor in the
+    darts room, the room light or an input boolean.
+  domain: automation
+  author: Dennis Otto
+  source_url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/auto_detection.yaml
+  homeassistant:
+    min_version: "2026.8.0"
+  input:
+    presence:
+      name: Presence
+      description: Turns on while someone is at the board.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+            - domain: input_boolean
+            - domain: light
+            - domain: switch
+    detection:
+      name: Detection switch
+      description: The "Detection" switch of your Autodarts board.
+      selector:
+        entity:
+          filter:
+            - integration: autodarts
+              domain: switch
+    stop_after:
+      name: Stop after
+      description: How long the board has to be unused before the detection stops.
+      default:
+        minutes: 10
+      selector:
+        duration: {}
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    id: arrived
+    entity_id: !input presence
+    to: "on"
+  - trigger: state
+    id: left
+    entity_id: !input presence
+    to: "off"
+    for: !input stop_after
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: arrived
+          - condition: state
+            entity_id: !input detection
+            state: "off"
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id: !input detection
+      - conditions:
+          - condition: trigger
+            id: left
+          - condition: state
+            entity_id: !input detection
+            state: "on"
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: !input detection

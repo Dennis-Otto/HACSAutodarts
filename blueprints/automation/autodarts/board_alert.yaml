@@ -1,0 +1,117 @@
+blueprint:
+  name: "Autodarts: board problem alert"
+  description: >-
+    Alerts you when the board stops answering or a camera fails, and
+    optionally when everything works again.
+
+
+    Your actions can use the variables `problem` (`offline` or `cameras`)
+    and `recovered` (`true` when the problem is gone).
+  domain: automation
+  author: Dennis Otto
+  source_url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/board_alert.yaml
+  homeassistant:
+    min_version: "2026.8.0"
+  input:
+    board:
+      name: Board
+      icon: mdi:bullseye-arrow
+      input:
+        connection:
+          name: Board connection
+          description: The "Board Manager connection" sensor of your Autodarts board.
+          selector:
+            entity:
+              filter:
+                - integration: autodarts
+                  domain: binary_sensor
+                  device_class: connectivity
+        camera_problem:
+          name: Camera problem
+          description: The "Camera problem" sensor of your Autodarts board.
+          selector:
+            entity:
+              filter:
+                - integration: autodarts
+                  domain: binary_sensor
+                  device_class: problem
+        grace_period:
+          name: Grace period
+          description: >-
+            How long a problem has to last before the alert, so a Board Manager
+            restart or a short calibration does not alert you.
+          default:
+            minutes: 2
+          selector:
+            duration: {}
+    alert:
+      name: Alert
+      icon: mdi:bell-alert
+      input:
+        alert_actions:
+          name: Alert actions
+          description: For example a notification to your phone.
+          selector:
+            action: {}
+        recovery_actions:
+          name: Recovery actions
+          description: Optional actions when the problem is gone.
+          default: []
+          selector:
+            action: {}
+
+mode: queued
+max: 5
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    id: offline
+    entity_id: !input connection
+    from: "on"
+    to: "off"
+    for: !input grace_period
+  - trigger: state
+    id: cameras
+    entity_id: !input camera_problem
+    from: "off"
+    to: "on"
+    for: !input grace_period
+  - trigger: state
+    id: offline_recovered
+    entity_id: !input connection
+    from: "off"
+    to: "on"
+  - trigger: state
+    id: cameras_recovered
+    entity_id: !input camera_problem
+    from: "on"
+    to: "off"
+
+variables:
+  grace_period: !input grace_period
+  grace_seconds: >-
+    {{ (grace_period.days | default(0)) * 86400 + (grace_period.hours | default(0)) * 3600
+    + (grace_period.minutes | default(0)) * 60 + (grace_period.seconds | default(0)) }}
+  problem: "{{ trigger.id | replace('_recovered', '') }}"
+  recovered: "{{ trigger.id.endswith('_recovered') }}"
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - offline
+              - cameras
+        sequence: !input alert_actions
+      - conditions:
+          - condition: trigger
+            id:
+              - offline_recovered
+              - cameras_recovered
+          # Only a problem that lasted long enough to alert is reported as solved.
+          - condition: template
+            value_template: >-
+              {{ as_timestamp(trigger.to_state.last_changed)
+                 - as_timestamp(trigger.from_state.last_changed) >= grace_seconds }}
+        sequence: !input recovery_actions

@@ -1,0 +1,113 @@
+blueprint:
+  name: "Autodarts: dart caller"
+  description: >-
+    Announces every completed visit on your speakers, like a caller on
+    stage, and optionally every single dart.
+
+
+    The messages are templates. Visit messages can use `score`, `darts` and
+    `segments`; dart messages can use `segment` (for example `T20`) and
+    `dart_score`.
+  domain: automation
+  author: Dennis Otto
+  source_url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/dart_caller.yaml
+  homeassistant:
+    min_version: "2026.8.0"
+  input:
+    board:
+      name: Board
+      icon: mdi:bullseye-arrow
+      input:
+        board_events:
+          name: Board events
+          description: The "Board events" entity of your Autodarts board.
+          selector:
+            entity:
+              filter:
+                - integration: autodarts
+                  domain: event
+    voice:
+      name: Voice
+      icon: mdi:account-voice
+      input:
+        tts_engine:
+          name: Text-to-speech engine
+          selector:
+            entity:
+              filter:
+                - domain: tts
+        speakers:
+          name: Speakers
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: media_player
+    messages:
+      name: Messages
+      icon: mdi:message-text
+      collapsed: true
+      input:
+        visit_message:
+          name: Visit message
+          default: "{{ score }}"
+          selector:
+            text: {}
+        maximum_message:
+          name: Message for 180
+          default: "One hundred and eighty!"
+          selector:
+            text: {}
+        call_each_dart:
+          name: Call every dart
+          description: Also announce each dart when it lands.
+          default: false
+          selector:
+            boolean: {}
+        dart_message:
+          name: Dart message
+          default: "{{ segment }}"
+          selector:
+            text: {}
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+triggers:
+  - trigger: event.received
+    id: visit
+    target:
+      entity_id: !input board_events
+    options:
+      event_type:
+        - visit_completed
+  - trigger: event.received
+    id: dart
+    enabled: !input call_each_dart
+    target:
+      entity_id: !input board_events
+    options:
+      event_type:
+        - dart_detected
+
+variables:
+  # Read from the triggering state: the next event may already have replaced it.
+  score: "{{ trigger.to_state.attributes.get('score') | int(0) }}"
+  darts: "{{ trigger.to_state.attributes.get('darts') | int(0) }}"
+  segments: "{{ trigger.to_state.attributes.get('segments') | default([], true) }}"
+  segment: "{{ trigger.to_state.attributes.get('segment') | default('', true) }}"
+  dart_score: "{{ trigger.to_state.attributes.get('score') | int(0) }}"
+  visit_text: !input visit_message
+  maximum_text: !input maximum_message
+  dart_text: !input dart_message
+
+actions:
+  - action: tts.speak
+    target:
+      entity_id: !input tts_engine
+    data:
+      media_player_entity_id: !input speakers
+      cache: true
+      message: >-
+        {% if trigger.id == 'dart' %}{{ dart_text }}{% elif score == 180 %}{{ maximum_text }}{% else %}{{ visit_text }}{% endif %}
