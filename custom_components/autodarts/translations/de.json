@@ -35,9 +35,10 @@
       },
       "user": {
         "title": "Autodarts einrichten",
-        "description": "Wähle die lokale Board-Steuerung ohne Cloud-Anmeldung oder verknüpfe dein Autodarts-Konto.",
+        "description": "Suche Autodarts-Boards im Netzwerk, gib eine Board-Adresse ein oder verknüpfe dein Autodarts-Konto für Spieldaten.",
         "menu_options": {
-          "local": "Lokales Board",
+          "discover": "Boards im Netzwerk suchen",
+          "local": "Board-Adresse eingeben",
           "cloud": "Cloud-Konto verknüpfen"
         }
       },
@@ -45,7 +46,8 @@
         "title": "Autodarts anpassen",
         "description": "Ändere die lokale Board-Adresse oder ergänze die Cloud-Anmeldung. Das bestehende Board und seine Entitäten bleiben erhalten.",
         "menu_options": {
-          "local": "Lokales Board",
+          "discover": "Boards im Netzwerk suchen",
+          "local": "Board-Adresse eingeben",
           "cloud": "Cloud-Konto verknüpfen"
         }
       },
@@ -56,6 +58,17 @@
           "host": "Board-IP oder Hostname",
           "port": "Port"
         }
+      },
+      "discover": {
+        "title": "Board auswählen",
+        "description": "Autodarts hat diese Boards für dein Netzwerk gefunden. Die Suche nutzt denselben Dienst wie die Board-Manager-App und sieht deine öffentliche IP-Adresse. Anschließend wird das Board lokal verbunden, ohne Autodarts-Anmeldung.",
+        "data": {
+          "board_id": "Board"
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "Autodarts-Board gefunden",
+        "description": "Autodarts-Board unter {host} hinzufügen? Board Manager {version}, {cameras} Kameras. Es funktioniert lokal, ohne Autodarts-Anmeldung."
       }
     },
     "progress": {
@@ -69,7 +82,9 @@
       "cannot_connect": "Autodarts ist nicht erreichbar. Bitte versuche es erneut.",
       "invalid_host": "Bitte nur IP-Adresse oder Hostname eingeben.",
       "cannot_connect_local": "Der lokale Board Manager ist nicht erreichbar oder liefert keine gültigen Daten.",
-      "board_not_configured": "Im Board Manager ist noch keine Board-ID hinterlegt. Bitte dort zuerst das Board einrichten."
+      "board_not_configured": "Im Board Manager ist noch keine Board-ID hinterlegt. Bitte dort zuerst das Board einrichten.",
+      "no_boards_found": "Es wurden keine neuen Boards automatisch gefunden. Gib stattdessen die Board-Adresse ein.",
+      "discovery_failed": "Die Board-Suche ist gerade nicht erreichbar. Gib stattdessen die Board-Adresse ein."
     },
     "abort": {
       "already_configured": "Dieses Autodarts-Board ist bereits eingerichtet.",
@@ -77,8 +92,11 @@
       "wrong_account": "Das verknüpfte Konto hat keinen Zugriff auf das bisherige Board. Bitte verwende das Konto, dem dieses Board gehört.",
       "reauth_successful": "Autodarts wurde erfolgreich verknüpft. Dein Board und deine Entitäten bleiben erhalten.",
       "wrong_board": "Diese Adresse gehört zu einem anderen Board.",
-      "reconfigure_successful": "Autodarts wurde aktualisiert."
-    }
+      "reconfigure_successful": "Autodarts wurde aktualisiert.",
+      "cannot_connect_local": "Das im Netzwerk gemeldete Board antwortet nicht. Prüfe, ob der Board Manager läuft.",
+      "board_not_configured": "Im Board Manager ist keine Board-ID eingerichtet. Schließe dort zuerst die Board-Einrichtung ab."
+    },
+    "flow_title": "{name}"
   },
   "entity": {
     "sensor": {
@@ -141,6 +159,12 @@
       },
       "training_started": {
         "name": "Trainingssitzung seit"
+      },
+      "cpu_usage": {
+        "name": "CPU-Auslastung"
+      },
+      "memory_usage": {
+        "name": "Speichernutzung"
       }
     },
     "button": {
@@ -230,6 +254,9 @@
       },
       "individual_camera_problem": {
         "name": "Kamera {number} Störung"
+      },
+      "cloud_link": {
+        "name": "Autodarts-Cloud-Verbindung"
       }
     },
     "camera": {
@@ -251,6 +278,11 @@
             }
           }
         }
+      }
+    },
+    "update": {
+      "board_software": {
+        "name": "Board-Software"
       }
     }
   }

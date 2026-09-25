@@ -20,9 +20,13 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .camera_health import CameraHealth
-from .const import DOMAIN
+from .const import CONF_API_GENERATION, DOMAIN
 from .errors import AutodartsApiError
-from .local_api import AutodartsEndpointMissing, AutodartsLocalClient
+from .local_api import (
+    AutodartsEndpointMissing,
+    AutodartsLocalClient,
+    board_generation,
+)
 from .training import TrainingSession
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +81,10 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._health = CameraHealth()
         self._settings: dict[str, Any] = {}
         self._version: str | None = None
+        # Board Manager 1 (classic app) or 2 (headless board); None until known.
+        self.generation: int | None = entry.data.get(CONF_API_GENERATION)
+        self.setup_generation: int | None = None
+        self._system_supported: bool | None = None
         self._metadata_updated = 0.0
         self._identity_valid = True
         self._action_lock = asyncio.Lock()
@@ -304,6 +312,76 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if (changed or recovered) and field not in ("stats", "camera_stats"):
             self.async_update_listeners()
 
+    @property
+    def board_manager_2(self) -> bool:
+        """Entities and endpoints of the headless Board Manager 2 apply."""
+        return (self.generation or 1) >= 2
+
+    @callback
+    def _set_generation(self, generation: int) -> None:
+        """Remember the board's generation; a change rebuilds its entities."""
+        self.generation = generation
+        entry = self.config_entry
+        if entry.data.get(CONF_API_GENERATION) != generation:
+            self.hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_API_GENERATION: generation}
+            )
+        if self.setup_generation is not None and (
+            (self.setup_generation >= 2) != self.board_manager_2
+        ):
+            _LOGGER.info(
+                "Board Manager %s detected; reloading to update the entities",
+                generation,
+            )
+            self.setup_generation = generation
+            self.hass.config_entries.async_schedule_reload(entry.entry_id)
+
+    async def _read_system(self) -> dict[str, Any] | None:
+        """Board Manager 2 reports everything in one read; None if unsupported."""
+        try:
+            return await self.client.get_system()
+        except AutodartsEndpointMissing:
+            return None
+        except AutodartsApiError:
+            # A failed read keeps every value, including the metadata.
+            return dict.fromkeys(
+                (
+                    "config",
+                    "version",
+                    "system",
+                    "stats",
+                    "camera_stats",
+                    "motion",
+                    "camera_state",
+                )
+            )
+
+    async def _read_legacy(self) -> dict[str, Any]:
+        stats, camera_stats, motion, camera_state = await asyncio.gather(
+            self._optional(self.client.get_stats()),
+            self._optional(self.client.get_camera_stats()),
+            self._optional(self.client.get_motion_state()),
+            self._optional(self.client.get_camera_state()),
+        )
+        reads = {
+            "stats": stats,
+            "camera_stats": camera_stats,
+            "motion": motion,
+            "camera_state": camera_state,
+            "config": None,
+            "version": None,
+        }
+        if (
+            not self._metadata_updated
+            or time.monotonic() - self._metadata_updated >= 30
+        ):
+            reads["config"], reads["version"] = await asyncio.gather(
+                self._optional(self.client.get_config()),
+                self._optional(self.client.get_version()),
+            )
+            self._metadata_updated = time.monotonic()
+        return reads
+
     async def _async_update_data(self) -> dict[str, Any]:
         revisions = dict(self._revisions)
         try:
@@ -317,42 +395,55 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not self.stream_connected:
                 self._baseline_after_gap()
             raise UpdateFailed("Local Board Manager unavailable") from err
-        stats, camera_stats, motion, camera_state = await asyncio.gather(
-            self._optional(self.client.get_stats()),
-            self._optional(self.client.get_camera_stats()),
-            self._optional(self.client.get_motion_state()),
-            self._optional(self.client.get_camera_state()),
-        )
-        if (
-            not self._metadata_updated
-            or time.monotonic() - self._metadata_updated >= 30
-        ):
-            config, version = await asyncio.gather(
-                self._optional(self.client.get_config()),
-                self._optional(self.client.get_version()),
+        if self.generation is None:
+            # An unknown board reveals its generation through its version first.
+            version = await self._optional(self.client.get_version())
+            if generation := board_generation(version):
+                self._version = version
+                self._set_generation(generation)
+        reads = await self._read_system() if self.board_manager_2 else None
+        if self.board_manager_2:
+            self._system_supported = reads is not None
+            if reads is None:
+                # Without /api/system the board runs the classic Board Manager.
+                self._set_generation(1)
+        if reads is None:
+            reads = await self._read_legacy()
+        config, version = reads["config"], reads["version"]
+        if config:
+            self._identity_valid = (
+                config.get("board_id", self.board_id) == self.board_id
             )
-            if config:
-                self._identity_valid = (
-                    config.get("board_id", self.board_id) == self.board_id
-                )
-            if not self._identity_valid:
-                raise UpdateFailed("Local address belongs to a different board")
-            if config is not None:
-                # A failed read keeps the last settings instead of hiding controls.
-                self._settings = config
-            previous_version = self._version
-            self._version = version or self._version
-            if previous_version and self._version != previous_version:
-                self._update_device_version()
-            self._metadata_updated = time.monotonic()
+        if not self._identity_valid:
+            raise UpdateFailed("Local address belongs to a different board")
+        if config is not None:
+            # A failed read keeps the last settings instead of hiding controls.
+            self._settings = config
+        previous_version = self._version
+        self._version = (version if isinstance(version, str) else None) or (
+            self._version
+        )
+        if previous_version and self._version != previous_version:
+            self._update_device_version()
+        generation = board_generation(self._version)
+        if (
+            generation
+            and generation != self.generation
+            # A version number alone never overrides a missing /api/system.
+            and not (generation >= 2 and self._system_supported is False)
+        ):
+            self._set_generation(generation)
         data = dict(self.data or {})
+        if reads.get("system") is not None:
+            data["system"] = reads["system"]
         fields = set()
+        motion = reads["motion"]
         for field, value in {
             "local": state,
-            "stats": stats,
-            "camera_stats": camera_stats,
+            "stats": reads["stats"],
+            "camera_stats": reads["camera_stats"],
             "motion": None if motion is None else self._motion(motion),
-            "camera_state": camera_state,
+            "camera_state": reads["camera_state"],
         }.items():
             if value is None and field in data:
                 continue  # A failed optional read keeps the last known value.

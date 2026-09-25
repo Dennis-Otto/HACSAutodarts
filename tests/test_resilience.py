@@ -128,7 +128,8 @@ async def test_version_1_entries_are_migrated_without_passwords(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.version == 2
-    assert dict(entry.data) == expected
+    # The first refresh also records the board generation.
+    assert dict(entry.data) == {**expected, "api_generation": 1}
     assert entry.unique_id == "board-1"
     assert entry.state == ConfigEntryState.LOADED
 

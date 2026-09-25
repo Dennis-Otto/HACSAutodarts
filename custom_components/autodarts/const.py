@@ -14,6 +14,11 @@ CONF_LOCAL_ONLY: Final = "local_only"
 CONF_BOARD_ID: Final = "board_id"
 CONF_HOST: Final = "host"
 CONF_PORT: Final = "port"
+# Major Board Manager version the entities were built for (1 classic, 2 headless).
+CONF_API_GENERATION: Final = "api_generation"
+
+# Lists boards on the same public network, as the Board Manager app does.
+DISCOVERY_URL: Final = "https://discover.autodarts.com"
 
 PLATFORMS: Final = [
     "sensor",
@@ -23,6 +28,7 @@ PLATFORMS: Final = [
     "select",
     "camera",
     "event",
+    "update",
 ]
 
 # Sensor keys — board

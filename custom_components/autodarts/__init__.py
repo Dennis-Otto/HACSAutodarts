@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
@@ -38,6 +39,15 @@ _LOGGER = logging.getLogger(__name__)
 type AutodartsConfigEntry = ConfigEntry[AutodartsRuntimeData]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+# Entities that only one Board Manager generation provides.
+V1_ONLY = (("switch", "upstream"), ("button", "connect"), ("button", "disconnect"))
+V2_ONLY = (
+    ("binary_sensor", "cloud_link"),
+    ("sensor", "cpu_usage"),
+    ("sensor", "memory_usage"),
+    ("update", "board_software"),
+)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -161,10 +171,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
         runtime.local.device_name = board.get("name") or (
             device.name if device and device.name else "Autodarts Board"
         )
+    if runtime.local:
+        runtime.local.setup_generation = runtime.local.generation or 1
+        _remove_other_generation(hass, entry, runtime.local.board_manager_2)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     if runtime.local:
         runtime.local.async_start()
     return True
+
+
+def _remove_other_generation(
+    hass: HomeAssistant, entry: ConfigEntry, board_manager_2: bool
+) -> None:
+    """Remove entities of the other Board Manager generation after a change."""
+    registry = er.async_get(hass)
+    for platform, key in V1_ONLY if board_manager_2 else V2_ONLY:
+        entity_id = registry.async_get_entity_id(
+            platform, DOMAIN, f"{entry.data[CONF_BOARD_ID]}_{key}"
+        )
+        if entity_id:
+            registry.async_remove(entity_id)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

@@ -35,9 +35,10 @@
       },
       "user": {
         "title": "Set up Autodarts",
-        "description": "Choose local board control without a cloud login, or link your Autodarts account.",
+        "description": "Search your network for Autodarts boards, enter a board address, or link your Autodarts account for match data.",
         "menu_options": {
-          "local": "Local board",
+          "discover": "Search for boards on this network",
+          "local": "Enter board address",
           "cloud": "Link cloud account"
         }
       },
@@ -45,7 +46,8 @@
         "title": "Reconfigure Autodarts",
         "description": "Change the local board address or add cloud login. Your existing board and entities are retained.",
         "menu_options": {
-          "local": "Local board",
+          "discover": "Search for boards on this network",
+          "local": "Enter board address",
           "cloud": "Link cloud account"
         }
       },
@@ -56,6 +58,17 @@
           "host": "Board IP or hostname",
           "port": "Port"
         }
+      },
+      "discover": {
+        "title": "Choose your board",
+        "description": "Autodarts listed these boards for your network. The lookup uses the same service as the Board Manager app and sees your public IP address. The board is then connected locally, without an Autodarts login.",
+        "data": {
+          "board_id": "Board"
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "Autodarts board found",
+        "description": "Add the Autodarts board at {host}? Board Manager {version}, {cameras} cameras. It works locally, without an Autodarts login."
       }
     },
     "progress": {
@@ -69,7 +82,9 @@
       "cannot_connect": "Unable to connect to Autodarts. Please try again.",
       "invalid_host": "Enter an IP address or hostname only.",
       "cannot_connect_local": "Cannot reach the local Board Manager or its response is invalid.",
-      "board_not_configured": "No board ID is configured in Board Manager. Complete board setup there first."
+      "board_not_configured": "No board ID is configured in Board Manager. Complete board setup there first.",
+      "no_boards_found": "No new boards were found automatically. Enter the board address instead.",
+      "discovery_failed": "The board search is unavailable right now. Enter the board address instead."
     },
     "abort": {
       "already_configured": "This Autodarts board is already configured.",
@@ -77,8 +92,11 @@
       "wrong_account": "The linked account does not have access to the existing board. Please link the account that owns this board.",
       "reauth_successful": "Autodarts was linked successfully. Your board and entities have been kept.",
       "wrong_board": "This address belongs to a different board.",
-      "reconfigure_successful": "Autodarts configuration updated."
-    }
+      "reconfigure_successful": "Autodarts configuration updated.",
+      "cannot_connect_local": "The board announced on your network does not answer. Check that Board Manager is running.",
+      "board_not_configured": "No board ID is configured in Board Manager. Complete board setup there first."
+    },
+    "flow_title": "{name}"
   },
   "entity": {
     "sensor": {
@@ -141,6 +159,12 @@
       },
       "training_started": {
         "name": "Training session started"
+      },
+      "cpu_usage": {
+        "name": "CPU usage"
+      },
+      "memory_usage": {
+        "name": "Memory usage"
       }
     },
     "button": {
@@ -230,6 +254,9 @@
       },
       "individual_camera_problem": {
         "name": "Camera {number} problem"
+      },
+      "cloud_link": {
+        "name": "Autodarts cloud connection"
       }
     },
     "camera": {
@@ -251,6 +278,11 @@
             }
           }
         }
+      }
+    },
+    "update": {
+      "board_software": {
+        "name": "Board software"
       }
     }
   }

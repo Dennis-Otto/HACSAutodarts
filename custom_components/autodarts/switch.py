@@ -11,10 +11,12 @@ from .local_api import CONFIG_SWITCHES
 
 async def async_setup_entry(hass, entry, async_add_entities):
     if coordinator := entry.runtime_data.local:
+        # Board Manager 2 manages its cloud link itself; it offers no toggle.
+        upstream = () if coordinator.board_manager_2 else ("upstream",)
         async_add_entities(
             [
                 AutodartsSwitch(coordinator, key)
-                for key in ("detection", "upstream", *CONFIG_SWITCHES)
+                for key in ("detection", *upstream, *CONFIG_SWITCHES)
             ]
         )
 

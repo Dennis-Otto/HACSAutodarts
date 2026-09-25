@@ -15,6 +15,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .api import (
     AutodartsAuthError,
@@ -25,6 +26,7 @@ from .api import (
     wait_for_device_token,
 )
 from .const import (
+    CONF_API_GENERATION,
     CONF_BOARD_ID,
     CONF_CLIENT_ID,
     CONF_HOST,
@@ -34,8 +36,9 @@ from .const import (
     DEFAULT_PORT,
     DOMAIN,
 )
+from .discovery import async_discover_boards
 from .errors import AutodartsApiError
-from .local_api import AutodartsLocalClient
+from .local_api import AutodartsLocalClient, board_generation
 
 
 def _valid_host(host: str) -> bool:
@@ -70,12 +73,110 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
         self._device: DeviceAuthorization | None = None
         self._auth_task: asyncio.Task[dict[str, Any]] | None = None
         self._auth_error: str | None = None
+        self._found: dict[str, dict[str, Any]] = {}
+        self._discovered: dict[str, Any] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Choose local-only setup or cloud account linking."""
-        return self.async_show_menu(step_id="user", menu_options=["local", "cloud"])
+        """Search the network, enter a board address or link a cloud account."""
+        return self.async_show_menu(
+            step_id="user", menu_options=["discover", "local", "cloud"]
+        )
+
+    async def _async_identify(self, host: str, port: int) -> dict[str, Any]:
+        client = AutodartsLocalClient(host, port, async_get_clientsession(self.hass))
+        return await client.identify()
+
+    def _local_entry(self, host: str, port: int, identity: dict[str, Any]):
+        data = {
+            CONF_BOARD_ID: identity["board_id"],
+            CONF_HOST: host,
+            CONF_PORT: port,
+            CONF_LOCAL_ONLY: True,
+        }
+        if generation := board_generation(identity.get("version")):
+            data[CONF_API_GENERATION] = generation
+        return self.async_create_entry(title=f"Autodarts ({host})", data=data)
+
+    async def async_step_discover(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Offer the boards Autodarts lists for this network."""
+        if user_input is not None:
+            board = self._found[user_input[CONF_BOARD_ID]]
+            return await self.async_step_local(
+                {CONF_HOST: board["host"], CONF_PORT: board["port"]}
+            )
+        try:
+            boards = await async_discover_boards(async_get_clientsession(self.hass))
+        except AutodartsConnectionError:
+            return await self.async_step_local(error="discovery_failed")
+        configured = {entry.unique_id for entry in self._async_current_entries()}
+        if self.source == SOURCE_RECONFIGURE:
+            # The board being reconfigured may have moved; keep offering it.
+            configured.discard(self._get_reconfigure_entry().unique_id)
+        self._found = {
+            board["board_id"]: board
+            for board in boards
+            if board["board_id"] not in configured
+        }
+        if not self._found:
+            return await self.async_step_local(error="no_boards_found")
+        return self.async_show_form(
+            step_id="discover",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_BOARD_ID): vol.In(
+                        {
+                            board_id: (
+                                f"{board['name']} · {board['host']}"
+                                + (f" · {board['version']}" if board["version"] else "")
+                            )
+                            for board_id, board in self._found.items()
+                        }
+                    )
+                }
+            ),
+        )
+
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> ConfigFlowResult:
+        """Board Manager 2 announces itself as _autodarts-board._tcp."""
+        advertised = discovery_info.properties.get("ip")
+        host = advertised if isinstance(advertised, str) and advertised else None
+        host = host or discovery_info.host
+        port = discovery_info.port or DEFAULT_PORT
+        try:
+            identity = await self._async_identify(host, port)
+        except (AutodartsApiError, ValueError):
+            return self.async_abort(reason="cannot_connect_local")
+        if not identity["board_id"]:
+            return self.async_abort(reason="board_not_configured")
+        await self.async_set_unique_id(identity["board_id"])
+        # A known board that moved to a new address is updated and reloaded.
+        self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
+        self._async_abort_entries_match({CONF_BOARD_ID: identity["board_id"]})
+        self._discovered = {"host": host, "port": port, **identity}
+        self.context["title_placeholders"] = {"name": host}
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        found = self._discovered
+        if user_input is not None:
+            return self._local_entry(found["host"], found["port"], found)
+        self._set_confirm_only()
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            description_placeholders={
+                "host": found["host"],
+                "version": found.get("version") or "?",
+                "cameras": str(found.get("camera_count") or "?"),
+            },
+        )
 
     async def async_step_cloud(
         self, user_input: dict[str, Any] | None = None
@@ -92,14 +193,14 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
             if key in entry.data
         }
         return self.async_show_menu(
-            step_id="reconfigure", menu_options=["local", "cloud"]
+            step_id="reconfigure", menu_options=["discover", "local", "cloud"]
         )
 
     async def async_step_local(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: dict[str, Any] | None = None, error: str | None = None
     ) -> ConfigFlowResult:
         """Create a local entry, or update an existing entry's local address."""
-        errors = {}
+        errors = {"base": error} if error else {}
         if user_input is not None:
             host = user_input[CONF_HOST].strip().lower()
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
@@ -107,15 +208,11 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_HOST] = "invalid_host"
             else:
                 try:
-                    client = AutodartsLocalClient(
-                        host, port, async_get_clientsession(self.hass)
-                    )
-                    await client.get_state()
-                    config = await client.get_config()
+                    identity = await self._async_identify(host, port)
                 except (AutodartsApiError, ValueError):
                     errors["base"] = "cannot_connect_local"
                 else:
-                    board_id = config.get(CONF_BOARD_ID)
+                    board_id = identity[CONF_BOARD_ID]
                     if not board_id:
                         errors["base"] = "board_not_configured"
                     elif self.source == SOURCE_RECONFIGURE:
@@ -131,15 +228,7 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
                         await self.async_set_unique_id(board_id)
                         self._abort_if_unique_id_configured()
                         self._async_abort_entries_match({CONF_BOARD_ID: board_id})
-                        return self.async_create_entry(
-                            title=f"Autodarts ({host})",
-                            data={
-                                CONF_BOARD_ID: board_id,
-                                CONF_HOST: host,
-                                CONF_PORT: port,
-                                CONF_LOCAL_ONLY: True,
-                            },
-                        )
+                        return self._local_entry(host, port, identity)
         return self.async_show_form(
             step_id="local",
             data_schema=vol.Schema(
