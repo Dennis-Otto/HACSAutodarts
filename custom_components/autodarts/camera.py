@@ -1,20 +1,27 @@
 """Optional camera snapshots. Viewing never starts/stops detection or streaming."""
 
 from homeassistant.components.camera import Camera
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import AutodartsLocalEntity
 from .errors import AutodartsApiError
+from .local_coordinator import AutodartsLocalCoordinator
+from .runtime import AutodartsConfigEntry
 
 PARALLEL_UPDATES = 0
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: AutodartsConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
     if coordinator := entry.runtime_data.local:
         known: set[int] = set()
 
         @callback
-        def discover_cameras():
+        def discover_cameras() -> None:
             count = (coordinator.data or {}).get("settings", {}).get("camera_count", 0)
             new = set(range(count)) - known
             if not new:
@@ -32,7 +39,7 @@ class AutodartsCamera(AutodartsLocalEntity, Camera):
     _attr_entity_registry_enabled_default = False
     _attr_translation_key = "board_camera"
 
-    def __init__(self, coordinator, index: int) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator, index: int) -> None:
         Camera.__init__(self)
         AutodartsLocalEntity.__init__(self, coordinator, f"camera_{index}")
         self._attr_translation_key = "board_camera"
@@ -45,7 +52,9 @@ class AutodartsCamera(AutodartsLocalEntity, Camera):
         count = (self.coordinator.data or {}).get("settings", {}).get("camera_count", 0)
         return super().available and self._index < count
 
-    async def async_camera_image(self, width=None, height=None) -> bytes | None:
+    async def async_camera_image(
+        self, width: int | None = None, height: int | None = None
+    ) -> bytes | None:
         try:
             return await self.coordinator.client.get_camera_image(self._index)
         except AutodartsApiError:

@@ -25,7 +25,7 @@ COUNTERS = (
 SCORE_BUCKETS = (("scores_100", 100, 140), ("scores_140", 140, 180))
 
 
-def segments(state: dict) -> list[dict] | None:
+def segments(state: dict[str, Any]) -> list[dict[str, Any]] | None:
     """Use semantic segment values, ignoring jittering camera coordinates."""
     count = state.get("numThrows")
     throws = state.get("throws", [])
@@ -59,7 +59,7 @@ def segments(state: dict) -> list[dict] | None:
     return result
 
 
-def hit_key(dart: dict) -> str:
+def hit_key(dart: dict[str, Any]) -> str:
     """A stable name per bed: S20, D16, T19, 25 (outer bull), BULL or MISS."""
     number, multiplier = dart["number"], dart["multiplier"]
     if number == 0 or multiplier == 0:
@@ -69,7 +69,7 @@ def hit_key(dart: dict) -> str:
     return f"{'SDT'[multiplier - 1]}{number}"
 
 
-def _visit_summary(darts: list[dict]) -> dict[str, int]:
+def _visit_summary(darts: list[dict[str, Any]]) -> dict[str, int]:
     points = sum(d["number"] * d["multiplier"] for d in darts)
     # A visit has three darts; a missed takeout can merge more, which never scores.
     regular = 0 < len(darts) <= 3
@@ -80,18 +80,18 @@ def _visit_summary(darts: list[dict]) -> dict[str, int]:
     return summary
 
 
-def _takeout(state: dict) -> bool:
+def _takeout(state: dict[str, Any]) -> bool:
     """The Board Manager reports removal in its status or last event."""
     return any(
         "takeout" in str(state.get(key, "")).lower() for key in ("status", "event")
     )
 
 
-def _key(dart: dict) -> tuple:
+def _key(dart: dict[str, Any]) -> tuple[int, int, str | None]:
     return dart["number"], dart["multiplier"], dart["name"]
 
 
-def _contains(darts: list[dict], subset: list[dict]) -> bool:
+def _contains(darts: list[dict[str, Any]], subset: list[dict[str, Any]]) -> bool:
     remaining = [_key(dart) for dart in darts]
     for dart in subset:
         if _key(dart) not in remaining:
@@ -108,13 +108,13 @@ class TrainingSession:
         self._committed = dict.fromkeys(COUNTERS, 0)
         self._highest_visit = 0
         self._hits: Counter[str] = Counter()
-        self._completed: list[tuple[str, dict]] = []
-        self._active: list[dict] = []
+        self._completed: list[tuple[str, dict[str, Any]]] = []
+        self._active: list[dict[str, Any]] = []
         self._tracked: list[bool] = []
         self._initialized = False
         self._removing = False
 
-    def restore(self, saved: dict | None) -> None:
+    def restore(self, saved: dict[str, Any] | None) -> None:
         if not isinstance(saved, dict):
             return
         self._committed = {
@@ -139,7 +139,7 @@ class TrainingSession:
             if parsed and parsed.tzinfo:
                 self.started = started
 
-    def _counted(self) -> list[dict]:
+    def _counted(self) -> list[dict[str, Any]]:
         return [
             dart
             for dart, tracked in zip(self._active, self._tracked, strict=True)
@@ -196,7 +196,7 @@ class TrainingSession:
         self._active = []
         self._tracked = []
 
-    def _withdraw(self, observed: list[dict]) -> None:
+    def _withdraw(self, observed: list[dict[str, Any]]) -> None:
         """Drop darts the board no longer reports, keeping the others' tracking."""
         remaining = list(zip(self._active, self._tracked, strict=True))
         tracked = []
@@ -205,7 +205,7 @@ class TrainingSession:
             tracked.append(remaining.pop(index)[1])
         self._active, self._tracked = list(observed), tracked
 
-    def baseline(self, state: dict, announce: bool = False) -> None:
+    def baseline(self, state: dict[str, Any], announce: bool = False) -> None:
         """Keep accumulated counts; never count darts already present on startup."""
         self._commit(announce)
         observed = segments(state)
@@ -214,7 +214,7 @@ class TrainingSession:
         self._tracked = [False] * len(self._active)
         self._removing = False
 
-    def reset(self, state: dict) -> None:
+    def reset(self, state: dict[str, Any]) -> None:
         self._committed = dict.fromkeys(COUNTERS, 0)
         self._highest_visit = 0
         self._hits = Counter()
@@ -222,13 +222,13 @@ class TrainingSession:
         self.started = dt_util.utcnow().isoformat()
         self.baseline(state)
 
-    def observe(self, state: dict) -> list[tuple[str, dict]]:
+    def observe(self, state: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         """Return dart events, preceded by a visit that ended with this state."""
         self._completed = []
         events = self._observe(state)
         return [*self._completed, *events]
 
-    def _observe(self, state: dict) -> list[tuple[str, dict]]:
+    def _observe(self, state: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         observed = segments(state)
         if observed is None:
             return []

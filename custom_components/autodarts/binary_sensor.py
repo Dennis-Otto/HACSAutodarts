@@ -5,9 +5,12 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.const import EntityCategory
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import AutodartsLocalEntity
+from .local_coordinator import AutodartsLocalCoordinator
+from .runtime import AutodartsConfigEntry
 
 PARALLEL_UPDATES = 0
 
@@ -19,7 +22,11 @@ MOTION_SENSORS = {
 }
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: AutodartsConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
     if coordinator := entry.runtime_data.local:
         async_add_entities(
             [AutodartsLocalConnectivity(coordinator)]
@@ -38,7 +45,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         known: set[int] = set()
 
         @callback
-        def discover_cameras():
+        def discover_cameras() -> None:
             count = (coordinator.data or {}).get("settings", {}).get("camera_count", 0)
             new = set(range(count)) - known
             if new:
@@ -58,7 +65,7 @@ class AutodartsLocalConnectivity(AutodartsLocalEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
         super().__init__(coordinator, "local_connected")
 
     @property
@@ -71,7 +78,12 @@ class AutodartsLocalConnectivity(AutodartsLocalEntity, BinarySensorEntity):
 
 
 class AutodartsLocalState(AutodartsLocalEntity, BinarySensorEntity):
-    def __init__(self, coordinator, key: str, index: int | None = None) -> None:
+    def __init__(
+        self,
+        coordinator: AutodartsLocalCoordinator,
+        key: str,
+        index: int | None = None,
+    ) -> None:
         super().__init__(
             coordinator, key if index is None else f"camera_{index}_problem"
         )
@@ -104,9 +116,11 @@ class AutodartsLocalState(AutodartsLocalEntity, BinarySensorEntity):
                 state.get("status", "")
             ).lower() in ("starting", "stopping", "stopped", "calibrating", "error"):
                 return False
-            return data.get("motion", {}).get(MOTION_SENSORS[self._key])
+            motion = data.get("motion", {}).get(MOTION_SENSORS[self._key])
+            return motion if isinstance(motion, bool) else None
         if self._key == "cameras_active":
-            return data.get("camera_state", {}).get("isRunning")
+            running = data.get("camera_state", {}).get("isRunning")
+            return running if isinstance(running, bool) else None
         if self._key == "calibrating":
             status = state.get("status")
             return status.lower() == "calibrating" if isinstance(status, str) else None

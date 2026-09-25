@@ -40,6 +40,7 @@
   - Board settings, camera standby and Board Manager updates.
   - Health sensors for every camera.
 - **Built to last.**
+  - Meets every rule of the [Home Assistant integration quality scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/) up to Platinum ([self-assessment](custom_components/autodarts/quality_scale.yaml)), including strict typing.
   - Reconnects automatically and flags a wrong board address in Repairs.
   - Redacts all secrets in diagnostics.
   - Translated into English and German.

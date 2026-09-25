@@ -1,14 +1,20 @@
 """Diagnostics contain local status only; never cloud tokens or board API keys."""
 
+from typing import Any
+
 from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.core import HomeAssistant
 
 from .const import CONF_LOCAL_ONLY
+from .runtime import AutodartsConfigEntry
 
 # Identifiers, addresses and credentials that must never leave a bug report.
 TO_REDACT = {"board_id", "client_id", "host", "token", "ip"}
 
 
-async def async_get_config_entry_diagnostics(hass, entry):
+async def async_get_config_entry_diagnostics(
+    hass: HomeAssistant, entry: AutodartsConfigEntry
+) -> dict[str, Any]:
     runtime = entry.runtime_data
     local = runtime.local
     return {

@@ -263,3 +263,22 @@ async def test_refresh_failure(hass, aioclient_mock, status, body, error):
     with pytest.raises(error):
         await cloud.get_board("board-1")
     assert cloud.token["refresh_token"] == "old-refresh"
+
+
+@pytest.mark.parametrize("method", ["get_board", "get_match", "get_match_state"])
+async def test_cloud_objects_must_be_objects(method):
+    result = Mock()
+    result.status = 200
+    result.json = AsyncMock(return_value=["not", "an", "object"])
+    context = AsyncMock()
+    context.__aenter__.return_value = result
+    session = Mock(spec=aiohttp.ClientSession)
+    session.get.return_value = context
+    fresh = {
+        "access_token": "access",
+        "refresh_token": "refresh",
+        "expires_at": time.time() + 900,
+    }
+    cloud = AutodartsCloudClient(session, fresh, CLIENT_ID)
+    with pytest.raises(AutodartsConnectionError):
+        await getattr(cloud, method)("id-1")

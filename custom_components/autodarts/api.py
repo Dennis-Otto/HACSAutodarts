@@ -12,7 +12,8 @@ from typing import Any
 import aiohttp
 
 from .errors import AutodartsApiError as AutodartsApiError
-from .errors import AutodartsAuthError, AutodartsConnectionError
+from .errors import AutodartsAuthError as AutodartsAuthError
+from .errors import AutodartsConnectionError as AutodartsConnectionError
 from .local_api import AutodartsLocalClient as AutodartsLocalClient
 
 DEFAULT_TIMEOUT = 10
@@ -231,14 +232,20 @@ class AutodartsCloudClient:
             raise AutodartsConnectionError("Invalid boards response")
         return boards
 
+    async def _get_object(self, path: str) -> dict[str, Any]:
+        result = await self._get(path)
+        if not isinstance(result, dict):
+            raise AutodartsConnectionError("Invalid Autodarts response")
+        return result
+
     async def get_board(self, board_id: str) -> dict[str, Any]:
         """Fetch a board's connection and match status."""
-        return await self._get(f"/bs/v0/boards/{board_id}")
+        return await self._get_object(f"/bs/v0/boards/{board_id}")
 
     async def get_match(self, match_id: str) -> dict[str, Any]:
         """Fetch match metadata."""
-        return await self._get(f"/gs/v0/matches/{match_id}")
+        return await self._get_object(f"/gs/v0/matches/{match_id}")
 
     async def get_match_state(self, match_id: str) -> dict[str, Any]:
         """Fetch live game state."""
-        return await self._get(f"/gs/v0/matches/{match_id}/state")
+        return await self._get_object(f"/gs/v0/matches/{match_id}/state")

@@ -73,12 +73,15 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 hass, _LOGGER, cooldown=1, immediate=True
             ),
         )
+        self._entry: ConfigEntry = entry
         self.client = client
         self.board_id = board_id
         self.device_name = "Autodarts Board"
         self.event_signal = f"{DOMAIN}_{entry.entry_id}_event"
         self.training = TrainingSession()
-        self._store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.training")
+        self._store: Store[dict[str, Any]] = Store(
+            hass, 1, f"{DOMAIN}.{entry.entry_id}.training"
+        )
         self._training_dirty = False
         self._health = CameraHealth()
         self._settings: dict[str, Any] = {}
@@ -90,11 +93,11 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._metadata_updated = 0.0
         self._identity_valid = True
         self._action_lock = asyncio.Lock()
-        self._stream_task: asyncio.Task | None = None
+        self._stream_task: asyncio.Task[None] | None = None
         self.stream_connected = False
         self._revisions: dict[str, int] = {}
-        self._observed_state: dict | None = None
-        self._observed_motion: dict | None = None
+        self._observed_state: dict[str, Any] | None = None
+        self._observed_motion: dict[str, Any] | None = None
         self._taking_out = False
 
     async def _async_setup(self) -> None:
@@ -110,7 +113,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @callback
     def async_start(self) -> None:
         if self._stream_task is None:
-            self._stream_task = self.config_entry.async_create_background_task(
+            self._stream_task = self._entry.async_create_background_task(
                 self.hass, self._listen(), f"{DOMAIN} local events"
             )
 
@@ -162,7 +165,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await asyncio.sleep(delay)
             delay = min(delay * 2, 60)
 
-    async def _optional(self, operation: Coroutine) -> Any:
+    async def _optional(self, operation: Coroutine[Any, Any, Any]) -> Any:
         """Unsupported endpoints read as empty; a failed read returns None."""
         try:
             return await operation
@@ -179,14 +182,14 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._taking_out = False
 
     @staticmethod
-    def _motion(payload: dict) -> dict:
+    def _motion(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             key: payload[key]
             for key in MOTION_FLAGS
             if isinstance(payload.get(key), bool)
         }
 
-    def _emit(self, kind: str, attributes: dict, source: str) -> None:
+    def _emit(self, kind: str, attributes: dict[str, Any], source: str) -> None:
         # Publish the corresponding sensor states before event consumers run.
         self.hass.loop.call_soon(
             async_dispatcher_send,
@@ -206,7 +209,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._taking_out = False
             self._emit("takeout_finished", {}, source)
 
-    def _process(self, data: dict, fields: set[str], source: str) -> None:
+    def _process(self, data: dict[str, Any], fields: set[str], source: str) -> None:
         previous_training = self.training.snapshot()
         state = data.get("local", {})
         if "local" in fields:
@@ -259,7 +262,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data["camera_problems"] = self._health.update(data, time.monotonic())
 
     @callback
-    def async_receive(self, kind: str, payload: dict) -> None:
+    def async_receive(self, kind: str, payload: dict[str, Any]) -> None:
         """Merge a push message; high-rate FPS telemetry is published by the poll."""
         if (
             not isinstance(payload, dict)
@@ -317,7 +320,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @callback
     def _report_identity(self) -> None:
         """A repair issue explains why a board at the wrong address stays offline."""
-        issue = f"wrong_board_{self.config_entry.entry_id}"
+        issue = f"wrong_board_{self._entry.entry_id}"
         if self._identity_valid:
             ir.async_delete_issue(self.hass, DOMAIN, issue)
             return
@@ -334,7 +337,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @callback
     def _report_generation(self) -> None:
         """Autodarts retires the classic Board Manager; point to the new one."""
-        issue = f"board_manager_1_{self.config_entry.entry_id}"
+        issue = f"board_manager_1_{self._entry.entry_id}"
         if self.generation != 1:
             ir.async_delete_issue(self.hass, DOMAIN, issue)
             return
@@ -358,7 +361,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Remember the board's generation; a change rebuilds its entities."""
         self.generation = generation
         self._report_generation()
-        entry = self.config_entry
+        entry = self._entry
         if entry.data.get(CONF_API_GENERATION) != generation:
             self.hass.config_entries.async_update_entry(
                 entry, data={**entry.data, CONF_API_GENERATION: generation}
@@ -500,7 +503,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Show a Board Manager update on the device page without a reload."""
         registry = dr.async_get(self.hass)
         device = registry.async_get_device_by_identifier(
-            (DOMAIN, self.board_id), self.config_entry.entry_id
+            (DOMAIN, self.board_id), self._entry.entry_id
         )
         if device and device.sw_version != self._version:
             registry.async_update_device(device.id, sw_version=self._version)

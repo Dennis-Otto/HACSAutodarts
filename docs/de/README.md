@@ -32,6 +32,7 @@
   - Board-Einstellungen, Kamera-Standby und Updates.
   - Zustandssensoren für jede Kamera.
 - **Robust.**
+  - Erfüllt alle Regeln der [Qualitätsskala für Home-Assistant-Integrationen](https://developers.home-assistant.io/docs/core/integration-quality-scale/) bis Platin ([Selbsteinschätzung](../../custom_components/autodarts/quality_scale.yaml)), einschließlich strikter Typisierung.
   - Stellt Verbindungen selbst wieder her und meldet eine falsche Board-Adresse unter Reparaturen.
   - Diagnosedaten ohne Geheimnisse.
   - Auf Deutsch und Englisch.

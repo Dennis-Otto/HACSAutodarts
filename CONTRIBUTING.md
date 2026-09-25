@@ -9,7 +9,7 @@ All changes, including release version commits, reach the protected `main` branc
 ## Requirements for changes
 
 - New functionality and bug fixes must include automated tests. Use pytest for integration behavior and extend the Docker end-to-end test in `tests/e2e/` when a user-visible Home Assistant flow changes.
-- Code must pass Ruff (lint and format) with the rules configured in `pyproject.toml`, keep the total test coverage at 95 % or more, and remain compatible with the Home Assistant version used by the tests.
+- Code must pass Ruff (lint and format) and strict mypy with the rules configured in `pyproject.toml`, keep the total test coverage at 95 % or more, and remain compatible with the Home Assistant version used by the tests.
 - Dashboard card changes need Node tests in `tests/frontend/` and, for visible changes, the browser test in `tests/e2e/browser.py`.
 - User-facing text belongs in `strings.json` and the English and German translations.
 - Update the README and `docs/` when behavior, setup, or supported versions change. The documentation is English, with a German translation in `docs/de/`; update both. Regenerate screenshots with `bash tests/e2e/screenshots.sh` when a visible card or dialog changes.
@@ -23,6 +23,7 @@ python3.14 -m venv .venv
 .venv/bin/pytest --cov
 .venv/bin/ruff check custom_components tests .github/scripts
 .venv/bin/ruff format --check custom_components tests .github/scripts
+.venv/bin/mypy
 npm ci
 npm test
 BOARD_MANAGER=2 bash tests/e2e/run.sh

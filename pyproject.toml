@@ -19,3 +19,13 @@ target-version = "py313"
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+files = ["custom_components/autodarts"]
+
+# Home Assistant re-exports helpers such as StaticPathConfig without __all__.
+[[tool.mypy.overrides]]
+module = ["homeassistant.*"]
+implicit_reexport = true

@@ -1,6 +1,7 @@
 """Detect sustained zero camera FPS without alarming on normal stops/standby."""
 
 import math
+from typing import Any
 
 CAMERA_FAILURE_SECONDS = 15
 
@@ -9,7 +10,7 @@ class CameraHealth:
     def __init__(self) -> None:
         self._zero_since: dict[int, float] = {}
 
-    def update(self, data: dict, now: float) -> list[bool | None]:
+    def update(self, data: dict[str, Any], now: float) -> list[bool | None]:
         count = data.get("settings", {}).get("camera_count", 0)
         state = data.get("local", {})
         camera_state = data.get("camera_state", {})
@@ -24,7 +25,7 @@ class CameraHealth:
             "calibrating",
             "error",
         )
-        result = []
+        result: list[bool | None] = []
         for index in range(count):
             value = fps[index] if isinstance(fps, list) and index < len(fps) else None
             if not expected:
@@ -36,7 +37,10 @@ class CameraHealth:
                     else None
                 )
             elif (
-                type(value) not in (float, int) or not math.isfinite(value) or value < 0
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
             ):
                 self._zero_since.pop(index, None)
                 result.append(None)
