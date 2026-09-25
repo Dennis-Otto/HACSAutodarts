@@ -20,9 +20,20 @@ CLIENT_ID = f"{HA}/"
 PASSWORD = "e2e-only-password"
 LOG = Path("/config/home-assistant.log")
 
-T20 = {"segment": {"name": "T20", "number": 20, "multiplier": 3}}
-S20 = {"segment": {"name": "S20", "number": 20, "multiplier": 1}}
-BULL = {"segment": {"name": "Bull", "number": 25, "multiplier": 2}}
+# Darts as Board Manager 2.0 reports them, with the bed and normalized position.
+T20 = {
+    "segment": {"name": "T20", "number": 20, "multiplier": 3, "bed": "Triple"},
+    "coords": {"x": 0.0123, "y": 0.5981},
+}
+S20 = {
+    "segment": {"name": "S20", "number": 20, "multiplier": 1, "bed": "SingleOuter"},
+    "coords": {"x": -0.021, "y": 0.781},
+}
+BULL = {
+    "segment": {"name": "Bull", "number": 25, "multiplier": 2, "bed": "Double"},
+    "coords": {"x": 0.004, "y": -0.011},
+}
+MANIFEST = Path("/config/custom_components/autodarts/manifest.json")
 
 # Unique ID suffix -> platform of the entities a three-camera board must create.
 ENTITIES = {
@@ -138,6 +149,17 @@ class Scenario:
                 )
 
         await wait_for(running, "Home Assistant to finish starting", timeout=120)
+        # Complete onboarding like a user, so the regular dashboards are served.
+        await self.api("POST", "/api/onboarding/core_config")
+        await self.api("POST", "/api/onboarding/analytics")
+        await self.api(
+            "POST",
+            "/api/onboarding/integration",
+            json={
+                "client_id": CLIENT_ID,
+                "redirect_uri": f"{CLIENT_ID}?auth_callback=1",
+            },
+        )
 
     async def connect(self) -> None:
         self.socket = await self.session.ws_connect(f"{HA}/api/websocket")
@@ -363,6 +385,31 @@ class Scenario:
         await self.expect_states(
             {"last_throw": "Bull", "local_visit_score": "110", "num_throws": "2"}
         )
+        throws = (await self.state("local_visit_score"))["attributes"]["throws"]
+        check(
+            throws
+            == [
+                {
+                    "segment": "T20",
+                    "number": 20,
+                    "multiplier": 3,
+                    "score": 60,
+                    "bed": "Triple",
+                    "x": 0.012,
+                    "y": 0.598,
+                },
+                {
+                    "segment": "Bull",
+                    "number": 25,
+                    "multiplier": 2,
+                    "score": 50,
+                    "bed": "Double",
+                    "x": 0.004,
+                    "y": -0.011,
+                },
+            ],
+            f"Unexpected dart details for the dashboard card: {throws}",
+        )
         await self.board(
             "POST",
             "/control/state",
@@ -425,6 +472,22 @@ class Scenario:
 
         await wait_for(persisted, "the persisted training session", timeout=20)
 
+    async def card(self) -> None:
+        """The bundled dashboard card is served and loaded without a resource."""
+        version = json.loads(MANIFEST.read_text())["version"]
+        url = f"/autodarts/autodarts-card.js?v={version}"
+        async with self.session.get(f"{HA}{url}") as response:
+            source = await response.text()
+            check(response.status == 200, f"Card not served: HTTP {response.status}")
+            check(
+                "javascript" in response.headers.get("Content-Type", ""),
+                f"Card served as {response.headers.get('Content-Type')}",
+            )
+        check('const CARD_TYPE = "autodarts-card";' in source, "Card element missing")
+        async with self.session.get(f"{HA}/") as response:
+            page = await response.text()
+        check(url in page, "Dashboards do not load the Autodarts card")
+
     async def diagnostics(self, entry_id: str) -> None:
         report = await self.api("GET", f"/api/diagnostics/config_entry/{entry_id}")
         data = report["data"]
@@ -485,14 +548,15 @@ async def main() -> None:
         await scenario.initial_state()
         await scenario.controls()
         await scenario.realtime(entry_id)
+        await scenario.card()
         await scenario.diagnostics(entry_id)
         await scenario.logs()
         await scenario.remove(entry_id)
         await scenario.socket.close()
     print(
         "Docker E2E passed: onboarding, local config flow and validation, registries, "
-        "controls, realtime darts/corrections/takeouts, persistence, private "
-        "diagnostics, clean logs and removal."
+        "controls, realtime darts/corrections/takeouts with positions, persistence, "
+        "dashboard card, private diagnostics, clean logs and removal."
     )
 
 

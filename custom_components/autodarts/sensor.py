@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -99,15 +100,47 @@ def _get_round(data: dict[str, Any]) -> int | None:
     return match.get("round")
 
 
+BEDS = frozenset(
+    {"Single", "SingleInner", "SingleOuter", "Double", "Triple", "Outside"}
+)
+SEGMENT_KEYS = ("segment", "number", "multiplier", "bed")
+
+
+def _dart(dart: Any) -> dict[str, Any] | None:
+    """A dart's scoring segment and normalized board position for dashboards."""
+    segment = dart.get("segment") if isinstance(dart, dict) else None
+    if not isinstance(segment, dict):
+        return None
+    number, multiplier = segment.get("number"), segment.get("multiplier")
+    if type(number) is not int or type(multiplier) is not int:
+        return None
+    result = {
+        "segment": segment["name"] if isinstance(segment.get("name"), str) else None,
+        "number": number,
+        "multiplier": multiplier,
+        "score": number * multiplier,
+        "bed": segment["bed"] if segment.get("bed") in BEDS else None,
+    }
+    coords = dart.get("coords")
+    if isinstance(coords, dict) and all(
+        type(coords.get(axis)) in (int, float) and math.isfinite(coords[axis])
+        for axis in ("x", "y")
+    ):
+        # 1.0 is the outer edge of the double ring; y points to the 20.
+        result["x"], result["y"] = round(coords["x"], 3), round(coords["y"], 3)
+    return result
+
+
+def _darts(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Valid darts of the current visit; malformed board data is ignored."""
+    throws = _local(data).get("throws")
+    return list(filter(None, map(_dart, throws if isinstance(throws, list) else [])))
+
+
 def _get_last_throw(data: dict[str, Any]) -> str | None:
     """Last detected throw segment name (e.g. T20, D16, S5, M2)."""
-    local = _local(data)
-    throws = local.get("throws") or []
-    if throws:
-        last = throws[-1]
-        segment = last.get("segment") or {}
-        return segment.get("name")
-    return None
+    darts = _darts(data)
+    return darts[-1]["segment"] if darts else None
 
 
 def _get_num_throws(data: dict[str, Any]) -> int | None:
@@ -238,7 +271,11 @@ async def async_setup_entry(
             if description.key in local_keys
         )
         entities.extend(
-            AutodartsLocalSensor(runtime.local, description)
+            (
+                AutodartsVisitSensor
+                if description.key == "local_visit_score"
+                else AutodartsLocalSensor
+            )(runtime.local, description)
             for description in LOCAL_SENSORS
         )
     async_add_entities(entities)
@@ -302,22 +339,12 @@ class AutodartsSensor(AutodartsEntity, SensorEntity):
 
 
 def _last_throw_score(data: dict[str, Any]) -> int | None:
-    throws = _local(data).get("throws") or []
-    if not throws:
-        return None
-    segment = throws[-1].get("segment") or {}
-    return segment.get("number", 0) * segment.get("multiplier", 0)
+    darts = _darts(data)
+    return darts[-1]["score"] if darts else None
 
 
-def _local_visit_score(data: dict[str, Any]) -> int | None:
-    throws = _local(data).get("throws") or []
-    if not throws:
-        return 0
-    return sum(
-        (throw.get("segment") or {}).get("number", 0)
-        * (throw.get("segment") or {}).get("multiplier", 0)
-        for throw in throws
-    )
+def _local_visit_score(data: dict[str, Any]) -> int:
+    return sum(dart["score"] for dart in _darts(data))
 
 
 def _camera_fps(data: dict[str, Any], index: int) -> float | None:
@@ -369,6 +396,43 @@ class AutodartsLocalSensor(AutodartsLocalEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         return self.entity_description.value_fn(self.coordinator.data or {})
+
+
+class AutodartsVisitSensor(AutodartsLocalSensor):
+    """The detected visit, with each dart's segment and position for cards."""
+
+    # Live positions are for display only and must not grow the recorder database.
+    _unrecorded_attributes = frozenset({"throws"})
+
+    def __init__(
+        self, coordinator, description: AutodartsSensorEntityDescription
+    ) -> None:
+        super().__init__(coordinator, description)
+        self._throws: list[dict[str, Any]] = []
+        self._update_throws()
+
+    def _update_throws(self) -> None:
+        throws = []
+        for dart in _darts(self.coordinator.data or {}):
+            previous = (
+                self._throws[len(throws)] if len(throws) < len(self._throws) else {}
+            )
+            if all(previous.get(key) == dart[key] for key in SEGMENT_KEYS):
+                # Camera jitter moves an unchanged dart slightly; keep it steady.
+                dart |= {
+                    axis: previous[axis] for axis in ("x", "y") if axis in previous
+                }
+            throws.append(dart)
+        self._throws = throws
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._update_throws()
+        super()._handle_coordinator_update()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"throws": self._throws}
 
 
 class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):

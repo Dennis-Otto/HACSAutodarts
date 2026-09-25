@@ -13,6 +13,8 @@ homeassistant:
 api:
 config:
 diagnostics:
+# Serves dashboards, so the bundled Autodarts card can be verified.
+frontend:
 onboarding:
 system_log:
 websocket_api:

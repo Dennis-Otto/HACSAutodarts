@@ -1,6 +1,10 @@
 {
   "domain": "autodarts",
   "name": "Autodarts",
+  "after_dependencies": [
+    "frontend",
+    "http"
+  ],
   "codeowners": [
     "@Dennis-Otto",
     "@Trkal"

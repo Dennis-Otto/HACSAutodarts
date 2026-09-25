@@ -1,0 +1,33 @@
+# Disposable demo instance for previews and documentation screenshots.
+# Its port is bound to 127.0.0.1, so the password-less login only serves this machine;
+# Docker forwards those requests from the private Compose network's gateway.
+homeassistant:
+  name: Home
+  time_zone: Europe/Berlin
+  country: DE
+  language: !env_var DEMO_LANGUAGE en
+  unit_system: metric
+  currency: EUR
+  latitude: 0
+  longitude: 0
+  elevation: 0
+  auth_providers:
+    - type: trusted_networks
+      trusted_networks:
+        - 127.0.0.1
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+      allow_bypass_login: true
+    - type: homeassistant
+
+api:
+config:
+diagnostics:
+frontend:
+onboarding:
+system_log:
+websocket_api:
+
+logger:
+  default: warning
