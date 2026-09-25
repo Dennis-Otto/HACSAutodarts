@@ -38,4 +38,5 @@ for language in ${LANGUAGES:-en de}; do
 done
 
 # Shrink the screenshots to about a fifth without visible loss.
-"${DOCKER_BIN}" run --rm --volume "${ROOT_MOUNT}:/repo" "${ALPINE_IMAGE}" 	sh -c "apk add --no-cache pngquant >/dev/null && pngquant --force --skip-if-larger --strip --quality=80-95 --ext .png /repo/docs/images/*/*.png"
+"${DOCKER_BIN}" run --rm --volume "${ROOT_MOUNT}:/repo" "${ALPINE_IMAGE}" \
+	sh -c "apk add --no-cache pngquant >/dev/null && pngquant --force --skip-if-larger --strip --quality=80-95 --ext .png /repo/docs/images/*/*.png"
