@@ -45,6 +45,27 @@ CARD_STATE = f"""
 """
 
 
+# Records page errors with their text; Playwright reports some only as "Object".
+CAPTURE_ERRORS = r"""
+window.__pageErrors = [];
+window.addEventListener("error", (event) => {
+  window.__pageErrors.push(`${event.message} (${event.filename || "page"})`);
+});
+window.addEventListener("unhandledrejection", (event) => {
+  let reason = event.reason;
+  try {
+    reason = JSON.stringify(reason, Object.getOwnPropertyNames(reason ?? {}));
+  } catch (error) {
+    reason = String(reason);
+  }
+  window.__pageErrors.push(`unhandled rejection: ${reason}`);
+});
+"""
+# A browser notice, not an error: the sections view re-measures itself after the
+# card's text wraps differently at the final column width (a few pixels).
+BENIGN = ("ResizeObserver loop completed with undelivered notifications",)
+
+
 class BrowserFailure(AssertionError):
     pass
 
@@ -64,7 +85,7 @@ def open_board(browser: Browser, scheme: str = "dark") -> tuple[Page, list[str]]
         locale="en-US", viewport={"width": 1280, "height": 820}, color_scheme=scheme
     )
     problems: list[str] = []
-    page.on("pageerror", lambda error: problems.append(f"page error: {error}"))
+    page.add_init_script(CAPTURE_ERRORS)
     page.on(
         "console",
         lambda message: (
@@ -78,12 +99,21 @@ def open_board(browser: Browser, scheme: str = "dark") -> tuple[Page, list[str]]
     return page, problems
 
 
+def page_errors(page: Page, problems: list[str]) -> list[str]:
+    """Console errors from the card plus every page error except known notices."""
+    recorded = page.evaluate("window.__pageErrors || []")
+    return problems + [
+        error for error in recorded if not any(text in error for text in BENIGN)
+    ]
+
+
 def fresh_loads(browser: Browser) -> None:
     # Home Assistant boots in parallel with the card module; every load must register it.
     for attempt in range(LOADS):
         page, problems = open_board(browser)
         check(page.evaluate(RENDERED) == 1, f"Load {attempt + 1}: card not rendered")
-        check(not problems, f"Load {attempt + 1}: {problems}")
+        errors = page_errors(page, problems)
+        check(not errors, f"Load {attempt + 1}: {errors}")
         page.close()
 
 
@@ -134,7 +164,8 @@ def visit(browser: Browser) -> None:
         [(c["method"], c["path"]) for c in new] == [("POST", "/api/reset")],
         f"Reset sent {new}",
     )
-    check(not problems, f"Console problems: {problems}")
+    errors = page_errors(page, problems)
+    check(not errors, f"Console problems: {errors}")
     page.close()
 
 
@@ -151,14 +182,16 @@ def editor(browser: Browser) -> None:
     fields = form.evaluate("(element) => element.schema.length")
     check(fields == 5, f"Editor schema has {fields} rows")
     page.keyboard.press("Escape")
-    check(not problems, f"Console problems: {problems}")
+    errors = page_errors(page, problems)
+    check(not errors, f"Console problems: {errors}")
     page.close()
 
 
 def light_theme(browser: Browser) -> None:
     page, problems = open_board(browser, "light")
     check(page.evaluate(RENDERED) == 1, "Card not rendered in the light theme")
-    check(not problems, f"Console problems: {problems}")
+    errors = page_errors(page, problems)
+    check(not errors, f"Console problems: {errors}")
     page.close()
 
 
