@@ -6,9 +6,13 @@ automatically generated list of merged pull requests and a full changelog link.
 
 ## Automatic dependency releases
 
-Merged Dependabot updates automatically produce a maintenance release. Patch and
-minor dependency PRs merge after their required checks; major dependency PRs still
-need a maintainer to merge them. Once merged, both follow the same release process:
+Merged Dependabot updates produce a maintenance release **only when they change
+what users install**: the integration in `custom_components/` or `hacs.json`.
+Updates of test dependencies, GitHub Actions, the end-to-end containers and the
+browser tools never produce a release on their own; they reach users with the next
+regular release. Patch and minor dependency PRs merge after their required checks;
+major dependency PRs still need a maintainer to merge them. Once merged, a
+qualifying update follows this release process:
 
 1. **Release dependency updates** finds merged Dependabot PRs that are not included
    in the latest published release.
@@ -16,11 +20,12 @@ need a maintainer to merge them. Once merged, both follow the same release proce
    (for example, `0.4.2` → `0.4.3`). A library's major version change does not by
    itself imply a major integration version change.
 3. The existing tests, Ruff, HACS, hassfest, workflow linting, CodeQL, dependency
-   review and secret scan run against the release candidate. GitHub's normal
+   review, secret scan and the Docker end-to-end test of both Board Manager
+   generations run against the release candidate. GitHub's normal
    branch protection remains in force; no required checks or approvals are bypassed.
 4. After merging the checked version PR, the existing **Release integration**
    workflow validates the release and waits for every main-branch commit check
-   (tests, HACS, hassfest, workflow lint, CodeQL and secret scan) to succeed on the
+   (tests, HACS, hassfest, workflow lint, CodeQL, secret scan and end-to-end) to succeed on the
    exact commit being published. Missing, failed, cancelled or skipped checks
    prevent publication. It then publishes the generated changelog.
 
@@ -41,8 +46,6 @@ publication job in **Release integration** records a deployment, linked to its
 release page. Creating a draft does not create a deployment record. Workflow runs
 remain visible in Actions, including checks that do not produce a release.
 
-Test dependencies and GitHub Actions updates also produce releases. Their release
-introduction explains that those dependency changes do not add integration features.
 Version-only release PRs carry the `release` label and are omitted from the changelog.
 
 Automatic releases inherit the latest published release's channel: while that is
@@ -61,7 +64,7 @@ default-branch orchestration code receives the App token. Candidate code runs in
 the normal CI workflows, and all branch protection rules remain in force.
 
 GitHub may register PR workflows several minutes after the PR is created. The
-release workflow allows up to thirty minutes for all five PR workflows to appear,
+release workflow allows up to thirty minutes for all six PR workflows to appear,
 then waits for their checks to finish. Partial registration or successful checks
 from another event, PR or commit never permit a merge. If a workflow stays missing,
 the run fails without publishing; a later run reuses the existing version PR.
@@ -128,12 +131,12 @@ The configuration in `.github/release.yml` groups merged pull requests by label:
 
 | Label | Release-note section |
 | --- | --- |
-| `breaking-change` | Wichtige Änderungen und Migration |
-| `enhancement` | Neue Funktionen |
-| `bug` | Fehlerbehebungen |
-| `dependencies`, `maintenance` | Abhängigkeiten und Wartung |
-| `documentation` | Dokumentation |
-| Other or no label | Weitere Änderungen |
+| `breaking-change` | Breaking changes and migration |
+| `enhancement` | New features |
+| `bug` | Bug fixes |
+| `documentation` | Documentation |
+| `dependencies`, `maintenance` | Dependencies and maintenance |
+| Other or no label | Other changes |
 
 Dependabot changes are included in the maintenance section. GitHub generates
 these notes from merged pull requests; it does not explain individual code changes
@@ -142,3 +145,27 @@ or translate pull request titles. Include migration instructions in your own tex
 The optional introduction in the manual workflow remains available for release
 highlights or migration instructions. Automatic dependency releases use a short
 maintenance introduction followed by the same generated changelog.
+
+## Signed release packages
+
+Every release produced by **Release integration** carries two assets:
+
+| Asset | Contents |
+| --- | --- |
+| `autodarts.zip` | The folder `custom_components/autodarts` of the released commit, built reproducibly with `git archive` |
+| `autodarts.zip.sigstore.json` | A Sigstore bundle with the signed SLSA build provenance of the archive |
+
+The provenance proves that GitHub Actions built the archive from this repository
+and commit. HACS keeps installing from the tagged source; the archive is for manual
+installations and for verification:
+
+```sh
+gh attestation verify autodarts.zip --repo Dennis-Otto/HACSAutodarts
+```
+
+Offline verification with the downloaded bundle:
+
+```sh
+gh attestation verify autodarts.zip --repo Dennis-Otto/HACSAutodarts \
+  --bundle autodarts.zip.sigstore.json
+```

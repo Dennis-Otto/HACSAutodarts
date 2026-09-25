@@ -8,9 +8,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 PROJECT_NAME="${E2E_PROJECT_NAME:-autodarts_demo}"
+# Keep the image version equal to playwright in requirements-browser.in.
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.63.0-noble@sha256:72bd171a9ffc2b4b59532aaa6210e21014d07093120dc25528870c0b840da1f0"
-PILLOW_VERSION="12.3.0"
-PLAYWRIGHT_VERSION="1.63.0"
 ALPINE_IMAGE="alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8"
 
 export E2E_PROJECT_NAME="${PROJECT_NAME}"
@@ -34,7 +33,7 @@ for language in ${LANGUAGES:-en de}; do
 		--volume "${ROOT_MOUNT}:/repo" \
 		--workdir /repo/tests/e2e \
 		"${PLAYWRIGHT_IMAGE}" \
-		sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore 'playwright==${PLAYWRIGHT_VERSION}' 'pillow==${PILLOW_VERSION}' && python screenshots.py"
+		sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore --break-system-packages --require-hashes -r requirements-browser.txt && python screenshots.py"
 done
 
 # Shrink the screenshots to about a fifth without visible loss.

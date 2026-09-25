@@ -24,6 +24,45 @@ updates:
       prefix: chore
       include: scope
 
+  # Tools of the browser test and screenshots in the Playwright image.
+  - package-ecosystem: pip
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:10"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 3
+    ignore:
+      # Playwright must match the browsers of the pinned Playwright image.
+      - dependency-name: playwright
+    groups:
+      browser-tools:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:15"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 3
+    groups:
+      npm-routine:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

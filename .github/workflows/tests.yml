@@ -19,7 +19,8 @@ jobs:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: requirements-test.txt
-      - run: pip install -r requirements-test.txt
+      - name: Install hash-pinned test dependencies
+        run: pip install --require-hashes -r requirements-test.txt
       - name: Run tests with a coverage gate
         run: pytest -q --timeout=30 --cov --cov-report=term-missing
       - run: ruff check custom_components tests .github/scripts
@@ -27,7 +28,10 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
-      - name: Check and test the dashboard card
+          cache: npm
+      - name: Install locked test tools
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check and test the dashboard cards, including property-based fuzzing
         run: |
           node --check custom_components/autodarts/frontend/autodarts-card.js
-          node --test "tests/frontend/*.test.mjs"
+          npm test
