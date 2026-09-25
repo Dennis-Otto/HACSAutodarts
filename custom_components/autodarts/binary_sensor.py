@@ -29,6 +29,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
                     "calibrating",
                     "realtime_connected",
                     "camera_problem",
+                    *(("cloud_link",) if coordinator.board_manager_2 else ()),
                 )
             ]
         )
@@ -76,7 +77,7 @@ class AutodartsLocalState(AutodartsLocalEntity, BinarySensorEntity):
         if key == "camera_problem":
             self._attr_device_class = BinarySensorDeviceClass.PROBLEM
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        elif key == "realtime_connected":
+        elif key in ("realtime_connected", "cloud_link"):
             self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
         if index is not None:
@@ -106,6 +107,9 @@ class AutodartsLocalState(AutodartsLocalEntity, BinarySensorEntity):
             return status.lower() == "calibrating" if isinstance(status, str) else None
         if self._key == "realtime_connected":
             return self.coordinator.stream_connected
+        if self._key == "cloud_link":
+            link = (data.get("system") or {}).get("cloud_link")
+            return link == "connected" if isinstance(link, str) else None
         problems = data.get("camera_problems", [])
         if self._index is not None:
             return problems[self._index] if self._index < len(problems) else None

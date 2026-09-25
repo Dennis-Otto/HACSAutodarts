@@ -15,4 +15,5 @@ async def async_get_config_entry_diagnostics(hass, entry):
         "cloud_configured": not entry.data.get(CONF_LOCAL_ONLY, False),
         "cloud_available": bool(runtime.cloud and runtime.cloud.last_update_success),
         "realtime_connected": bool(runtime.local and runtime.local.stream_connected),
+        "board_manager_generation": runtime.local.generation if runtime.local else None,
     }

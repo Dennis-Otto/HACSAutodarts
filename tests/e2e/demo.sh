@@ -12,6 +12,8 @@ COMPOSE=("${DOCKER_BIN}" compose --project-name "${PROJECT_NAME}" --file compose
 
 export E2E_PORT
 export DEMO_LANGUAGE="${DEMO_LANGUAGE:-en}"
+# The demo shows the current headless Board Manager 2 unless told otherwise.
+export BOARD_MANAGER="${BOARD_MANAGER:-2}"
 # Keep container paths such as /e2e unchanged when running from Git Bash on Windows.
 export MSYS_NO_PATHCONV=1
 

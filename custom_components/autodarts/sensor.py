@@ -14,7 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfInformation
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -277,6 +277,11 @@ async def async_setup_entry(
             for description in STATIC_SENSORS
             if description.key in local_keys
         )
+        if runtime.local.board_manager_2:
+            entities.extend(
+                AutodartsLocalSensor(runtime.local, description)
+                for description in SYSTEM_SENSORS
+            )
         entities.extend(
             (
                 AutodartsVisitSensor
@@ -388,6 +393,38 @@ LOCAL_SENSORS = (
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda data: _number(data.get("stats", {}).get("fps")),
+    ),
+)
+
+
+def _system(data: dict[str, Any], key: str) -> int | float | None:
+    return _number((data.get("system") or {}).get(key))
+
+
+# Host load reported by Board Manager 2.
+SYSTEM_SENSORS = (
+    AutodartsSensorEntityDescription(
+        key="cpu_usage",
+        translation_key="cpu_usage",
+        icon="mdi:cpu-64-bit",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: _system(data, "cpu_percent"),
+    ),
+    AutodartsSensorEntityDescription(
+        key="memory_usage",
+        translation_key="memory_usage",
+        icon="mdi:memory",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_unit_of_measurement=UnitOfInformation.MEBIBYTES,
+        suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: _system(data, "memory_bytes"),
     ),
 )
 

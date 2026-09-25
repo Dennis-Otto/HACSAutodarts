@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 
 import aiohttp
-from board_mock import PORT
+from board_mock import GENERATION, PORT
 from scenario import Scenario
 
 DASHBOARD = "autodarts-demo"
@@ -92,7 +92,10 @@ async def main() -> None:
         demo = Scenario(session)
         await demo.onboard()
         await demo.connect()
-        result = await demo.local_flow("board-mock", PORT)
+        if GENERATION >= 2:
+            result = await demo.discovered_setup()
+        else:
+            result = await demo.local_flow("board-mock", PORT)
         entry_id = result["result"]["entry_id"]
         await demo.registries(entry_id)
         await demo.service("button", "press", "start")

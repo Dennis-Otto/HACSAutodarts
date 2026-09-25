@@ -34,6 +34,41 @@ class AutodartsEndpointMissing(AutodartsLocalCommandError):
     """This firmware does not implement the requested route."""
 
 
+def board_generation(version: object) -> int | None:
+    """Major Board Manager version: 1 for the classic app, 2 for the headless board."""
+    if not isinstance(version, str):
+        return None
+    major = version.strip().lstrip("v").split(".", 1)[0]
+    return int(major) if major.isdigit() and int(major) > 0 else None
+
+
+def _config_summary(raw: Any) -> dict[str, Any]:
+    """Only identity and supported controls; never auth, TLS or camera secrets."""
+    if not isinstance(raw, dict):
+        raise AutodartsConnectionError("Invalid Board Manager configuration")
+    auth, cam, motion = (raw.get(key) or {} for key in ("auth", "cam", "motion"))
+    if not all(isinstance(section, dict) for section in (auth, cam, motion)):
+        raise AutodartsConnectionError("Invalid Board Manager configuration")
+    result = {
+        key: cam[key] for key in CONFIG_SWITCHES if isinstance(cam.get(key), bool)
+    }
+    if isinstance(auth.get("board_id"), str):
+        result["board_id"] = auth["board_id"]
+    if isinstance(cam.get("cams"), list):
+        result["camera_count"] = len(cam["cams"])
+    if motion.get("standby_minutes") in STANDBY_MINUTES:
+        result["standby_minutes"] = motion["standby_minutes"]
+    return result
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _text(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
 class AutodartsLocalClient:
     """Control one local board, using the Board Manager's own HTTP protocol."""
 
@@ -93,22 +128,47 @@ class AutodartsLocalClient:
 
     async def get_config(self) -> dict[str, Any]:
         """Return only identity and supported controls, never auth/camera secrets."""
-        raw = await self._request("GET", "/api/config")
+        return _config_summary(await self._request("GET", "/api/config"))
+
+    async def get_system(self) -> dict[str, Any]:
+        """Board Manager 2: status, cameras, motion and metadata in one read.
+
+        The raw answer also carries the board API key and TLS key; only the
+        fields below ever leave this client.
+        """
+        raw = await self._request("GET", "/api/system")
         if not isinstance(raw, dict):
-            raise AutodartsConnectionError("Invalid Board Manager configuration")
-        auth, cam, motion = (raw.get(key) or {} for key in ("auth", "cam", "motion"))
-        if not all(isinstance(section, dict) for section in (auth, cam, motion)):
-            raise AutodartsConnectionError("Invalid Board Manager configuration")
-        result = {
-            key: cam[key] for key in CONFIG_SWITCHES if isinstance(cam.get(key), bool)
+            raise AutodartsConnectionError("Invalid Board Manager system state")
+        stats = _dict(raw.get("stats"))
+        cameras = raw.get("camStats") if isinstance(raw.get("camStats"), list) else []
+        return {
+            "config": _config_summary(raw.get("config") or {}),
+            "stats": {"fps": stats.get("fps")},
+            "camera_stats": {"fps": [_dict(camera).get("fps") for camera in cameras]},
+            "motion": _dict(raw.get("motion")),
+            "camera_state": _dict(raw.get("camState")),
+            "version": _text(raw.get("version")),
+            "system": {
+                "cpu_percent": stats.get("cpuPercent"),
+                "memory_bytes": stats.get("memoryBytes"),
+                "update_available": _text(raw.get("updateAvailable")),
+                "cloud_link": _text(raw.get("link")),
+            },
         }
-        if isinstance(auth.get("board_id"), str):
-            result["board_id"] = auth["board_id"]
-        if isinstance(cam.get("cams"), list):
-            result["camera_count"] = len(cam["cams"])
-        if motion.get("standby_minutes") in STANDBY_MINUTES:
-            result["standby_minutes"] = motion["standby_minutes"]
-        return result
+
+    async def identify(self) -> dict[str, Any]:
+        """Board ID, version and camera count, as needed to set up a board."""
+        await self.get_state()
+        config = await self.get_config()
+        try:
+            version = await self.get_version()
+        except AutodartsApiError:
+            version = None
+        return {
+            "board_id": config.get("board_id"),
+            "version": _text(version),
+            "camera_count": config.get("camera_count"),
+        }
 
     async def get_version(self) -> str:
         return await self._request("GET", "/api/version", response_type="text")

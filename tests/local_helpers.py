@@ -25,14 +25,44 @@ CONFIG = {
 }
 
 
-def mock_board(mock, *, state=None, config=None, config_status=200):
+# Shaped like Board Manager 2.0.0's /api/system, including its secrets.
+SYSTEM = {
+    "blocker": "none",
+    "calibrated": True,
+    "camState": {"isOpened": True, "isRunning": True},
+    "camStats": [
+        {"fps": 29.9, "id": 0, "resolution": {"height": 1024, "width": 1280}},
+        {"fps": 30, "id": 1, "resolution": {"height": 1024, "width": 1280}},
+        {"fps": 29.8, "id": 2, "resolution": {"height": 1024, "width": 1280}},
+    ],
+    "config": {
+        **deepcopy(CONFIG),
+        "host": {"port": "3180", "tls_key": "private-tls-key", "tls_cert": ""},
+    },
+    "link": "connected",
+    "motion": {
+        "isStable": True,
+        "isHand": False,
+        "isTakeoutPartial": False,
+        "isTakeoutFull": False,
+        "camStates": [],
+    },
+    "state": {"connected": True, "event": "Stopped", "numThrows": 0, "running": False},
+    "stats": {"cpuPercent": 12.5, "fps": 12.5, "memoryBytes": 314363904},
+    "takenOver": False,
+    "updateAvailable": "2.0.2",
+    "version": "2.0.0",
+}
+
+
+def mock_board(mock, *, state=None, config=None, config_status=200, version="1.0.7"):
     mock.get(f"{BASE}/api/state", json=deepcopy(STATE if state is None else state))
     mock.get(
         f"{BASE}/api/config",
         json=deepcopy(CONFIG if config is None else config),
         status=config_status,
     )
-    mock.get(f"{BASE}/api/version", text="1.0.7")
+    mock.get(f"{BASE}/api/version", text=version)
     mock.get(f"{BASE}/api/state/stats", json={"fps": 12.5})
     mock.get(f"{BASE}/api/cams/stats", json={"fps": [29.9, 30, 29.8]})
     mock.get(f"{BASE}/api/cams/state", json={"isRunning": False, "isOpened": False})
@@ -54,3 +84,11 @@ def local_entry_data():
         "port": 3180,
         "local_only": True,
     }
+
+
+def mock_board_v2(mock, *, system=None, state=None):
+    """A Board Manager 2 board: /api/system instead of upstream routes."""
+    mock.get(f"{BASE}/api/system", json=deepcopy(SYSTEM if system is None else system))
+    mock.put(f"{BASE}/api/upstream/connect", status=404)
+    mock.put(f"{BASE}/api/upstream/disconnect", status=404)
+    mock_board(mock, state=state, version="2.0.0")

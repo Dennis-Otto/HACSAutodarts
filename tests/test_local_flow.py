@@ -34,7 +34,7 @@ async def test_create_local_entry_without_credentials(hass, aioclient_mock):
         )
         await hass.async_block_till_done()
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["data"] == local_entry_data()
+    assert result["data"] == {**local_entry_data(), "api_generation": 1}
     assert result["result"].unique_id == "board-1"
     assert all(str(call[1]).startswith(BASE) for call in aioclient_mock.mock_calls)
 

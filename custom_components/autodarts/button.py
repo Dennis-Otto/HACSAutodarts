@@ -17,12 +17,19 @@ BUTTONS = {
     "start_streams": ("mdi:video", False),
     "stop_streams": ("mdi:video-off", False),
 }
+# Board Manager 2 has no routes to connect or disconnect its cloud link.
+V1_ONLY = ("connect", "disconnect")
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     if coordinator := entry.runtime_data.local:
+        unsupported = V1_ONLY if coordinator.board_manager_2 else ()
         async_add_entities(
-            [AutodartsButton(coordinator, key) for key in BUTTONS]
+            [
+                AutodartsButton(coordinator, key)
+                for key in BUTTONS
+                if key not in unsupported
+            ]
             + [AutodartsTrainingReset(coordinator)]
         )
         known: set[int] = set()

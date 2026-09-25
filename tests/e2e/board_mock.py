@@ -1,19 +1,28 @@
-"""Deterministic Board Manager 1.0.7 double for the Docker end-to-end test.
+"""Deterministic Board Manager double for the Docker end-to-end test.
 
 Serves the local HTTP and WebSocket protocol used by the integration, records every
 write command and rejects routes the integration is not expected to call.
+BOARD_MANAGER=2 switches to the headless Board Manager 2: /api/system, no
+upstream routes, and an mDNS announcement like the real board.
 """
 
 from __future__ import annotations
 
 import copy
+import os
+import socket
 
 from aiohttp import WSMsgType, web
 
 BOARD_ID = "e2e-board"
 # Synthetic secret: it must never reach Home Assistant state, diagnostics or logs.
 API_KEY = "e2e-only-board-api-key"
+TLS_KEY = "e2e-only-tls-key"
 PORT = 3180
+GENERATION = int(os.environ.get("BOARD_MANAGER", "1"))
+VERSION = "2.0.0" if GENERATION >= 2 else "1.0.7"
+UPDATE = "2.0.2"
+V1_ONLY = {("PUT", "/api/upstream/connect"), ("PUT", "/api/upstream/disconnect")}
 
 COMMANDS = {
     ("PUT", "/api/start"): {"running": True, "status": "Throw", "event": "Started"},
@@ -64,8 +73,8 @@ class Board:
     async def publish(self, changes: dict) -> None:
         self.state.update(changes)
         self.state["numThrows"] = len(self.state["throws"])
-        for socket in list(self.sockets):
-            await socket.send_json({"type": "state", "data": self.state})
+        for client in list(self.sockets):
+            await client.send_json({"type": "state", "data": self.state})
 
 
 def routes(board: Board) -> web.RouteTableDef:
@@ -93,7 +102,7 @@ def routes(board: Board) -> web.RouteTableDef:
 
     @api.get("/api/version")
     async def version(request):
-        return web.Response(text="1.0.7\n")
+        return web.Response(text=f"{VERSION}\n")
 
     @api.get("/api/state/stats")
     async def stats(request):
@@ -127,18 +136,54 @@ def routes(board: Board) -> web.RouteTableDef:
         await board.record(request)
         return web.json_response({})
 
+    async def system(request):
+        running = board.state["running"]
+        fps = 30.0 if running else 0.0
+        cams = board.config["cam"]["cams"]
+        config = copy.deepcopy(board.config)
+        config["host"] = {"port": str(PORT), "tls_key": TLS_KEY, "tls_cert": ""}
+        return web.json_response(
+            {
+                "state": {k: board.state[k] for k in ("connected", "event", "running")}
+                | {"numThrows": board.state["numThrows"]},
+                "config": config,
+                "stats": {
+                    "cpuPercent": 7.5,
+                    "fps": 12.5 if running else 0.0,
+                    "memoryBytes": 268435456,
+                },
+                "camStats": [{"fps": fps, "id": index} for index in range(len(cams))],
+                "camState": {"isRunning": running, "isOpened": running},
+                "motion": {
+                    "isStable": True,
+                    "isHand": False,
+                    "isTakeoutPartial": False,
+                    "isTakeoutFull": False,
+                    "camStates": [],
+                },
+                "link": "connected" if board.state["connected"] else "disconnected",
+                "version": VERSION,
+                "updateAvailable": UPDATE,
+                "calibrated": True,
+                "blocker": "none",
+            }
+        )
+
+    if GENERATION >= 2:
+        api.get("/api/system")(system)
+
     @api.get("/api/events")
     async def events(request):
-        socket = web.WebSocketResponse()
-        await socket.prepare(request)
-        board.sockets.add(socket)
+        websocket = web.WebSocketResponse()
+        await websocket.prepare(request)
+        board.sockets.add(websocket)
         try:
-            async for message in socket:
+            async for message in websocket:
                 if message.type == WSMsgType.ERROR:
                     break
         finally:
-            board.sockets.discard(socket)
-        return socket
+            board.sockets.discard(websocket)
+        return websocket
 
     @api.post("/control/state")
     async def control_state(request):
@@ -164,6 +209,8 @@ def create_app() -> web.Application:
     app.add_routes(routes(board))
 
     for (method, path), changes in COMMANDS.items():
+        if GENERATION >= 2 and (method, path) in V1_ONLY:
+            continue  # Board Manager 2 has no upstream routes.
 
         async def command(request, changes=changes):
             await board.record(request)
@@ -182,5 +229,32 @@ def create_app() -> web.Application:
     return app
 
 
+async def announce(app: web.Application) -> None:
+    """Board Manager 2 announces itself on the LAN like the real board."""
+    from zeroconf import ServiceInfo
+    from zeroconf.asyncio import AsyncZeroconf
+
+    address = socket.gethostbyname(socket.gethostname())
+    zeroconf = AsyncZeroconf(interfaces=[address])
+    info = ServiceInfo(
+        "_autodarts-board._tcp.local.",
+        "autodarts-board._autodarts-board._tcp.local.",
+        addresses=[socket.inet_aton(address)],
+        port=PORT,
+        properties={"id": "e2e0000000000001", "ip": address, "cams": "3"},
+        server="autodarts-e2e.local.",
+    )
+    await zeroconf.async_register_service(info)
+
+    async def withdraw(app: web.Application) -> None:
+        await zeroconf.async_unregister_service(info)
+        await zeroconf.async_close()
+
+    app.on_cleanup.append(withdraw)
+
+
 if __name__ == "__main__":
-    web.run_app(create_app(), port=PORT, print=None)
+    app = create_app()
+    if GENERATION >= 2:
+        app.on_startup.append(announce)
+    web.run_app(app, port=PORT, print=None)
