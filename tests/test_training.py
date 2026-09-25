@@ -44,10 +44,15 @@ def test_visits_duplicates_coordinates_and_bulls():
     session.observe(board(BULL, OUTER_BULL, MISS))
     assert {key: session.snapshot()[key] for key in COUNTERS} == {
         "darts": 6,
+        "points": 255,
+        "doubles": 0,
         "triples": 3,
         "bulls": 2,
+        "misses": 1,
+        "visits": 2,
+        "scores_100": 0,
+        "scores_140": 0,
         "scores_180": 1,
-        "points": 255,
     }
 
 
@@ -105,14 +110,19 @@ def test_missed_empty_board_between_visits_keeps_counting():
     events = session.observe(board(S20))
     events += session.observe(board(S20, BULL))
     events += session.observe(board(S20, BULL, OUTER_BULL))
-    assert [event[1]["segment"] for event in events] == ["S20", "Bull", "25"]
-    assert {key: session.snapshot()[key] for key in COUNTERS} == {
+    assert events[0] == (
+        "visit_completed",
+        {"score": 180, "darts": 3, "segments": ["T20", "T20", "T20"]},
+    )
+    assert [event[1]["segment"] for event in events[1:]] == ["S20", "Bull", "25"]
+    snapshot = session.snapshot()
+    assert {key: snapshot[key] for key in ("darts", "bulls", "points")} == {
         "darts": 6,
-        "triples": 3,
         "bulls": 2,
-        "scores_180": 1,
         "points": 275,
     }
+    assert snapshot["visits"] == 2
+    assert snapshot["scores_180"] == 1
 
 
 def test_transient_shorter_frame_does_not_split_a_visit():
@@ -198,3 +208,61 @@ def test_malformed_storage_is_sanitized():
     session = TrainingSession()
     session.restore({"darts": "bad", "points": -3, "bulls": True, "started": "bad"})
     assert all(session.snapshot()[key] == 0 for key in COUNTERS)
+
+
+D16 = ("D16", 16, 2)
+S1 = ("S1", 1, 1)
+
+
+def test_analytics_buckets_hits_and_highest_visit():
+    session = TrainingSession()
+    session.observe(board())
+    for visit in ((T20, T20, S20), (T20, S20, S20), (D16, S1, MISS), (T20, T20, T20)):
+        for count in range(1, len(visit) + 1):
+            session.observe(board(*visit[:count]))
+        session.observe(board())
+    snapshot = session.snapshot()
+    assert snapshot["visits"] == 4
+    assert snapshot["scores_100"] == 1  # 100
+    assert snapshot["scores_140"] == 1  # 140
+    assert snapshot["scores_180"] == 1
+    assert snapshot["highest_visit"] == 180
+    assert snapshot["doubles"] == 1
+    assert snapshot["misses"] == 1
+    assert snapshot["hits"] == {"D16": 1, "MISS": 1, "S1": 1, "S20": 3, "T20": 6}
+
+
+def test_completed_visits_are_announced_once():
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20))
+    session.observe(board(T20, S20))
+    assert session.observe(board(T20, **TAKEOUT)) == [
+        ("visit_completed", {"score": 80, "darts": 2, "segments": ["T20", "S20"]})
+    ]
+    assert session.observe(board()) == []
+    session.observe(board(BULL))
+    # Stopping the detection also ends the visit.
+    assert session.observe(board(BULL, status="Stopped", running=False)) == [
+        ("visit_completed", {"score": 50, "darts": 1, "segments": ["Bull"]})
+    ]
+
+
+def test_average_inputs_and_restore_of_analytics():
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20, D16))
+    session.observe(board())
+    restored = TrainingSession()
+    restored.restore(session.snapshot())
+    assert restored.snapshot() == session.snapshot()
+    restored.restore(
+        {**session.snapshot(), "highest_visit": -1, "hits": {"T20": "x", "S1": 2}}
+    )
+    assert restored.snapshot()["highest_visit"] == 0
+    assert restored.snapshot()["hits"] == {"S1": 2}
+    restored.restore({"darts": 3})
+    assert restored.snapshot()["hits"] == {}
+    restored.reset(board())
+    assert restored.snapshot()["highest_visit"] == 0
+    assert restored.snapshot()["hits"] == {}

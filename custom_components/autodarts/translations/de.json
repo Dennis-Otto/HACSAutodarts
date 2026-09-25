@@ -193,6 +193,27 @@
       "training_points": {
         "name": "Training: Punkte"
       },
+      "training_doubles": {
+        "name": "Training: Doubles"
+      },
+      "training_misses": {
+        "name": "Training: Fehlwürfe"
+      },
+      "training_visits": {
+        "name": "Training: Aufnahmen"
+      },
+      "training_scores_100": {
+        "name": "Training: 100+ Aufnahmen"
+      },
+      "training_scores_140": {
+        "name": "Training: 140+ Aufnahmen"
+      },
+      "training_average": {
+        "name": "Training: 3-Dart-Average"
+      },
+      "training_highest_visit": {
+        "name": "Training: Höchste Aufnahme"
+      },
       "training_started": {
         "name": "Trainingsbeginn"
       },
@@ -310,7 +331,8 @@
               "dart_corrected": "Dart korrigiert",
               "takeout_started": "Entnahme begonnen",
               "takeout_finished": "Entnahme abgeschlossen",
-              "status_changed": "Status geändert"
+              "status_changed": "Status geändert",
+              "visit_completed": "Aufnahme abgeschlossen"
             }
           }
         }

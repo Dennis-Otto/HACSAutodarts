@@ -7,6 +7,7 @@ WebSocket APIs: onboarding, config flow, services, registries and diagnostics.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import socket
 import time
@@ -35,6 +36,7 @@ BULL = {
     "coords": {"x": 0.004, "y": -0.011},
 }
 MANIFEST = Path("/config/custom_components/autodarts/manifest.json")
+CARD = MANIFEST.parent / "frontend" / "autodarts-card.js"
 
 # Unique ID suffix -> platform of the entities a three-camera board must create.
 ENTITIES = {
@@ -59,6 +61,9 @@ ENTITIES = {
     "training_triples": "sensor",
     "training_bulls": "sensor",
     "training_points": "sensor",
+    "training_visits": "sensor",
+    "training_average": "sensor",
+    "training_highest_visit": "sensor",
 }
 if GENERATION >= 2:
     # Board Manager 2 reports its cloud link, load and updates, and has no toggle.
@@ -498,8 +503,13 @@ class Scenario:
                 "training_triples": "0",
                 "training_bulls": "1",
                 "training_points": "70",
+                "training_visits": "1",
+                "training_highest_visit": "70",
+                "training_average": "105.0",
             }
         )
+        hits = (await self.state("training_darts"))["attributes"]["hits"]
+        check(hits == {"BULL": 1, "S20": 1}, f"Unexpected hits for the heatmap: {hits}")
 
         fired = []
         while not self.events.empty():
@@ -518,6 +528,7 @@ class Scenario:
                 ("dart_detected", "Bull", 50),
                 ("dart_corrected", "S20", 20),
                 ("takeout_started", None, None),
+                ("visit_completed", None, 70),
                 ("takeout_finished", None, None),
             ],
             f"Unexpected board events: {fired}",
@@ -539,7 +550,8 @@ class Scenario:
     async def card(self) -> None:
         """The bundled dashboard card is served and loaded without a resource."""
         version = json.loads(MANIFEST.read_text())["version"]
-        url = f"/autodarts/autodarts-card.js?v={version}"
+        digest = hashlib.sha256(CARD.read_bytes()).hexdigest()[:8]
+        url = f"/autodarts/autodarts-card.js?v={version}-{digest}"
         async with self.session.get(f"{HA}{url}") as response:
             source = await response.text()
             check(response.status == 200, f"Card not served: HTTP {response.status}")
@@ -547,7 +559,12 @@ class Scenario:
                 "javascript" in response.headers.get("Content-Type", ""),
                 f"Card served as {response.headers.get('Content-Type')}",
             )
-        check('const CARD_TYPE = "autodarts-card";' in source, "Card element missing")
+        for element in (
+            "autodarts-card",
+            "autodarts-training-card",
+            "autodarts-status-card",
+        ):
+            check(f'"{element}"' in source, f"Card element {element} missing")
         async with self.session.get(f"{HA}/") as response:
             page = await response.text()
         check(url in page, "Dashboards do not load the Autodarts card")

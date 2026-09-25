@@ -48,6 +48,7 @@ EVENT_TYPES = [
     "takeout_started",
     "takeout_finished",
     "status_changed",
+    "visit_completed",
 ]
 
 

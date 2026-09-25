@@ -49,6 +49,12 @@ CURRENT = [T20, S5, BULL]
 
 CARDS = {
     "board": [{"type": "custom:autodarts-card", "grid_options": {"columns": "full"}}],
+    "training": [
+        {"type": "custom:autodarts-training-card", "grid_options": {"columns": "full"}}
+    ],
+    "status": [
+        {"type": "custom:autodarts-status-card", "grid_options": {"columns": "full"}}
+    ],
     "styles": [
         {
             "type": "custom:autodarts-card",
@@ -61,7 +67,7 @@ CARDS = {
 
 
 def dashboard() -> dict:
-    wide = {"board": 2, "styles": 1}
+    wide = {"board": 2, "training": 2, "status": 2, "styles": 1}
     return {
         "title": "Autodarts",
         "views": [

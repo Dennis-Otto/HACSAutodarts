@@ -79,6 +79,7 @@ class AutodartsCameraCalibration(AutodartsLocalEntity, ButtonEntity):
         self._index = index
         self._attr_translation_key = "calibrate_camera"
         self._attr_translation_placeholders = {"number": str(index + 1)}
+        self._attr_extra_state_attributes = {"camera": index + 1}
 
     @property
     def available(self) -> bool:

@@ -157,6 +157,27 @@
       },
       "training_started": {
         "default": "mdi:clock-start"
+      },
+      "training_doubles": {
+        "default": "mdi:numeric-2-circle-outline"
+      },
+      "training_misses": {
+        "default": "mdi:target-variant"
+      },
+      "training_visits": {
+        "default": "mdi:counter"
+      },
+      "training_scores_100": {
+        "default": "mdi:numeric"
+      },
+      "training_scores_140": {
+        "default": "mdi:fire"
+      },
+      "training_average": {
+        "default": "mdi:chart-line"
+      },
+      "training_highest_visit": {
+        "default": "mdi:trophy"
       }
     },
     "switch": {
