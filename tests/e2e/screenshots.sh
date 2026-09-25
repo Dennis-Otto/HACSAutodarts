@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+# Regenerate the documentation images in docs/images from fresh demo instances.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+DOCKER_BIN="${DOCKER_BIN:-docker}"
+PROJECT_NAME="${E2E_PROJECT_NAME:-autodarts_demo}"
+PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.63.0-noble@sha256:72bd171a9ffc2b4b59532aaa6210e21014d07093120dc25528870c0b840da1f0"
+PILLOW_VERSION="12.3.0"
+PLAYWRIGHT_VERSION="1.63.0"
+
+export E2E_PROJECT_NAME="${PROJECT_NAME}"
+# Keep container paths unchanged and mount the Windows path when running from Git Bash.
+export MSYS_NO_PATHCONV=1
+ROOT_MOUNT="$(cd "${REPOSITORY_ROOT}" && (pwd -W 2>/dev/null || pwd))"
+
+cleanup() {
+	"${DOCKER_BIN}" compose --project-name "${PROJECT_NAME}" --file compose.yaml \
+		down --volumes --remove-orphans >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+# Relative Compose paths also work with Git Bash on Windows.
+cd "${SCRIPT_DIR}"
+
+for language in ${LANGUAGES:-en de}; do
+	DEMO_LANGUAGE="${language}" bash "${SCRIPT_DIR}/demo.sh"
+	"${DOCKER_BIN}" run --rm --network "${PROJECT_NAME}_default" \
+		--env "DEMO_LANGUAGE=${language}" \
+		--volume "${ROOT_MOUNT}:/repo" \
+		--workdir /repo/tests/e2e \
+		"${PLAYWRIGHT_IMAGE}" \
+		sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore 'playwright==${PLAYWRIGHT_VERSION}' 'pillow==${PILLOW_VERSION}' && python screenshots.py"
+done

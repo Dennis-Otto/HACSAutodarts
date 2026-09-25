@@ -7,11 +7,14 @@ from urllib.parse import urlparse
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.typing import ConfigType
 
 from .api import AutodartsCloudClient
+from .card import async_register_card
 from .const import (
     CONF_BOARD_ID,
     CONF_CLIENT_ID,
@@ -29,6 +32,14 @@ from .local_coordinator import AutodartsLocalCoordinator
 from .runtime import AutodartsRuntimeData
 
 type AutodartsConfigEntry = ConfigEntry[AutodartsRuntimeData]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Provide the dashboard card once, independent of config entries."""
+    await async_register_card(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) -> bool:

@@ -1,0 +1,7 @@
+# Overlay for tests/e2e/compose.yaml: a demo instance with password-less local login.
+services:
+  homeassistant:
+    environment:
+      DEMO_LANGUAGE: ${DEMO_LANGUAGE:-en}
+    volumes:
+      - ./demo.configuration.yaml:/config/configuration.yaml:ro

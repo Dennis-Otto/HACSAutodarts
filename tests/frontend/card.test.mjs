@@ -1,0 +1,105 @@
+// Board logic of the bundled Lovelace card: which beds light up for a dart.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import {
+  bedPath,
+  beds,
+  boardSvg,
+  escapeHtml,
+  kind,
+  label,
+  NORM,
+  NUMBERS,
+  numbersSvg,
+  parseSegment,
+  R,
+  sectorAt,
+} from "../../custom_components/autodarts/frontend/autodarts-card.js";
+
+const hass = { locale: { language: "en" } };
+const dart = (number, multiplier, bed, extra = {}) => ({ number, multiplier, bed, ...extra });
+
+test("board order and geometry match a standard board", () => {
+  assert.deepEqual(NUMBERS.slice(0, 5), [20, 1, 18, 4, 13]);
+  assert.equal(new Set(NUMBERS).size, 20);
+  assert.equal(R.doubleOut, NORM);
+  assert.ok(R.bull < R.outerBull && R.outerBull < R.trebleIn && R.trebleOut < R.doubleIn);
+});
+
+test("scoring beds are highlighted from the reported bed", () => {
+  assert.deepEqual(beds(dart(20, 3, "Triple")), ["T20"]);
+  assert.deepEqual(beds(dart(16, 2, "Double")), ["D16"]);
+  assert.deepEqual(beds(dart(5, 1, "SingleInner")), ["SI5"]);
+  assert.deepEqual(beds(dart(5, 1, "SingleOuter")), ["SO5"]);
+  assert.deepEqual(beds(dart(25, 2, "Double")), ["Bull"]);
+  assert.deepEqual(beds(dart(25, 1, "Single")), ["25"]);
+});
+
+test("single beds fall back to the dart position, then to both beds", () => {
+  assert.deepEqual(beds(dart(20, 1, null, { x: 0, y: 0.4 })), ["SI20"]);
+  assert.deepEqual(beds(dart(20, 1, null, { x: 0, y: 0.8 })), ["SO20"]);
+  assert.deepEqual(beds(dart(20, 1, "Single")), ["SI20", "SO20"]);
+  assert.deepEqual(beds(dart(20, 3, null)), ["T20"]);
+});
+
+test("misses light up the outer ring of their sector", () => {
+  assert.deepEqual(beds(dart(3, 0, "Outside")), ["M3"]);
+  // Straight down from the bull is the 3; to the right is the 6.
+  assert.deepEqual(beds(dart(0, 0, "Outside", { x: 0, y: -1.1 })), ["M3"]);
+  assert.deepEqual(beds(dart(0, 0, "Outside", { x: 1.1, y: 0 })), ["M6"]);
+  assert.deepEqual(beds(dart(0, 0, "Outside")), ["Miss"]);
+  assert.equal(sectorAt({ x: 0, y: 1 }), 20);
+  assert.equal(sectorAt({ x: Number.NaN, y: 1 }), null);
+});
+
+test("unknown numbers are never highlighted", () => {
+  assert.deepEqual(beds(dart(21, 1, "SingleOuter")), []);
+  assert.equal(bedPath("T21"), null);
+  assert.equal(bedPath("<script>"), null);
+});
+
+test("every bed has a closed SVG path", () => {
+  for (const number of NUMBERS) {
+    for (const bed of ["SI", "T", "SO", "D", "M"]) {
+      assert.match(bedPath(`${bed}${number}`), /^M.*Z$/);
+    }
+  }
+  for (const id of ["Bull", "25", "Miss"]) assert.match(bedPath(id), /^M.*Z$/);
+});
+
+test("labels and kinds describe the dart", () => {
+  assert.equal(label(hass, dart(20, 3, "Triple")), "T20");
+  assert.equal(label(hass, dart(16, 2, "Double")), "D16");
+  assert.equal(label(hass, dart(7, 1, "SingleOuter")), "S7");
+  assert.equal(label(hass, dart(25, 2, "Double")), "Bull");
+  assert.equal(label(hass, dart(25, 1, "Single")), "25");
+  assert.equal(label(hass, dart(3, 0, "Outside")), "Miss");
+  assert.equal(label({ locale: { language: "de" } }, dart(3, 0, "Outside")), "Miss");
+  assert.equal(kind(dart(20, 3, "Triple")), "triple");
+  assert.equal(kind(dart(25, 1, "Single")), "outer-bull");
+  assert.equal(kind(dart(0, 0, "Outside")), "miss");
+});
+
+test("segment names from older integrations are parsed", () => {
+  assert.deepEqual(parseSegment("T20"), { number: 20, multiplier: 3 });
+  assert.deepEqual(parseSegment("d16"), { number: 16, multiplier: 2 });
+  assert.deepEqual(parseSegment("Bull"), { number: 25, multiplier: 2 });
+  assert.deepEqual(parseSegment("25"), { number: 25, multiplier: 1 });
+  assert.deepEqual(parseSegment("M3"), { number: 3, multiplier: 0 });
+  assert.equal(parseSegment("unknown"), null);
+  assert.equal(parseSegment(null), null);
+});
+
+test("the board has 80 bed segments, both bulls and 20 numbers", () => {
+  for (const style of ["classic", "autodarts", "unknown"]) {
+    assert.equal(boardSvg(style).match(/<path /g).length, 80);
+    assert.equal(boardSvg(style).match(/<circle /g).length >= 3, true);
+    assert.equal(numbersSvg(style).match(/<text /g).length, 20);
+  }
+});
+
+test("text inserted into the card is escaped", () => {
+  assert.equal(escapeHtml(`<img src=x onerror="a">&'`), "&#60;img src=x onerror=&#34;a&#34;&#62;&#38;&#39;");
+  assert.equal(escapeHtml(null), "");
+});
