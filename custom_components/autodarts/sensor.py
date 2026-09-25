@@ -143,11 +143,18 @@ def _get_last_throw(data: dict[str, Any]) -> str | None:
     return darts[-1]["segment"] if darts else None
 
 
+def _number(value: Any) -> int | float | None:
+    """A board value a numeric sensor can show; anything else reads as unknown."""
+    if type(value) in (int, float) and math.isfinite(value):
+        return value
+    return None
+
+
 def _get_num_throws(data: dict[str, Any]) -> int | None:
     """Number of throws in the current turn (from local board, 0–3)."""
     local = _local(data)
     if local:
-        return local.get("numThrows")
+        return _number(local.get("numThrows"))
     return None
 
 
@@ -349,7 +356,7 @@ def _local_visit_score(data: dict[str, Any]) -> int:
 
 def _camera_fps(data: dict[str, Any], index: int) -> float | None:
     fps = data.get("camera_stats", {}).get("fps")
-    return fps[index] if isinstance(fps, list) and index < len(fps) else None
+    return _number(fps[index]) if isinstance(fps, list) and index < len(fps) else None
 
 
 LOCAL_SENSORS = (
@@ -380,7 +387,7 @@ LOCAL_SENSORS = (
         icon="mdi:speedometer",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
-        value_fn=lambda data: data.get("stats", {}).get("fps"),
+        value_fn=lambda data: _number(data.get("stats", {}).get("fps")),
     ),
 )
 

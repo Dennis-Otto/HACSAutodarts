@@ -68,17 +68,74 @@ def test_corrections_revise_score_and_180_without_adding_darts():
     assert session.snapshot()["points"] == 180
 
 
+TAKEOUT = {"status": "Takeout in progress", "event": "Takeout started"}
+
+
 def test_partial_takeout_never_counts_remaining_darts_again():
     session = TrainingSession()
     session.observe(board())
     session.observe(board(T20, S20, BULL))
-    session.observe(board(S20, BULL))
-    session.observe(board(BULL))
+    session.observe(board(S20, BULL, **TAKEOUT))
+    session.observe(board(BULL, **TAKEOUT))
     session.observe(board())
     assert session.snapshot()["darts"] == 3
     assert session.snapshot()["points"] == 130
     session.observe(board(S20))
     assert session.snapshot()["darts"] == 4
+
+
+def test_darts_thrown_before_the_takeout_ends_are_counted():
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20, S20, BULL))
+    session.observe(board(BULL, **TAKEOUT))
+    events = session.observe(board(BULL, S20))
+    assert events == [
+        ("dart_detected", {"dart_index": 2, "segment": "S20", "score": 20})
+    ]
+    assert session.snapshot()["darts"] == 4
+    assert session.snapshot()["points"] == 150
+
+
+def test_missed_empty_board_between_visits_keeps_counting():
+    # A slow poll can miss the empty frame; the next visit must still count.
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20, T20, T20))
+    events = session.observe(board(S20))
+    events += session.observe(board(S20, BULL))
+    events += session.observe(board(S20, BULL, OUTER_BULL))
+    assert [event[1]["segment"] for event in events] == ["S20", "Bull", "25"]
+    assert {key: session.snapshot()[key] for key in COUNTERS} == {
+        "darts": 6,
+        "triples": 3,
+        "bulls": 2,
+        "scores_180": 1,
+        "points": 275,
+    }
+
+
+def test_transient_shorter_frame_does_not_split_a_visit():
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20, T20))
+    assert session.observe(board(T20)) == []
+    session.observe(board(T20, T20))
+    session.observe(board(T20, T20, T20))
+    session.observe(board())
+    assert session.snapshot()["darts"] == 3
+    assert session.snapshot()["scores_180"] == 1
+    assert session.snapshot()["points"] == 180
+
+
+def test_withdrawn_detection_no_longer_counts():
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20, S20, MISS))
+    session.observe(board(T20, S20))
+    session.observe(board())
+    assert session.snapshot()["darts"] == 2
+    assert session.snapshot()["points"] == 80
 
 
 def test_reset_ignores_darts_already_on_the_board():

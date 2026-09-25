@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from urllib.parse import urlparse
 
 from homeassistant.config_entries import ConfigEntry
@@ -27,9 +28,12 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import AutodartsDataUpdateCoordinator
+from .errors import AutodartsApiError
 from .local_api import AutodartsLocalClient
 from .local_coordinator import AutodartsLocalCoordinator
 from .runtime import AutodartsRuntimeData
+
+_LOGGER = logging.getLogger(__name__)
 
 type AutodartsConfigEntry = ConfigEntry[AutodartsRuntimeData]
 
@@ -48,22 +52,53 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
     runtime = AutodartsRuntimeData()
     local_error: Exception | None = None
 
-    async def setup_local(host: str, port: int) -> None:
-        nonlocal local_error
-        local_error = None
-        runtime.local = AutodartsLocalCoordinator(
+    def local_coordinator(host: str, port: int) -> AutodartsLocalCoordinator:
+        return AutodartsLocalCoordinator(
             hass,
             AutodartsLocalClient(host, port, session),
             entry.data[CONF_BOARD_ID],
             entry,
         )
+
+    async def discover_local(addresses: object) -> bool:
+        """Adopt the first address reported by the cloud that answers as this board."""
+        for address in addresses.split(",") if isinstance(addresses, str) else []:
+            try:
+                parsed = urlparse(address.strip())
+                port = parsed.port or DEFAULT_PORT
+            except ValueError:
+                continue
+            if parsed.scheme != "http" or not parsed.hostname:
+                continue
+            if (parsed.hostname, port) == (
+                entry.data.get(CONF_HOST),
+                entry.data.get(CONF_PORT, DEFAULT_PORT),
+            ):
+                continue
+            candidate = local_coordinator(parsed.hostname, port)
+            try:
+                await candidate.async_config_entry_first_refresh()
+            except ConfigEntryNotReady:
+                # Discard failed candidates, including their timers and store.
+                await candidate.async_shutdown()
+                continue
+            if runtime.local is not None:
+                await runtime.local.async_shutdown()
+            runtime.local = candidate
+            hass.config_entries.async_update_entry(
+                entry,
+                data={**entry.data, CONF_HOST: parsed.hostname, CONF_PORT: port},
+            )
+            return True
+        return False
+
+    if host := entry.data.get(CONF_HOST):
+        runtime.local = local_coordinator(host, entry.data.get(CONF_PORT, DEFAULT_PORT))
         try:
             await runtime.local.async_config_entry_first_refresh()
         except ConfigEntryNotReady as err:
+            # Entities stay and recover when the board answers again.
             local_error = err
-
-    if host := entry.data.get(CONF_HOST):
-        await setup_local(host, entry.data.get(CONF_PORT, DEFAULT_PORT))
 
     if not entry.data.get(CONF_LOCAL_ONLY, False):
 
@@ -90,33 +125,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
             )
             await runtime.cloud.async_config_entry_first_refresh()
         except ConfigEntryAuthFailed:
-            if runtime.local is None or local_error is not None:
+            if runtime.local is None:
                 raise
+            # A configured board keeps working locally while the login is renewed.
             entry.async_start_reauth(hass)
         except ConfigEntryNotReady:
             if runtime.local is None or local_error is not None:
                 raise
 
-        # Discover once during setup so local entities can be created immediately.
-        if runtime.local is None and runtime.cloud and runtime.cloud.data:
-            board_url = runtime.cloud.data.get("board", {}).get("ip") or ""
-            for address in board_url.split(",") if isinstance(board_url, str) else []:
-                try:
-                    parsed = urlparse(address.strip())
-                    if parsed.scheme == "http" and parsed.hostname:
-                        await setup_local(parsed.hostname, parsed.port or DEFAULT_PORT)
-                        if local_error is None:
-                            hass.config_entries.async_update_entry(
-                                entry,
-                                data={
-                                    **entry.data,
-                                    CONF_HOST: parsed.hostname,
-                                    CONF_PORT: parsed.port or DEFAULT_PORT,
-                                },
-                            )
-                            break
-                except ValueError:
-                    continue
+        # The cloud knows the board's current address: use it when none is set or
+        # the stored one no longer answers, e.g. after a DHCP change.
+        if (runtime.local is None or local_error is not None) and (
+            runtime.cloud and runtime.cloud.data
+        ):
+            if await discover_local(runtime.cloud.data.get("board", {}).get("ip")):
+                local_error = None
     elif runtime.local is None:
         raise ConfigEntryNotReady("Configure a local Board Manager address")
     elif local_error is not None:
@@ -141,6 +164,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     if runtime.local:
         runtime.local.async_start()
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Upgrade version 1 entries, which stored a board address or a password."""
+    if entry.version > 2:
+        return False
+    if entry.version == 2:
+        return True
+    data = dict(entry.data)
+    board_id = data.get(CONF_BOARD_ID)
+    host = data.get(CONF_HOST)
+    port = data.get(CONF_PORT, DEFAULT_PORT)
+    if not board_id and host:
+        client = AutodartsLocalClient(host, port, async_get_clientsession(hass))
+        try:
+            board_id = (await client.get_config()).get(CONF_BOARD_ID)
+        except AutodartsApiError:
+            board_id = None
+    if not board_id:
+        # Retried at the next start, so a board that is switched off is no problem.
+        _LOGGER.warning(
+            "Cannot migrate the Autodarts entry %s yet: the board at %s does not answer",
+            entry.title,
+            host,
+        )
+        return False
+    # Version 1 cloud entries stored the account password; never keep it.
+    new = {CONF_BOARD_ID: board_id}
+    if host:
+        new |= {CONF_HOST: host, CONF_PORT: port, CONF_LOCAL_ONLY: True}
+    hass.config_entries.async_update_entry(
+        entry, data=new, unique_id=board_id, version=2
+    )
+    _LOGGER.info("Migrated the Autodarts entry %s to version 2", entry.title)
     return True
 
 
