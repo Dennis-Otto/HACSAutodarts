@@ -13,6 +13,7 @@ from board_mock import GENERATION, PORT
 from scenario import Scenario
 
 DASHBOARD = "autodarts-demo"
+STRATEGY_DASHBOARD = "autodarts-auto"
 
 
 def dart(name: str, number: int, multiplier: int, bed: str, x: float, y: float):
@@ -132,6 +133,21 @@ async def main() -> None:
             mode="storage",
         )
         await demo.ws("lovelace/config/save", url_path=DASHBOARD, config=dashboard())
+        # A second dashboard generated entirely by the Autodarts strategy.
+        await demo.ws(
+            "lovelace/dashboards/create",
+            url_path=STRATEGY_DASHBOARD,
+            title="Autodarts (automatic)",
+            icon="mdi:bullseye",
+            show_in_sidebar=True,
+            require_admin=False,
+            mode="storage",
+        )
+        await demo.ws(
+            "lovelace/config/save",
+            url_path=STRATEGY_DASHBOARD,
+            config={"strategy": {"type": "custom:autodarts"}},
+        )
         await demo.socket.close()
 
 

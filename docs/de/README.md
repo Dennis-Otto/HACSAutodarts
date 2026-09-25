@@ -19,7 +19,8 @@
 - **Drei Dashboard-Karten**, die automatisch geladen werden:
   - Live-Dartscheibe mit blinkenden Treffern und Dart-Positionen;
   - Trainingskarte mit Trefferbild und Aufnahmeverlauf;
-  - Board-Status mit Erkennung, Verbindungen und Kameras.
+  - Board-Status mit Erkennung, Verbindungen und Kameras;
+  - dazu ein automatisches Dashboard, das alles pro Board mit einem Klick anordnet.
 - **Trainingsanalyse:**
   - 3-Dart-Average, Aufnahmen, höchste Aufnahme, 100+/140+/180, Triple-Quote;
   - Treffer pro Feld, lokal gespeichert und über Neustarts hinweg erhalten.
@@ -52,7 +53,7 @@
 
    Wähle **Boards im Netzwerk suchen** oder **Board-Adresse eingeben** und bestätige. Konto, Passwort oder Client-ID brauchst du nicht.
 
-3. **Karte hinzufügen.** Bearbeite ein Dashboard, wähle **Karte hinzufügen** und suche nach *Autodarts*.
+3. **Karten hinzufügen.** Bearbeite ein Dashboard, wähle **Karte hinzufügen** und suche nach *Autodarts*. Oder erzeuge in einem Schritt ein komplettes Dashboard: **Einstellungen → Dashboards → Dashboard hinzufügen → Autodarts**.
 
 ## Bilder
 

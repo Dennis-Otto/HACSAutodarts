@@ -30,7 +30,8 @@
 - **Three dashboard cards** are included and load automatically:
   - a live dartboard with blinking hit beds and dart positions;
   - a training card with a hit heatmap and visit history;
-  - a board status card for detection, connections and cameras.
+  - a board status card for detection, connections and cameras;
+  - plus an automatic dashboard that arranges everything for every board in one click.
 - **Training analytics:**
   - 3-dart average, visits, highest visit, 100+/140+/180 and triple rate;
   - hits per bed, stored locally and kept across restarts.
@@ -94,7 +95,7 @@
 
    Choose **Search for boards on this network** or **Enter board address** and confirm. You need no account, password or client ID.
 
-3. **Add a card.** Edit a dashboard, choose **Add card** and search for *Autodarts*. All three cards pick your board automatically.
+3. **Add the cards.** Edit a dashboard, choose **Add card** and search for *Autodarts*; all three cards pick your board automatically. Or create a complete dashboard in one step: **Settings → Dashboards → Add dashboard → Autodarts**.
 
 The [installation guide](docs/installation.md) covers requirements, manual installation, cloud linking, updates and removal.
 
@@ -131,6 +132,8 @@ type: custom:autodarts-training-card
 mode: numbers        # heatmap per number instead of per bed
 history_size: 30     # visits in the chart
 ```
+
+Or let the integration build a complete dashboard with live, training and board views for every board: **Settings → Dashboards → Add dashboard → Autodarts**, or in YAML simply `strategy: {type: custom:autodarts}`.
 
 All options, with screenshots, are in the [card guide](docs/cards.md).
 

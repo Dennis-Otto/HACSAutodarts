@@ -134,6 +134,34 @@ show_reset: false
 | `show_controls` | Wahrheitswert | `true` | Wartungstasten anzeigen |
 | `accent_color` | CSS-Farbe | Primärfarbe des Designs | Beschriftungen und Erkennungsschalter |
 
+## Automatisches Dashboard
+
+Statt die Karten selbst anzuordnen, kann die Integration ein komplettes Dashboard erzeugen:
+
+1. Öffne **Einstellungen → Dashboards → Dashboard hinzufügen**.
+2. Wähle **Autodarts**.
+
+Pro Board entstehen drei Ansichten. Sie aktualisieren sich selbst, wenn du ein Board hinzufügst oder Entitäten aktivierst:
+
+| Ansicht | Inhalt |
+| --- | --- |
+| **Live** | Die Live-Karte über die volle Breite |
+| **Training** | Die Trainingskarte, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet) und der 3-Dart-Average der letzten 7 Tage |
+| **Board** | Der Board-Status, die Board-Einstellungen und das Board-Manager-Update |
+
+<img src="../images/de/dashboard-strategy.png" alt="Die Trainingsansicht des automatischen Dashboards" width="760">
+
+In YAML ist das ganze Dashboard eine Zeile; `device_id` und `title` sind optional:
+
+```yaml
+strategy:
+  type: custom:autodarts
+  device_id: 0123456789abcdef   # nur dieses Board
+  title: Darts
+```
+
+Zum Anpassen öffnest du im Dashboard das Menü (⋮) → **Dashboard bearbeiten** → **Kontrolle übernehmen**. Home Assistant macht aus den erzeugten Ansichten dann ein normales, frei bearbeitbares Dashboard.
+
 ## Karteneditor
 
 Alle Optionen lassen sich im visuellen Editor einstellen; die Geräteauswahl bietet nur Autodarts-Boards an.

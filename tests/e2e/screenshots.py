@@ -193,6 +193,21 @@ def status_card(page: Page, suffix: str) -> None:
     card_shot(page, f"status-card{suffix}", tag="autodarts-status-card")
 
 
+def strategy_dashboard(page: Page) -> None:
+    """The training view of the dashboard that the strategy generates."""
+    size = page.viewport_size
+    page.set_viewport_size({"width": size["width"], "height": 1700})
+    page.goto(f"{HA}/autodarts-auto/training")
+    page.wait_for_function(
+        f"() => ({find('autodarts-training-card')})().some((c) =>"
+        " c.shadowRoot.querySelectorAll('.history-chart .visit-bar:not(.empty)').length >= 5)",
+        timeout=60000,
+    )
+    page.wait_for_timeout(2500)
+    page_shot(page, "dashboard-strategy")
+    page.set_viewport_size(size)
+
+
 def config_flow(page: Page) -> None:
     page.goto(f"{HA}/config/integrations/dashboard/add?domain=autodarts")
     # An integration that is already set up asks before adding another entry.
@@ -267,6 +282,7 @@ def main() -> None:
                 card_shot(page, "card-autodarts-style", 0)
                 card_shot(page, "card-board-only", 1)
                 editor(page)
+                strategy_dashboard(page)
                 config_flow(page)
                 device_page(page)
             context.close()
