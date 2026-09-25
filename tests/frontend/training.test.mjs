@@ -144,3 +144,11 @@ test("entities are found per device and cameras grouped by number", () => {
     { number: 2, problem: "binary_sensor.cam_2_problem" },
   ]);
 });
+
+test("heat ratios run from the least to the most hit bed", async () => {
+  const { heatRatio } = await import("../../custom_components/autodarts/frontend/autodarts-card.js");
+  assert.equal(heatRatio(1, 5), 0);
+  assert.equal(heatRatio(3, 5), 0.5);
+  assert.equal(heatRatio(5, 5), 1);
+  assert.equal(heatRatio(1, 1), 1);
+});

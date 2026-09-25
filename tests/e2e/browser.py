@@ -61,7 +61,7 @@ TRAINING_STATE = f"""
     visits: text('[data-total="visits"]'),
     heat: root.querySelectorAll('.heat-layer path').length,
     top: [...root.querySelectorAll('.top-row .key')].map((el) => el.textContent),
-    history: root.querySelectorAll('.history-chart rect').length,
+    history: root.querySelectorAll('.history-chart .visit-bar:not(.empty)').length,
     highest: root.querySelector('[data-tile="highest"] .value')?.textContent,
   }};
 }}

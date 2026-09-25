@@ -616,6 +616,10 @@ function heatLevels(hits, mode = "beds") {
   return levels;
 }
 
+function heatRatio(count, max) {
+  return max > 1 ? Math.min(1, Math.max(0, (count - 1) / (max - 1))) : 1;
+}
+
 function heatColor(ratio) {
   // Thermal scale from blue (rarely hit) through green and yellow to red (most hit).
   const value = Math.min(1, Math.max(0, Number(ratio) || 0));
@@ -863,7 +867,7 @@ const TRAINING_CSS = `${BASE_CSS}
   }
   .tile .value { font-size: 20px; font-weight: 800; color: var(--primary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .tile .name { font-size: 11px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tile.max .value { color: ${VISIT_COLORS.max}; }
+  .tile.hot .value { color: ${VISIT_COLORS.max}; }
   @container (max-width: 380px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .top { display: flex; flex-direction: column; gap: 6px; }
   .top-row { display: grid; grid-template-columns: 3.2em 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
@@ -871,10 +875,23 @@ const TRAINING_CSS = `${BASE_CSS}
   .top-row .bar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--primary-text-color) 8%, transparent); overflow: hidden; }
   .top-row .fill { height: 100%; border-radius: inherit; }
   .top-row .count { color: var(--secondary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .history-chart { height: 96px; }
-  .history-chart svg { height: 96px; }
-  .history-chart .bar-score { font: 700 9px/1 Roboto, Arial, sans-serif; fill: var(--secondary-text-color); text-anchor: middle; }
-  .history-chart .average-line { stroke: var(--secondary-text-color); stroke-dasharray: 3 3; stroke-width: 1; opacity: .6; }
+  .history-chart { position: relative; height: 104px; display: flex; align-items: stretch; gap: 4px; margin-top: 8px; }
+  .visit-bar {
+    flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  }
+  .visit-bar .fill {
+    width: 100%; max-width: 30px; min-height: 3px; border-radius: 5px 5px 2px 2px;
+    height: calc((100% - 16px) * var(--height));
+  }
+  .visit-bar .label {
+    font-size: 10px; font-weight: 700; line-height: 14px; margin-bottom: 2px;
+    color: var(--secondary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .visit-bar.empty .fill { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); height: 3px; }
+  .average-line {
+    position: absolute; left: 0; right: 0; bottom: calc((100% - 16px) * var(--height));
+    border-top: 1px dashed var(--secondary-text-color); opacity: .55; pointer-events: none;
+  }
   .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .footer-row button.action { flex: 0 0 auto; }
   .empty-hint { font-size: 13px; color: var(--secondary-text-color); text-align: center; padding: 8px 0; }
@@ -1517,7 +1534,7 @@ function createElements(Base) {
                                       ${tiles
                                         .map(
                                           ([key, name]) =>
-                                            `<div class="tile${key === "max" ? " max" : ""}" data-tile="${key}">` +
+                                            `<div class="tile" data-tile="${key}">` +
                                             `<div class="value">–</div><div class="name">${t(name)}</div></div>`
                                         )
                                         .join("")}
@@ -1615,6 +1632,7 @@ function createElements(Base) {
         for (const key of ["highest", "scores_100", "scores_140", "max", "doubles", "bulls", "misses"]) {
           tiles[key].textContent = this._format(this._number(key));
         }
+        tiles.max.parentElement.classList.toggle("hot", this._number("max") > 0);
         const triples = this._number("triples");
         tiles.triple_rate.textContent =
           darts > 0 && triples !== null ? `${this._format((triples / darts) * 100, 1)} %` : "–";
@@ -1645,9 +1663,9 @@ function createElements(Base) {
         .map(([bed, count]) => {
           const path = bedPath(bed);
           if (!path || !max) return "";
-          const ratio = Math.sqrt(count / max);
+          const ratio = heatRatio(count, max);
           return (
-            `<path class="heat-bed" d="${path}" fill="${heatColor(ratio)}" fill-opacity="${fmt(0.55 + 0.4 * ratio)}">` +
+            `<path class="heat-bed" d="${path}" fill="${heatColor(ratio)}" fill-opacity="${fmt(0.6 + 0.35 * ratio)}">` +
             `<title>${escapeHtml(describe(bed))}</title></path>`
           );
         })
@@ -1665,11 +1683,11 @@ function createElements(Base) {
         top.length
           ? top
               .map(([key, count]) => {
-                const ratio = most ? count / most : 0;
+                const width = most ? count / most : 0;
                 const share = darts > 0 ? ` · ${this._format((count / darts) * 100, 0)} %` : "";
                 return (
                   `<div class="top-row"><span class="key">${escapeHtml(hitLabel(this._hass, key))}</span>` +
-                  `<div class="bar"><div class="fill" style="width:${fmt(ratio * 100)}%;background:${heatColor(Math.sqrt(ratio))}"></div></div>` +
+                  `<div class="bar"><div class="fill" style="width:${fmt(width * 100)}%;background:${heatColor(heatRatio(count, most))}"></div></div>` +
                   `<span class="count">${this._format(count)}×${share}</span></div>`
                 );
               })
@@ -1739,39 +1757,39 @@ function createElements(Base) {
       if (!chart) return;
       const visits = this._visits;
       if (!visits.length) {
+        chart.removeAttribute("role");
+        chart.removeAttribute("aria-label");
         this._setHtml(chart, `<div class="empty-hint">${escapeHtml(this._t("history_empty"))}</div>`);
         return;
       }
-      const size = Math.max(visits.length, Math.min(60, Math.max(5, Number(this._config.history_size) || 20)));
-      const step = 400 / size;
-      const width = Math.max(2, step * 0.7);
-      const height = 80;
-      const scale = (score) => (Math.min(180, Math.max(0, score)) / 180) * (height - 14);
+      const size = Math.min(60, Math.max(5, Number(this._config.history_size) || 20));
+      const labels = size <= 30;
+      const share = (score) => fmt(Math.min(180, Math.max(0, score)) / 180);
+      const bars = visits.map((visit) => {
+        const tip = `${visit.segments.join(" · ")}${visit.segments.length ? " = " : ""}${visit.score}`;
+        return (
+          `<div class="visit-bar" title="${escapeHtml(tip)}">` +
+          (labels ? `<span class="label">${visit.score}</span>` : "") +
+          `<div class="fill" style="--height:${share(visit.score)};background:${VISIT_COLORS[visitBucket(visit.score)]}"></div></div>`
+        );
+      });
+      // Empty slots keep the bar width steady while the session fills the chart.
+      for (let index = visits.length; index < size; index += 1) {
+        bars.push(`<div class="visit-bar empty"><div class="fill"></div></div>`);
+      }
       const average = this._number("average");
-      const bars = visits
-        .map((visit, index) => {
-          const x = fmt(index * step + (step - width) / 2);
-          const h = fmt(Math.max(2, scale(visit.score)));
-          const y = fmt(height - h);
-          const color = VISIT_COLORS[visitBucket(visit.score)];
-          const tip = `${visit.segments.join(" · ")}${visit.segments.length ? " = " : ""}${visit.score}`;
-          const text =
-            width >= 12 ? `<text class="bar-score" x="${fmt(index * step + step / 2)}" y="${fmt(y - 3)}">${visit.score}</text>` : "";
-          return `<g><rect x="${x}" y="${y}" width="${fmt(width)}" height="${h}" rx="2" fill="${color}"><title>${escapeHtml(tip)}</title></rect>${text}</g>`;
-        })
-        .join("");
       const line =
         average !== null
-          ? `<line class="average-line" x1="0" x2="400" y1="${fmt(height - scale(average))}" y2="${fmt(height - scale(average))}"><title>${escapeHtml(
+          ? `<div class="average-line" style="--height:${share(average)}" title="${escapeHtml(
               `${this._t("average_long")}: ${this._format(average, 1)}`
-            )}</title></line>`
+            )}"></div>`
           : "";
-      this._setHtml(
-        chart,
-        `<svg viewBox="0 0 400 ${height}" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(
-          `${this._t("history")}: ${visits.map((visit) => visit.score).join(", ")}`
-        )}">${line}${bars}</svg>`
+      chart.setAttribute("role", "img");
+      chart.setAttribute(
+        "aria-label",
+        `${this._t("history")}: ${visits.map((visit) => visit.score).join(", ")}`
       );
+      this._setHtml(chart, line + bars.join(""));
     }
   }
 
@@ -2235,6 +2253,7 @@ export {
   escapeHtml,
   heatColor,
   heatLevels,
+  heatRatio,
   hitBeds,
   kind,
   label,
