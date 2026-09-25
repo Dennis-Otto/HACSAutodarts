@@ -37,4 +37,4 @@ Original und Fork verwenden beide den Integrationsnamen `autodarts` und können 
 
 ## Prüfstand
 
-Die automatischen Tests laufen mit Home Assistant 2026.9.2 und Python 3.14 mit simulierten Autodarts-Antworten. Lokale Lesezugriffe und der WebSocket-Verbindungsaufbau wurden mit Board Manager 1.0.7 geprüft. Die Hardwarevalidierung von Steueraktionen und Wurfereignissen sowie die Live-Validierung der Cloud-Anmeldung und Matchdaten stehen noch aus.
+Die automatischen Tests laufen mit Home Assistant 2026.9.2 und Python 3.14 mit simulierten Autodarts-Antworten. Zusätzlich richtet ein Docker-End-to-End-Test die Integration in einem echten Home Assistant 2026.9.3 gegen einen simulierten Board Manager ein und prüft Steuerung, Echtzeitereignisse, Diagnosedaten und Entfernen. Lokale Lesezugriffe und der WebSocket-Verbindungsaufbau wurden mit Board Manager 1.0.7 geprüft. Die Hardwarevalidierung von Steueraktionen und Wurfereignissen sowie die Live-Validierung der Cloud-Anmeldung und Matchdaten stehen noch aus.

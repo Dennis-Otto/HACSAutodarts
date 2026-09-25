@@ -1,0 +1,39 @@
+services:
+  board-mock:
+    # The Home Assistant image already provides aiohttp for the Board Manager double.
+    image: ${HOME_ASSISTANT_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.9.3@sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196}
+    entrypoint: ["python3", "/e2e/board_mock.py"]
+    user: "65534:65534"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./:/e2e:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3180/health')"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  homeassistant:
+    image: ${HOME_ASSISTANT_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.9.3@sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196}
+    depends_on:
+      board-mock:
+        condition: service_healthy
+    environment:
+      TZ: Europe/Berlin
+    ports:
+      - "127.0.0.1:${E2E_PORT:-18123}:8123"
+    volumes:
+      - homeassistant_config:/config
+      - ./configuration.yaml:/config/configuration.yaml:ro
+      - ../../custom_components/autodarts:/config/custom_components/autodarts:ro
+      - ./:/e2e:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8123/api/onboarding >/dev/null || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 100
+
+volumes:
+  homeassistant_config:

@@ -458,7 +458,8 @@ def publish(github, version, prerelease, dependencies):
         for f in github.items(f"pulls/{pr['number']}/files?per_page=100")
     ]
     if changed and all(
-        f == "requirements-test.txt" or f.startswith(".github/") for f in changed
+        f == "requirements-test.txt" or f.startswith((".github/", "tests/"))
+        for f in changed
     ):
         introduction += (
             "\n\nDie Dependabot-Änderungen betreffen Testabhängigkeiten oder GitHub-Abläufe; "

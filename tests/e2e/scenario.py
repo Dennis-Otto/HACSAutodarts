@@ -1,0 +1,500 @@
+"""Drive a real Home Assistant instance against the Board Manager double.
+
+Runs inside the Home Assistant container and uses only its public REST and
+WebSocket APIs: onboarding, config flow, services, registries and diagnostics.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import time
+from pathlib import Path
+
+import aiohttp
+from board_mock import API_KEY, BOARD_ID, PORT
+
+HA = "http://127.0.0.1:8123"
+BOARD = f"http://board-mock:{PORT}"
+CLIENT_ID = f"{HA}/"
+PASSWORD = "e2e-only-password"
+LOG = Path("/config/home-assistant.log")
+
+T20 = {"segment": {"name": "T20", "number": 20, "multiplier": 3}}
+S20 = {"segment": {"name": "S20", "number": 20, "multiplier": 1}}
+BULL = {"segment": {"name": "Bull", "number": 25, "multiplier": 2}}
+
+# Unique ID suffix -> platform of the entities a three-camera board must create.
+ENTITIES = {
+    "local_connected": "binary_sensor",
+    "realtime_connected": "binary_sensor",
+    "camera_2_problem": "binary_sensor",
+    "start": "button",
+    "calibrate_camera_1": "button",
+    "connect": "button",
+    "detection": "switch",
+    "upstream": "switch",
+    "auto_calibrate_on_start": "switch",
+    "auto_calibrate": "switch",
+    "auto_distortion": "switch",
+    "standby_minutes": "select",
+    "board_events": "event",
+    "local_status": "sensor",
+    "last_throw": "sensor",
+    "num_throws": "sensor",
+    "last_throw_score": "sensor",
+    "local_visit_score": "sensor",
+    "detection_fps": "sensor",
+    "training_darts": "sensor",
+    "training_triples": "sensor",
+    "training_bulls": "sensor",
+    "training_points": "sensor",
+}
+DISABLED_BY_DEFAULT = {"connect", "detection_fps"}
+
+
+class E2EFailure(AssertionError):
+    pass
+
+
+def check(condition: bool, message: str) -> None:
+    if not condition:
+        raise E2EFailure(message)
+
+
+async def wait_for(probe, description: str, timeout: float = 30):
+    """Poll an async probe until it returns a truthy value."""
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        last = await probe()
+        if last:
+            return last
+        await asyncio.sleep(0.5)
+    raise E2EFailure(f"Timed out waiting for {description}; last result: {last!r}")
+
+
+class Scenario:
+    def __init__(self, session: aiohttp.ClientSession) -> None:
+        self.session = session
+        self.headers: dict[str, str] = {}
+        self.entities: dict[str, str] = {}
+        self.socket: aiohttp.ClientWebSocketResponse | None = None
+        self.message_id = 0
+        self.pending: dict[int, asyncio.Future] = {}
+        self.events: asyncio.Queue = asyncio.Queue()
+        self.reader: asyncio.Task | None = None
+
+    async def http(self, method: str, url: str, *, status: int = 200, **kwargs):
+        async with self.session.request(
+            method, url, headers=self.headers, **kwargs
+        ) as response:
+            body = await response.text()
+            check(
+                response.status == status,
+                f"{method} {url}: expected HTTP {status}, got {response.status}: {body}",
+            )
+            return json.loads(body) if body else None
+
+    async def api(self, method: str, path: str, **kwargs):
+        return await self.http(method, f"{HA}{path}", **kwargs)
+
+    async def board(self, method: str, path: str, **kwargs):
+        return await self.http(method, f"{BOARD}{path}", **kwargs)
+
+    # Authentication and WebSocket API
+
+    async def onboard(self) -> None:
+        created = await self.api(
+            "POST",
+            "/api/onboarding/users",
+            json={
+                "client_id": CLIENT_ID,
+                "name": "E2E Admin",
+                "username": "e2e-admin",
+                "password": PASSWORD,
+                "language": "en",
+            },
+        )
+        token = await self.api(
+            "POST",
+            "/auth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": created["auth_code"],
+                "client_id": CLIENT_ID,
+            },
+        )
+        self.headers = {"Authorization": f"Bearer {token['access_token']}"}
+
+        async def running():
+            # Onboarding answers before every configured integration has loaded.
+            async with self.session.get(
+                f"{HA}/api/config", headers=self.headers
+            ) as response:
+                return (
+                    response.status == 200
+                    and (await response.json())["state"] == "RUNNING"
+                )
+
+        await wait_for(running, "Home Assistant to finish starting", timeout=120)
+
+    async def connect(self) -> None:
+        self.socket = await self.session.ws_connect(f"{HA}/api/websocket")
+        check(
+            (await self.socket.receive_json())["type"] == "auth_required",
+            "WebSocket API did not request authentication",
+        )
+        await self.socket.send_json(
+            {
+                "type": "auth",
+                "access_token": self.headers["Authorization"].removeprefix("Bearer "),
+            }
+        )
+        check(
+            (await self.socket.receive_json())["type"] == "auth_ok",
+            "WebSocket authentication failed",
+        )
+        self.reader = asyncio.create_task(self._read())
+
+    async def _read(self) -> None:
+        async for message in self.socket:
+            payload = message.json()
+            if payload["type"] == "event":
+                self.events.put_nowait(payload["event"])
+            elif future := self.pending.pop(payload["id"], None):
+                future.set_result(payload)
+
+    async def ws(self, command: str, **payload):
+        self.message_id += 1
+        future = asyncio.get_running_loop().create_future()
+        self.pending[self.message_id] = future
+        await self.socket.send_json({"id": self.message_id, "type": command, **payload})
+        result = await asyncio.wait_for(future, 30)
+        check(result["success"], f"{command} failed: {result.get('error')}")
+        return result["result"]
+
+    # Home Assistant helpers
+
+    def entity(self, key: str) -> str:
+        return self.entities[f"{BOARD_ID}_{key}"]
+
+    async def state(self, key: str) -> dict:
+        return await self.api("GET", f"/api/states/{self.entity(key)}")
+
+    async def expect_states(self, expected: dict[str, str], timeout: float = 30):
+        async def probe():
+            actual = {key: (await self.state(key))["state"] for key in expected}
+            return actual == expected or None
+
+        try:
+            await wait_for(probe, f"states {expected}", timeout)
+        except E2EFailure:
+            actual = {key: (await self.state(key))["state"] for key in expected}
+            raise E2EFailure(f"Expected {expected}, got {actual}") from None
+
+    async def service(self, domain: str, service: str, key: str, **data) -> None:
+        await self.api(
+            "POST",
+            f"/api/services/{domain}/{service}",
+            json={"entity_id": self.entity(key), **data},
+        )
+
+    async def entry_is(self, state: str) -> bool:
+        entries = await self.api(
+            "GET", "/api/config/config_entries/entry?domain=autodarts"
+        )
+        return len(entries) == 1 and entries[0]["state"] == state
+
+    async def flow(self, flow_id: str | None = None, **data) -> dict:
+        if flow_id is None:
+            return await self.api(
+                "POST", "/api/config/config_entries/flow", json={"handler": "autodarts"}
+            )
+        return await self.api(
+            "POST", f"/api/config/config_entries/flow/{flow_id}", json=data
+        )
+
+    async def local_flow(self, host: str, port: int) -> dict:
+        menu = await self.flow()
+        check(
+            menu["type"] == "menu" and menu["menu_options"] == ["local", "cloud"],
+            f"Unexpected setup menu: {menu}",
+        )
+        form = await self.flow(menu["flow_id"], next_step_id="local")
+        check(form["step_id"] == "local", f"Local setup form missing: {form}")
+        return await self.flow(form["flow_id"], host=host, port=port)
+
+    # Scenario steps
+
+    async def setup(self) -> str:
+        result = await self.local_flow("http://board-mock", PORT)
+        check(result["errors"] == {"host": "invalid_host"}, f"URL accepted: {result}")
+        result = await self.local_flow("board-mock", PORT + 1)
+        check(
+            result["errors"] == {"base": "cannot_connect_local"},
+            f"Closed port accepted: {result}",
+        )
+        result = await self.local_flow("Board-Mock", PORT)
+        check(result["type"] == "create_entry", f"Local setup failed: {result}")
+        check(result["title"] == "Autodarts (board-mock)", f"Title: {result['title']}")
+        entry_id = result["result"]["entry_id"]
+
+        duplicate = await self.local_flow("board-mock", PORT)
+        check(
+            duplicate.get("reason") == "already_configured",
+            f"Second entry for the same board was not rejected: {duplicate}",
+        )
+
+        await wait_for(lambda: self.entry_is("loaded"), "the config entry to load")
+        return entry_id
+
+    async def registries(self, entry_id: str) -> None:
+        registered: dict[str, dict] = {}
+
+        async def discovered():
+            registered.clear()
+            for item in await self.ws("config/entity_registry/list"):
+                if item["config_entry_id"] == entry_id:
+                    registered[item["unique_id"]] = item
+            return all(f"{BOARD_ID}_{key}" in registered for key in ENTITIES)
+
+        await wait_for(discovered, "all local entities, including discovered cameras")
+        for key, platform in ENTITIES.items():
+            item = registered[f"{BOARD_ID}_{key}"]
+            check(item["platform"] == "autodarts", f"{key}: wrong integration")
+            check(
+                item["entity_id"].startswith(f"{platform}."),
+                f"{key}: expected {platform}, got {item['entity_id']}",
+            )
+            disabled = item["disabled_by"] == "integration"
+            check(
+                disabled == (key in DISABLED_BY_DEFAULT),
+                f"{key}: unexpected disabled_by {item['disabled_by']!r}",
+            )
+        self.entities = {
+            unique_id: item["entity_id"] for unique_id, item in registered.items()
+        }
+
+        devices = [
+            device
+            for device in await self.ws("config/device_registry/list")
+            if ["autodarts", BOARD_ID] in device["identifiers"]
+        ]
+        check(len(devices) == 1, f"Expected one board device, got {devices}")
+        device = devices[0]
+        check(device["sw_version"] == "1.0.7", f"Firmware: {device['sw_version']}")
+        check(
+            device["configuration_url"] == BOARD,
+            f"Configuration URL: {device['configuration_url']}",
+        )
+
+    async def initial_state(self) -> None:
+        await self.expect_states(
+            {
+                "local_connected": "on",
+                "realtime_connected": "on",
+                "detection": "off",
+                "upstream": "on",
+                "auto_calibrate_on_start": "on",
+                "auto_calibrate": "on",
+                "auto_distortion": "off",
+                "standby_minutes": "15",
+                "local_status": "Stopped",
+                "training_darts": "0",
+            }
+        )
+
+    async def controls(self) -> None:
+        await self.service("button", "press", "start")
+        await self.expect_states({"detection": "on", "local_status": "Throw"})
+        await self.service("switch", "turn_on", "auto_distortion")
+        await self.expect_states({"auto_distortion": "on"})
+        await self.service("select", "select_option", "standby_minutes", option="30")
+        await self.expect_states({"standby_minutes": "30"})
+        await self.service("button", "press", "calibrate_camera_1")
+        await self.service("switch", "turn_off", "upstream")
+        await self.expect_states({"upstream": "off"})
+        await self.service("switch", "turn_on", "upstream")
+        await self.expect_states({"upstream": "on"})
+
+        board = await self.board("GET", "/control/requests")
+        expected = [
+            {"method": "PUT", "path": "/api/start", "body": None},
+            {
+                "method": "PATCH",
+                "path": "/api/config",
+                "body": {"cam": {"auto_distortion": True}},
+            },
+            {
+                "method": "PATCH",
+                "path": "/api/config",
+                "body": {"motion": {"standby_minutes": 30}},
+            },
+            {
+                "method": "POST",
+                "path": "/api/config/calibration/auto/1?distortion=true",
+                "body": None,
+            },
+            {"method": "PUT", "path": "/api/upstream/disconnect", "body": None},
+            {"method": "PUT", "path": "/api/upstream/connect", "body": None},
+        ]
+        check(
+            board["commands"] == expected,
+            f"Board commands differ:\n{json.dumps(board['commands'], indent=2)}",
+        )
+
+    async def realtime(self, entry_id: str) -> None:
+        # Without polling, every following change must arrive over the board socket.
+        await self.ws(
+            "config_entries/update", entry_id=entry_id, pref_disable_polling=True
+        )
+        await wait_for(
+            lambda: self.entry_is("loaded"), "the reloaded entry without polling"
+        )
+        await self.expect_states({"realtime_connected": "on", "detection": "on"})
+        await self.ws("subscribe_events", event_type="state_changed")
+
+        await self.board(
+            "POST", "/control/state", json={"event": "Throw detected", "throws": [T20]}
+        )
+        await self.expect_states({"last_throw": "T20", "last_throw_score": "60"})
+        await self.board("POST", "/control/state", json={"throws": [T20, BULL]})
+        await self.expect_states(
+            {"last_throw": "Bull", "local_visit_score": "110", "num_throws": "2"}
+        )
+        await self.board(
+            "POST",
+            "/control/state",
+            json={"event": "Dart corrected", "throws": [S20, BULL]},
+        )
+        await self.expect_states({"local_visit_score": "70"})
+        await self.board(
+            "POST",
+            "/control/state",
+            json={"status": "Takeout in progress", "event": "Takeout started"},
+        )
+        await self.board(
+            "POST",
+            "/control/state",
+            json={"status": "Throw", "event": "Takeout finished", "throws": []},
+        )
+        await self.expect_states(
+            {
+                "num_throws": "0",
+                "local_visit_score": "0",
+                "training_darts": "2",
+                "training_triples": "0",
+                "training_bulls": "1",
+                "training_points": "70",
+            }
+        )
+
+        fired = []
+        while not self.events.empty():
+            event = self.events.get_nowait()["data"]
+            if event["entity_id"] == self.entity("board_events") and event["new_state"]:
+                fired.append(event["new_state"]["attributes"])
+        board_events = [
+            (item["event_type"], item.get("segment"), item.get("score"))
+            for item in fired
+            if item["event_type"] != "status_changed"
+        ]
+        check(
+            board_events
+            == [
+                ("dart_detected", "T20", 60),
+                ("dart_detected", "Bull", 50),
+                ("dart_corrected", "S20", 20),
+                ("takeout_started", None, None),
+                ("takeout_finished", None, None),
+            ],
+            f"Unexpected board events: {fired}",
+        )
+        check(
+            all(item["source"] == "websocket" for item in fired),
+            f"Events did not arrive in realtime: {fired}",
+        )
+
+        store = Path(f"/config/.storage/autodarts.{entry_id}.training")
+
+        async def persisted():
+            if not store.exists():
+                return None
+            return json.loads(store.read_text())["data"]["darts"] == 2
+
+        await wait_for(persisted, "the persisted training session", timeout=20)
+
+    async def diagnostics(self, entry_id: str) -> None:
+        report = await self.api("GET", f"/api/diagnostics/config_entry/{entry_id}")
+        data = report["data"]
+        check(API_KEY not in json.dumps(report), "Diagnostics expose the board API key")
+        check(BOARD_ID not in json.dumps(data), "Diagnostics expose the board ID")
+        check(
+            data["local_available"] is True
+            and data["realtime_connected"] is True
+            and data["cloud_configured"] is False,
+            f"Unexpected diagnostics summary: {data}",
+        )
+
+    async def logs(self) -> None:
+        problems = [
+            item
+            for item in await self.ws("system_log/list")
+            if item["level"] in ("ERROR", "CRITICAL")
+            or item["name"].startswith("custom_components.autodarts")
+        ]
+        check(not problems, f"Home Assistant logged problems: {problems}")
+        log = LOG.read_text() if LOG.exists() else ""
+        check(API_KEY not in log, "Home Assistant log contains the board API key")
+        check("Traceback" not in log, "Home Assistant log contains a traceback")
+
+        board = await self.board("GET", "/control/requests")
+        check(
+            not board["unexpected"],
+            f"Unexpected Board Manager calls: {board['unexpected']}",
+        )
+
+    async def remove(self, entry_id: str) -> None:
+        await self.api("DELETE", f"/api/config/config_entries/entry/{entry_id}")
+
+        async def disconnected():
+            return (await self.board("GET", "/control/requests"))["sockets"] == 0
+
+        await wait_for(disconnected, "the board socket to close after removal")
+        remaining = [
+            item
+            for item in await self.ws("config/entity_registry/list")
+            if item["platform"] == "autodarts"
+        ]
+        check(not remaining, f"Entities remain after removal: {remaining}")
+        check(
+            not Path(f"/config/.storage/autodarts.{entry_id}.training").exists(),
+            "Training session was not deleted with the integration",
+        )
+
+
+async def main() -> None:
+    timeout = aiohttp.ClientTimeout(total=60)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        scenario = Scenario(session)
+        await scenario.onboard()
+        await scenario.connect()
+        entry_id = await scenario.setup()
+        await scenario.registries(entry_id)
+        await scenario.initial_state()
+        await scenario.controls()
+        await scenario.realtime(entry_id)
+        await scenario.diagnostics(entry_id)
+        await scenario.logs()
+        await scenario.remove(entry_id)
+        await scenario.socket.close()
+    print(
+        "Docker E2E passed: onboarding, local config flow and validation, registries, "
+        "controls, realtime darts/corrections/takeouts, persistence, private "
+        "diagnostics, clean logs and removal."
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

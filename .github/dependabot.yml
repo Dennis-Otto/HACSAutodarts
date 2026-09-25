@@ -47,3 +47,27 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+
+  - package-ecosystem: docker-compose
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:40"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      containers-routine:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      containers-major:
+        patterns:
+          - "*"
+        update-types:
+          - major
+    commit-message:
+      prefix: chore
+      include: scope
