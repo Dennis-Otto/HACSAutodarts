@@ -5,6 +5,12 @@
 > **Work in progress.** Local Board Manager control works without a client ID. Local reads have been verified with Board Manager 1.0.7; control actions and dart events still require hardware validation. Cloud account linking requires an approved project client ID and has not yet been validated with a live account.
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![CI](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/tests.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/tests.yml)
+[![Docker E2E](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/e2e.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/e2e.yml)
+[![Secret scan](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/secret-scan.yml)
+[![CodeQL](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/codeql.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/codeql.yml)
+[![SBOM](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/sbom.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/sbom.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Dennis-Otto/HACSAutodarts/badge)](https://scorecard.dev/viewer/?uri=github.com/Dennis-Otto/HACSAutodarts)
 
 A [Home Assistant](https://www.home-assistant.io/) custom integration for [Autodarts](https://autodarts.io/) — the automatic dart scoring system.
 
@@ -107,7 +113,17 @@ python3.14 -m venv .venv
 .venv/bin/ruff check custom_components tests
 ```
 
-Dependabot checks Python dependencies and GitHub Actions weekly on Monday mornings
+The [Docker end-to-end test](tests/e2e/README.md) starts a real Home Assistant
+2026.9.3 container with this integration and a simulated Board Manager. It covers
+onboarding, local setup, entity services, realtime dart events, diagnostics and
+removal. It requires Docker with Compose:
+
+```sh
+bash tests/e2e/run.sh
+```
+
+Dependabot checks Python dependencies, GitHub Actions and the Home Assistant image
+of the Docker end-to-end test weekly on Monday mornings
 (Europe/Berlin). Patch and minor updates are grouped and automatically squash-merged
 after all required checks pass. Major updates remain separate pull requests for
 manual review. Repository auto-merge and required checks are enforced through the
@@ -117,11 +133,13 @@ including test dependencies and GitHub Actions updates. Major dependency updates
 enter the same release process after a maintainer merges them. This does not install
 updates into Home Assistant automatically.
 
-Pull requests are checked with pytest, Ruff, HACS validation, Home Assistant
-hassfest, workflow linting, Python CodeQL analysis, dependency vulnerability review,
-and Gitleaks. HACS/hassfest and CodeQL also run weekly to detect changes in platform
-requirements and security checks. GitHub Actions are pinned to commit hashes or
-container digests and maintained by Dependabot.
+Pull requests are checked with pytest, Ruff, the Docker end-to-end test, HACS
+validation, Home Assistant hassfest, workflow linting, Python CodeQL analysis,
+dependency vulnerability review, Gitleaks and an SPDX SBOM. HACS/hassfest, CodeQL
+and the SBOM also run weekly to detect changes in platform requirements and security
+checks. OpenSSF Scorecard evaluates the repository's supply-chain security on every
+push to `main` and weekly. GitHub Actions are pinned to commit hashes or container
+digests and maintained by Dependabot.
 
 ## Releases and changelogs
 
@@ -161,6 +179,14 @@ Use these sensors to trigger Home Assistant automations, for example:
 - Play a sound when a 180 is scored (visit score = 180)
 - Send a notification with match results
 - Display live scores on a dashboard
+
+## Contributing and security
+
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for requirements
+and checks. Use [SUPPORT.md](SUPPORT.md) for bug reports and questions. Report
+suspected vulnerabilities privately as described in [SECURITY.md](SECURITY.md), never
+in a public issue. Participation follows the [code of conduct](CODE_OF_CONDUCT.md)
+and the project's [governance](GOVERNANCE.md).
 
 ## License
 

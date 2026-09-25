@@ -216,10 +216,18 @@ def test_release_inherits_channel_after_successful_protected_merge(monkeypatch):
     publish.assert_called_once_with(github, "0.4.3", True, [pull()])
 
 
-def test_publish_uses_workflow_and_checks_tag_manifest(monkeypatch):
+@pytest.mark.parametrize(
+    "filename,test_only",
+    [
+        ("requirements-test.txt", True),
+        ("tests/e2e/compose.yaml", True),
+        ("custom_components/autodarts/manifest.json", False),
+    ],
+)
+def test_publish_uses_workflow_and_checks_tag_manifest(filename, test_only):
     github = Mock()
     github.items.side_effect = lambda path: (
-        [{"filename": "requirements-test.txt"}]
+        [{"filename": filename}]
         if path.startswith("pulls/")
         else [
             {
@@ -237,7 +245,7 @@ def test_publish_uses_workflow_and_checks_tag_manifest(monkeypatch):
     assert inputs["version"] == "0.4.3"
     assert inputs["prerelease"] is True
     assert inputs["draft"] is False
-    assert "Testabhängigkeiten" in inputs["introduction"]
+    assert ("Testabhängigkeiten" in inputs["introduction"]) is test_only
     assert github.manifest.call_args == call("v0.4.3")
 
 
