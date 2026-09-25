@@ -9,6 +9,8 @@ from homeassistant.core import callback
 
 from .entity import AutodartsLocalEntity
 
+PARALLEL_UPDATES = 0
+
 MOTION_SENSORS = {
     "hand_detected": "isHand",
     "image_stable": "isStable",
@@ -77,6 +79,8 @@ class AutodartsLocalState(AutodartsLocalEntity, BinarySensorEntity):
         if key == "camera_problem":
             self._attr_device_class = BinarySensorDeviceClass.PROBLEM
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        elif key in ("cameras_active", "calibrating"):
+            self._attr_device_class = BinarySensorDeviceClass.RUNNING
         elif key in ("realtime_connected", "cloud_link"):
             self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
             self._attr_entity_category = EntityCategory.DIAGNOSTIC

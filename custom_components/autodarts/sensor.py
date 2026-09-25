@@ -34,6 +34,23 @@ from .coordinator import AutodartsDataUpdateCoordinator
 from .entity import AutodartsEntity, AutodartsLocalEntity
 from .training import COUNTERS
 
+PARALLEL_UPDATES = 0
+
+# Board Manager detection states, translated in strings.json.
+LOCAL_STATES = [
+    "offline",
+    "starting",
+    "stopping",
+    "stopped",
+    "throw",
+    "takeout",
+    "takeout_in_progress",
+    "calibrating",
+    "error",
+]
+MATCH_STATES = ["no_match", "active", "finished"]
+BOARD_STATES = ["connected", "disconnected"]
+
 # ---------------------------------------------------------------------------
 # Helpers to extract values from coordinator data
 # ---------------------------------------------------------------------------
@@ -86,10 +103,10 @@ def _get_match_state(data: dict[str, Any]) -> str | None:
     """Match state — active / finished / etc."""
     match = _match(data)
     if not match:
-        return "No match"
+        return "no_match"
     if match.get("finished"):
-        return "Finished"
-    return "Active"
+        return "finished"
+    return "active"
 
 
 def _get_round(data: dict[str, Any]) -> int | None:
@@ -193,50 +210,47 @@ STATIC_SENSORS: tuple[AutodartsSensorEntityDescription, ...] = (
     AutodartsSensorEntityDescription(
         key=SENSOR_BOARD_STATUS,
         translation_key=SENSOR_BOARD_STATUS,
-        icon="mdi:bullseye",
+        device_class=SensorDeviceClass.ENUM,
+        options=BOARD_STATES,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_get_board_status,
     ),
     AutodartsSensorEntityDescription(
         key=SENSOR_BOARD_EVENT,
         translation_key=SENSOR_BOARD_EVENT,
-        icon="mdi:bell-ring",
         value_fn=_get_board_event,
     ),
     AutodartsSensorEntityDescription(
         key=SENSOR_GAME_MODE,
         translation_key=SENSOR_GAME_MODE,
-        icon="mdi:gamepad-variant",
         value_fn=_get_game_mode,
     ),
     AutodartsSensorEntityDescription(
         key=SENSOR_MATCH_STATE,
         translation_key=SENSOR_MATCH_STATE,
-        icon="mdi:play-circle",
+        device_class=SensorDeviceClass.ENUM,
+        options=MATCH_STATES,
         value_fn=_get_match_state,
     ),
     AutodartsSensorEntityDescription(
         key=SENSOR_ROUND,
         translation_key=SENSOR_ROUND,
-        icon="mdi:rotate-right",
         value_fn=_get_round,
     ),
     AutodartsSensorEntityDescription(
         key=SENSOR_LAST_THROW,
         translation_key=SENSOR_LAST_THROW,
-        icon="mdi:arrow-projectile",
         value_fn=_get_last_throw,
     ),
     AutodartsSensorEntityDescription(
         key=SENSOR_NUM_THROWS,
         translation_key=SENSOR_NUM_THROWS,
-        icon="mdi:counter",
         native_unit_of_measurement="darts",
         value_fn=_get_num_throws,
     ),
     AutodartsSensorEntityDescription(
         key=SENSOR_VISIT_SCORE,
         translation_key=SENSOR_VISIT_SCORE,
-        icon="mdi:numeric",
         native_unit_of_measurement="points",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_get_visit_score,
@@ -244,8 +258,7 @@ STATIC_SENSORS: tuple[AutodartsSensorEntityDescription, ...] = (
     AutodartsSensorEntityDescription(
         key=SENSOR_DARTS_THROWN,
         translation_key=SENSOR_DARTS_THROWN,
-        icon="mdi:counter",
-        native_unit_of_measurement="turns",
+        native_unit_of_measurement="darts",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=_get_darts_thrown,
     ),
@@ -309,7 +322,6 @@ async def async_setup_entry(
                             key=f"camera_{index}_fps",
                             translation_key="camera_fps",
                             translation_placeholders={"number": str(index + 1)},
-                            icon="mdi:speedometer",
                             native_unit_of_measurement="fps",
                             entity_category=EntityCategory.DIAGNOSTIC,
                             entity_registry_enabled_default=False,
@@ -359,6 +371,15 @@ def _local_visit_score(data: dict[str, Any]) -> int:
     return sum(dart["score"] for dart in _darts(data))
 
 
+def _local_status(data: dict[str, Any]) -> str | None:
+    """Board Manager status as a translatable state; unknown ones read as unknown."""
+    status = _local(data).get("status")
+    if not isinstance(status, str):
+        return None
+    state = "_".join(status.lower().split())
+    return state if state in LOCAL_STATES else None
+
+
 def _camera_fps(data: dict[str, Any], index: int) -> float | None:
     fps = data.get("camera_stats", {}).get("fps")
     return _number(fps[index]) if isinstance(fps, list) and index < len(fps) else None
@@ -368,28 +389,26 @@ LOCAL_SENSORS = (
     AutodartsSensorEntityDescription(
         key="local_status",
         translation_key="local_status",
-        icon="mdi:bullseye",
-        value_fn=lambda data: _local(data).get("status"),
+        device_class=SensorDeviceClass.ENUM,
+        options=LOCAL_STATES,
+        value_fn=_local_status,
     ),
     AutodartsSensorEntityDescription(
         key="last_throw_score",
         translation_key="last_throw_score",
         native_unit_of_measurement="points",
-        icon="mdi:counter",
         value_fn=_last_throw_score,
     ),
     AutodartsSensorEntityDescription(
         key="local_visit_score",
         translation_key="local_visit_score",
         native_unit_of_measurement="points",
-        icon="mdi:counter",
         value_fn=_local_visit_score,
     ),
     AutodartsSensorEntityDescription(
         key="detection_fps",
         translation_key="detection_fps",
         native_unit_of_measurement="fps",
-        icon="mdi:speedometer",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda data: _number(data.get("stats", {}).get("fps")),
@@ -406,7 +425,6 @@ SYSTEM_SENSORS = (
     AutodartsSensorEntityDescription(
         key="cpu_usage",
         translation_key="cpu_usage",
-        icon="mdi:cpu-64-bit",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=0,
@@ -416,7 +434,6 @@ SYSTEM_SENSORS = (
     AutodartsSensorEntityDescription(
         key="memory_usage",
         translation_key="memory_usage",
-        icon="mdi:memory",
         device_class=SensorDeviceClass.DATA_SIZE,
         native_unit_of_measurement=UnitOfInformation.BYTES,
         suggested_unit_of_measurement=UnitOfInformation.MEBIBYTES,
@@ -485,10 +502,11 @@ class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
     def __init__(self, coordinator, key: str) -> None:
         super().__init__(coordinator, f"training_{key}")
         self._key = key
-        self._attr_icon = "mdi:counter"
         if key == "started":
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
-            self._attr_icon = "mdi:clock-start"
+        else:
+            # Totals only grow until the session is reset, like a meter.
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     @property
     def available(self) -> bool:

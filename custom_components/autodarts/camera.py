@@ -6,6 +6,8 @@ from homeassistant.core import callback
 from .entity import AutodartsLocalEntity
 from .errors import AutodartsApiError
 
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     if coordinator := entry.runtime_data.local:

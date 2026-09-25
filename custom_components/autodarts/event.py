@@ -7,6 +7,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .entity import AutodartsLocalEntity
 from .local_coordinator import EVENT_TYPES
 
+PARALLEL_UPDATES = 0
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     if coordinator := entry.runtime_data.local:
@@ -15,7 +17,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class AutodartsBoardEvent(AutodartsLocalEntity, EventEntity):
     _attr_event_types = EVENT_TYPES
-    _attr_icon = "mdi:bullseye-arrow"
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "board_events")

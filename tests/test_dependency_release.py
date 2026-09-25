@@ -415,8 +415,9 @@ def test_delayed_pr_registration_waits_for_all_real_runs(
     noise = [dict(r, event="push") for r in runs]
     noise += [dict(r, head_sha="previous-head") for r in runs]
     noise += [dict(r, pull_requests=[{"number": 99}]) for r in runs]
-    github.items.side_effect = lambda *args: noise + (
-        runs if registration_clock.elapsed >= registration_delay else runs[:-1]
+    github.items.side_effect = lambda *args: (
+        noise
+        + (runs if registration_clock.elapsed >= registration_delay else runs[:-1])
     )
     github.api.side_effect = lambda path, **kwargs: runs[
         int(path.rsplit("/", 1)[1]) - 1

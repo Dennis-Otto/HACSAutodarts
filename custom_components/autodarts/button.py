@@ -1,21 +1,25 @@
 """Explicit local Board Manager actions, also usable by HA automations."""
 
-from homeassistant.components.button import ButtonEntity
+from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.const import EntityCategory
 from homeassistant.core import callback
 
 from .entity import AutodartsLocalEntity
 
+PARALLEL_UPDATES = 1
+
+# Command -> enabled by default, entity category. Detection controls are used
+# every session, so they appear on generated dashboards.
 BUTTONS = {
-    "start": ("mdi:play", True),
-    "stop": ("mdi:stop", True),
-    "reset": ("mdi:restore", True),
-    "restart": ("mdi:restart", True),
-    "calibrate": ("mdi:bullseye-arrow", True),
-    "connect": ("mdi:cloud-check", False),
-    "disconnect": ("mdi:cloud-off-outline", False),
-    "start_streams": ("mdi:video", False),
-    "stop_streams": ("mdi:video-off", False),
+    "start": (True, None),
+    "stop": (True, None),
+    "reset": (True, None),
+    "restart": (True, EntityCategory.CONFIG),
+    "calibrate": (True, EntityCategory.CONFIG),
+    "connect": (False, EntityCategory.CONFIG),
+    "disconnect": (False, EntityCategory.CONFIG),
+    "start_streams": (False, EntityCategory.CONFIG),
+    "stop_streams": (False, EntityCategory.CONFIG),
 }
 # Board Manager 2 has no routes to connect or disconnect its cloud link.
 V1_ONLY = ("connect", "disconnect")
@@ -52,12 +56,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AutodartsButton(AutodartsLocalEntity, ButtonEntity):
-    _attr_entity_category = EntityCategory.CONFIG
-
     def __init__(self, coordinator, command: str) -> None:
         super().__init__(coordinator, command)
         self._command = command
-        self._attr_icon, self._attr_entity_registry_enabled_default = BUTTONS[command]
+        enabled, category = BUTTONS[command]
+        self._attr_entity_registry_enabled_default = enabled
+        self._attr_entity_category = category
+        if command == "restart":
+            self._attr_device_class = ButtonDeviceClass.RESTART
 
     async def async_press(self) -> None:
         await self.coordinator.async_action(
@@ -67,7 +73,6 @@ class AutodartsButton(AutodartsLocalEntity, ButtonEntity):
 
 class AutodartsCameraCalibration(AutodartsLocalEntity, ButtonEntity):
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_icon = "mdi:camera-iris"
 
     def __init__(self, coordinator, index: int) -> None:
         super().__init__(coordinator, f"calibrate_camera_{index}")
@@ -88,8 +93,6 @@ class AutodartsCameraCalibration(AutodartsLocalEntity, ButtonEntity):
 
 
 class AutodartsTrainingReset(AutodartsLocalEntity, ButtonEntity):
-    _attr_icon = "mdi:counter"
-
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "reset_training")
 

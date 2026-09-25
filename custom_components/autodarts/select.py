@@ -6,6 +6,8 @@ from homeassistant.const import EntityCategory
 from .entity import AutodartsLocalEntity
 from .local_api import STANDBY_MINUTES
 
+PARALLEL_UPDATES = 1
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     if coordinator := entry.runtime_data.local:
@@ -14,7 +16,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class AutodartsStandbySelect(AutodartsLocalEntity, SelectEntity):
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_icon = "mdi:timer-outline"
     _attr_options = [str(value) for value in STANDBY_MINUTES]
 
     def __init__(self, coordinator) -> None:

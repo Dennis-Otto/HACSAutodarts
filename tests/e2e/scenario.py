@@ -371,7 +371,7 @@ class Scenario:
             "auto_calibrate": "on",
             "auto_distortion": "off",
             "standby_minutes": "15",
-            "local_status": "Stopped",
+            "local_status": "stopped",
             "training_darts": "0",
         }
         if GENERATION >= 2:
@@ -389,7 +389,7 @@ class Scenario:
 
     async def controls(self) -> None:
         await self.service("button", "press", "start")
-        await self.expect_states({"detection": "on", "local_status": "Throw"})
+        await self.expect_states({"detection": "on", "local_status": "throw"})
         await self.service("switch", "turn_on", "auto_distortion")
         await self.expect_states({"auto_distortion": "on"})
         await self.service("select", "select_option", "standby_minutes", option="30")
