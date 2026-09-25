@@ -1,0 +1,23 @@
+## Summary
+
+<!-- What changes for users, and why? Link related issues with "Fixes #123". -->
+
+## Type
+
+- [ ] Bug fix (`bug`)
+- [ ] New feature (`enhancement`)
+- [ ] Breaking change: users must adapt automations or settings (`breaking-change`)
+- [ ] Documentation (`documentation`)
+- [ ] Maintenance, CI or dependencies (`maintenance`)
+
+## Checklist
+
+- [ ] Tests cover the change (`pytest --cov`, `npm test`, and the Docker end-to-end or browser test for visible flows).
+- [ ] User-facing texts are in `strings.json` and both translations.
+- [ ] The documentation in `docs/` and `docs/de/` is updated.
+- [ ] Screenshots are regenerated with `bash tests/e2e/screenshots.sh` if a card or dialog looks different.
+- [ ] No tokens, keys, real board IDs or private addresses are included.
+
+## Test plan
+
+<!-- How did you verify the change? -->

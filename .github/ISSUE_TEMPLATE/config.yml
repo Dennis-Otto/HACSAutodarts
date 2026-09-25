@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation and troubleshooting
+    url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/docs/troubleshooting.md
+    about: Most setup and connection problems are solved here.
+  - name: Report a security vulnerability
+    url: https://github.com/Dennis-Otto/HACSAutodarts/security/advisories/new
+    about: Report vulnerabilities privately, never in a public issue.
+  - name: Problems with the board itself
+    url: https://autodarts.io
+    about: Detection, calibration or account problems outside Home Assistant belong to Autodarts support.
