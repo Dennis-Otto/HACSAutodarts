@@ -30,7 +30,7 @@ class AutodartsLocalCommandError(AutodartsApiError):
     """The board rejected an action; do not retry a possibly executed command."""
 
 
-class _EndpointMissing(AutodartsLocalCommandError):
+class AutodartsEndpointMissing(AutodartsLocalCommandError):
     """This firmware does not implement the requested route."""
 
 
@@ -58,7 +58,9 @@ class AutodartsLocalClient:
                     method, f"{self.base_url}{path}", **kwargs
                 ) as response:
                     if response.status in (404, 405):
-                        raise _EndpointMissing("Endpoint not supported by this board")
+                        raise AutodartsEndpointMissing(
+                            "Endpoint not supported by this board"
+                        )
                     if response.status >= 400 and method != "GET":
                         raise AutodartsLocalCommandError(
                             f"Board rejected command (HTTP {response.status})"
@@ -199,7 +201,7 @@ class AutodartsLocalClient:
                     response_type="none",
                     timeout=60 if command == "calibrate" else 10,
                 )
-            except _EndpointMissing:
+            except AutodartsEndpointMissing:
                 if command not in ("start", "stop"):
                     raise
                 await self._request(

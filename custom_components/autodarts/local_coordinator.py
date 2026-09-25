@@ -13,6 +13,8 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -20,10 +22,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .camera_health import CameraHealth
 from .const import DOMAIN
 from .errors import AutodartsApiError
-from .local_api import AutodartsLocalClient
+from .local_api import AutodartsEndpointMissing, AutodartsLocalClient
 from .training import TrainingSession
 
 _LOGGER = logging.getLogger(__name__)
+# Poll quickly without realtime events; with them, polling only reconciles.
+POLL_INTERVAL = timedelta(seconds=2)
+STREAM_POLL_INTERVAL = timedelta(seconds=30)
 MOTION_FLAGS = (
     "isWaiting",
     "isStable",
@@ -56,7 +61,11 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             name=f"{DOMAIN}_local",
             config_entry=entry,
-            update_interval=timedelta(seconds=2),
+            update_interval=POLL_INTERVAL,
+            # Show the result of consecutive user actions without a long cooldown.
+            request_refresh_debouncer=Debouncer(
+                hass, _LOGGER, cooldown=1, immediate=True
+            ),
         )
         self.client = client
         self.board_id = board_id
@@ -116,6 +125,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         return
                     if kind == "connected":
                         self.stream_connected = True
+                        self.update_interval = STREAM_POLL_INTERVAL
                         connected_at = time.monotonic()
                         self.async_update_listeners()
                         continue
@@ -124,20 +134,30 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.debug(
                     "Local event stream unavailable; HTTP polling remains active"
                 )
+            except Exception:
+                # Never let one bad message end realtime updates until a reload.
+                _LOGGER.exception("Unexpected error in the local event stream")
             finally:
                 self.stream_connected = False
+                self.update_interval = POLL_INTERVAL
                 if connected_at is not None:
                     self._baseline_after_gap()
                 if not self._shutdown_requested:
                     self.async_update_listeners()
+            if connected_at is not None and not self._shutdown_requested:
+                # Resume fast polling right away instead of after the long interval.
+                await self.async_request_refresh()
             if connected_at is not None and time.monotonic() - connected_at >= 30:
                 delay = 1
             await asyncio.sleep(delay)
             delay = min(delay * 2, 60)
 
     async def _optional(self, operation: Coroutine) -> Any:
+        """Unsupported endpoints read as empty; a failed read returns None."""
         try:
             return await operation
+        except AutodartsEndpointMissing:
+            return {}
         except AutodartsApiError:
             return None
 
@@ -277,6 +297,8 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._process(data, {field}, "websocket")
         self.data = data
         recovered = field == "local" and not self.last_update_success
+        if recovered:
+            _LOGGER.info("Local Board Manager is available again")
         if field == "local":
             self.last_update_success = True
         if (changed or recovered) and field not in ("stats", "camera_stats"):
@@ -287,6 +309,10 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             state = await self.client.get_state()
         except AutodartsApiError as err:
+            if self.stream_connected and self.data:
+                # Realtime events still arrive, so a missed poll is no outage.
+                _LOGGER.debug("Board Manager missed a poll; realtime events continue")
+                return dict(self.data)
             self._health = CameraHealth()
             if not self.stream_connected:
                 self._baseline_after_gap()
@@ -311,8 +337,13 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
             if not self._identity_valid:
                 raise UpdateFailed("Local address belongs to a different board")
-            self._settings = config or {}
+            if config is not None:
+                # A failed read keeps the last settings instead of hiding controls.
+                self._settings = config
+            previous_version = self._version
             self._version = version or self._version
+            if previous_version and self._version != previous_version:
+                self._update_device_version()
             self._metadata_updated = time.monotonic()
         data = dict(self.data or {})
         fields = set()
@@ -320,9 +351,11 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "local": state,
             "stats": stats,
             "camera_stats": camera_stats,
-            "motion": self._motion(motion or {}),
+            "motion": None if motion is None else self._motion(motion),
             "camera_state": camera_state,
         }.items():
+            if value is None and field in data:
+                continue  # A failed optional read keeps the last known value.
             # A completed HTTP read must not roll back a newer socket message.
             if self._revisions.get(field, 0) == revisions.get(field, 0):
                 data[field] = value or {}
@@ -330,6 +363,16 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data.update(settings=self._settings, version=self._version)
         self._process(data, fields, "poll")
         return data
+
+    @callback
+    def _update_device_version(self) -> None:
+        """Show a Board Manager update on the device page without a reload."""
+        registry = dr.async_get(self.hass)
+        device = registry.async_get_device_by_identifier(
+            (DOMAIN, self.board_id), self.config_entry.entry_id
+        )
+        if device and device.sw_version != self._version:
+            registry.async_update_device(device.id, sw_version=self._version)
 
     async def async_reset_training(self) -> None:
         self.training.reset((self.data or {}).get("local", {}))

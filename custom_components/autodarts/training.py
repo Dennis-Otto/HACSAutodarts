@@ -44,6 +44,26 @@ def segments(state: dict) -> list[dict] | None:
     return result
 
 
+def _takeout(state: dict) -> bool:
+    """The Board Manager reports removal in its status or last event."""
+    return any(
+        "takeout" in str(state.get(key, "")).lower() for key in ("status", "event")
+    )
+
+
+def _key(dart: dict) -> tuple:
+    return dart["number"], dart["multiplier"], dart["name"]
+
+
+def _contains(darts: list[dict], subset: list[dict]) -> bool:
+    remaining = [_key(dart) for dart in darts]
+    for dart in subset:
+        if _key(dart) not in remaining:
+            return False
+        remaining.remove(_key(dart))
+    return True
+
+
 class TrainingSession:
     """A persistent session of observed darts, with one revisable active visit."""
 
@@ -105,6 +125,15 @@ class TrainingSession:
         self._active = []
         self._tracked = []
 
+    def _withdraw(self, observed: list[dict]) -> None:
+        """Drop darts the board no longer reports, keeping the others' tracking."""
+        remaining = list(zip(self._active, self._tracked, strict=True))
+        tracked = []
+        for dart in observed:
+            index = next(i for i, (old, _) in enumerate(remaining) if old == dart)
+            tracked.append(remaining.pop(index)[1])
+        self._active, self._tracked = list(observed), tracked
+
     def baseline(self, state: dict) -> None:
         """Keep accumulated counts; never count darts already present on startup."""
         self._commit()
@@ -132,14 +161,26 @@ class TrainingSession:
         ):
             self.baseline(state)
             return []
-        # Removing darts preserves their score, unlike a segment correction.
         if len(observed) < len(self._active):
+            if not observed or _takeout(state):
+                # Removing darts preserves their score, unlike a segment correction.
+                self._commit()
+                self._active, self._tracked = observed, [False] * len(observed)
+                self._removing = bool(observed)
+                return []
+            if _contains(self._active, observed):
+                # Outside a takeout, fewer known darts mean a withdrawn detection.
+                self._withdraw(observed)
+                return []
+            # New darts without an empty board in between: a missed takeout.
             self._commit()
-            self._active, self._tracked = observed, [False] * len(observed)
-            self._removing = bool(observed)
-            return []
+            self._active, self._tracked, self._removing = [], [], False
         if self._removing:
-            return []
+            if len(observed) <= len(self._active):
+                self._active, self._tracked = observed, [False] * len(observed)
+                return []
+            # Darts beyond the ones still being removed are new throws.
+            self._removing = False
         events = []
         for index, dart in enumerate(observed):
             kind = None

@@ -1,0 +1,240 @@
+"""Recovery from board outages, flaky reads, cloud failures and old entries."""
+
+import asyncio
+from datetime import timedelta
+from unittest.mock import patch
+
+import pytest
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.helpers import device_registry as dr
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.autodarts.api import API_BASE, REFRESH_URL
+from custom_components.autodarts.errors import AutodartsConnectionError
+from custom_components.autodarts.local_api import AutodartsLocalClient
+from custom_components.autodarts.local_coordinator import AutodartsLocalCoordinator
+
+from .local_helpers import BASE, STATE, local_entry_data, mock_board
+from .test_local_setup import setup_local, state
+from .test_setup import entry_data
+
+OTHER = "http://192.0.2.99:3180"
+
+
+def reauth_started(hass) -> bool:
+    return any(
+        flow["step_id"] == "reauth_confirm"
+        for flow in hass.config_entries.flow.async_progress()
+    )
+
+
+@pytest.mark.parametrize("failure", ["expired", "legacy"])
+async def test_offline_board_and_failed_cloud_login_recover_locally(
+    hass, aioclient_mock, failure
+):
+    aioclient_mock.get(BASE + "/api/state", status=503)
+    data = {**entry_data(), **local_entry_data(), "local_only": False}
+    if failure == "legacy":
+        data.pop("client_id")
+    else:
+        aioclient_mock.post(REFRESH_URL, status=400, json={"error": "invalid_grant"})
+    entry = MockConfigEntry(domain="autodarts", version=2, data=data)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state == ConfigEntryState.LOADED
+    assert reauth_started(hass)
+    assert state(hass, "binary_sensor", "local_connected") == "off"
+
+    aioclient_mock.clear_requests()
+    mock_board(aioclient_mock)
+    await entry.runtime_data.local.async_refresh()
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    assert state(hass, "switch", "detection") == "off"
+
+
+async def test_failed_address_candidates_are_discarded(hass, aioclient_mock):
+    aioclient_mock.get(OTHER + "/api/state", status=503)
+    mock_board(aioclient_mock)
+    aioclient_mock.post(
+        REFRESH_URL,
+        json={"access_token": "new", "refresh_token": "new-refresh", "expires_in": 900},
+    )
+    aioclient_mock.get(
+        API_BASE + "/bs/v0/boards/board-1",
+        json={"id": "board-1", "ip": f"{OTHER},{BASE}", "state": {"connected": True}},
+    )
+    stopped = []
+    original = AutodartsLocalCoordinator.async_shutdown
+
+    async def shutdown(self):
+        stopped.append(self.client.base_url)
+        await original(self)
+
+    entry = MockConfigEntry(domain="autodarts", version=2, data=entry_data())
+    entry.add_to_hass(hass)
+    with patch.object(AutodartsLocalCoordinator, "async_shutdown", shutdown):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert stopped == [OTHER]
+    assert entry.runtime_data.local.client.base_url == BASE
+    assert (entry.data["host"], entry.data["port"]) == ("192.0.2.10", 3180)
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+
+
+async def test_changed_board_address_is_taken_from_the_cloud(hass, aioclient_mock):
+    aioclient_mock.get(OTHER + "/api/state", status=503)
+    mock_board(aioclient_mock)
+    aioclient_mock.post(
+        REFRESH_URL,
+        json={"access_token": "new", "refresh_token": "new-refresh", "expires_in": 900},
+    )
+    aioclient_mock.get(
+        API_BASE + "/bs/v0/boards/board-1",
+        json={"id": "board-1", "ip": BASE, "state": {"connected": True}},
+    )
+    data = {**entry_data(), "host": "192.0.2.99", "port": 3180, "local_only": False}
+    entry = MockConfigEntry(domain="autodarts", version=2, data=data)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.data["host"] == "192.0.2.10"
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    assert state(hass, "switch", "detection") == "off"
+
+
+@pytest.mark.parametrize(
+    "old,expected",
+    [
+        ({"host": "192.0.2.10", "port": 3180}, local_entry_data()),
+        (
+            {
+                "email": "player@example.com",
+                "password": "e2e-only-password",
+                "board_id": "board-1",
+                "host": "192.0.2.10",
+                "port": 3180,
+            },
+            local_entry_data(),
+        ),
+    ],
+)
+async def test_version_1_entries_are_migrated_without_passwords(
+    hass, aioclient_mock, old, expected
+):
+    mock_board(aioclient_mock)
+    entry = MockConfigEntry(domain="autodarts", version=1, data=old)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.version == 2
+    assert dict(entry.data) == expected
+    assert entry.unique_id == "board-1"
+    assert entry.state == ConfigEntryState.LOADED
+
+
+async def test_version_1_cloud_entry_without_board_address_asks_for_login(hass):
+    old = {"email": "player@example.com", "password": "secret", "board_id": "board-1"}
+    entry = MockConfigEntry(domain="autodarts", version=1, data=old)
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert dict(entry.data) == {"board_id": "board-1"}
+    assert entry.state == ConfigEntryState.SETUP_ERROR
+    assert reauth_started(hass)
+
+
+async def test_unreachable_version_1_board_is_migrated_later(hass, aioclient_mock):
+    aioclient_mock.get(BASE + "/api/config", status=503)
+    entry = MockConfigEntry(
+        domain="autodarts", version=1, data={"host": "192.0.2.10", "port": 3180}
+    )
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    assert entry.state == ConfigEntryState.MIGRATION_ERROR
+    assert entry.version == 1
+    assert dict(entry.data) == {"host": "192.0.2.10", "port": 3180}
+
+
+async def test_failed_reads_keep_settings_and_motion(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock)
+    coordinator = entry.runtime_data.local
+    coordinator._metadata_updated = 0
+    with (
+        patch.object(
+            coordinator.client, "get_config", side_effect=AutodartsConnectionError
+        ),
+        patch.object(
+            coordinator.client, "get_motion_state", side_effect=AutodartsConnectionError
+        ),
+    ):
+        await coordinator.async_refresh()
+    assert state(hass, "switch", "auto_calibrate") == "on"
+    assert state(hass, "select", "standby_minutes") == "15"
+    assert coordinator.data["motion"]["isStable"] is True
+    assert coordinator.data["settings"]["camera_count"] == 3
+
+
+async def test_missed_poll_during_realtime_stream_is_no_outage(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock)
+    coordinator = entry.runtime_data.local
+    coordinator.stream_connected = True
+    with patch.object(
+        coordinator.client, "get_state", side_effect=AutodartsConnectionError
+    ):
+        await coordinator.async_refresh()
+    assert coordinator.last_update_success
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    assert state(hass, "switch", "detection") == "off"
+
+
+async def test_stream_survives_unexpected_errors_and_polls_slowly_meanwhile(
+    hass, aioclient_mock
+):
+    release = asyncio.Event()
+    calls = 0
+
+    async def stream(self):
+        nonlocal calls
+        calls += 1
+        yield "connected", {}
+        if calls == 1:
+            await release.wait()
+            raise RuntimeError("unexpected board message")
+        await asyncio.Event().wait()
+
+    with patch.object(AutodartsLocalClient, "events", stream):
+        entry = await setup_local(hass, aioclient_mock)
+        coordinator = entry.runtime_data.local
+        async with asyncio.timeout(3):
+            while not coordinator.stream_connected:
+                await asyncio.sleep(0.01)
+        assert coordinator.update_interval == timedelta(seconds=30)
+        release.set()
+        # The first reconnect waits one second.
+        async with asyncio.timeout(5):
+            while calls < 2:
+                await asyncio.sleep(0.01)
+        assert state(hass, "binary_sensor", "realtime_connected") == "on"
+        assert await hass.config_entries.async_unload(entry.entry_id)
+    assert coordinator.update_interval == timedelta(seconds=2)
+
+
+async def test_non_numeric_board_values_read_as_unknown(hass, aioclient_mock):
+    await setup_local(hass, aioclient_mock, state={**STATE, "numThrows": "three"})
+    assert state(hass, "sensor", "num_throws") == "unknown"
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+
+
+async def test_board_manager_update_shows_on_the_device(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock)
+    coordinator = entry.runtime_data.local
+    registry = dr.async_get(hass)
+    device = registry.async_get_device_by_identifier(
+        ("autodarts", "board-1"), entry.entry_id
+    )
+    assert device.sw_version == "1.0.7"
+    coordinator._metadata_updated = 0
+    with patch.object(coordinator.client, "get_version", return_value="2.0.0"):
+        await coordinator.async_refresh()
+    assert registry.async_get(device.id).sw_version == "2.0.0"
