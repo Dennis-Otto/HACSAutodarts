@@ -11,6 +11,7 @@
 [![CodeQL](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/codeql.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/codeql.yml)
 [![SBOM](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/sbom.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/sbom.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Dennis-Otto/HACSAutodarts/badge)](https://scorecard.dev/viewer/?uri=github.com/Dennis-Otto/HACSAutodarts)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14935/badge)](https://www.bestpractices.dev/projects/14935)
 
 A [Home Assistant](https://www.home-assistant.io/) custom integration for [Autodarts](https://autodarts.io/) — the automatic dart scoring system.
 
