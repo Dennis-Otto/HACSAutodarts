@@ -34,6 +34,9 @@ from .coordinator import AutodartsDataUpdateCoordinator
 from .entity import AutodartsEntity, AutodartsLocalEntity
 from .training import COUNTERS
 
+# Session values that can go down again, unlike the counters.
+TRAINING_MEASUREMENTS = ("average", "highest_visit")
+
 PARALLEL_UPDATES = 0
 
 # Board Manager detection states, translated in strings.json.
@@ -282,8 +285,12 @@ async def async_setup_entry(
         )
     if runtime.local:
         entities.extend(
-            AutodartsTrainingSensor(runtime.local, key)
-            for key in (*COUNTERS, "started")
+            (
+                AutodartsTrainingDartsSensor
+                if key == "darts"
+                else AutodartsTrainingSensor
+            )(runtime.local, key)
+            for key in (*COUNTERS, *TRAINING_MEASUREMENTS, "started")
         )
         entities.extend(
             AutodartsLocalSensor(runtime.local, description)
@@ -316,8 +323,9 @@ async def async_setup_entry(
             known.update(new)
             async_add_entities(
                 [
-                    AutodartsLocalSensor(
+                    AutodartsCameraSensor(
                         coordinator,
+                        index,
                         AutodartsSensorEntityDescription(
                             key=f"camera_{index}_fps",
                             translation_key="camera_fps",
@@ -459,6 +467,16 @@ class AutodartsLocalSensor(AutodartsLocalEntity, SensorEntity):
         return self.entity_description.value_fn(self.coordinator.data or {})
 
 
+class AutodartsCameraSensor(AutodartsLocalSensor):
+    """A per-camera value; the camera number lets cards group its entities."""
+
+    def __init__(
+        self, coordinator, index: int, description: AutodartsSensorEntityDescription
+    ) -> None:
+        super().__init__(coordinator, description)
+        self._attr_extra_state_attributes = {"camera": index + 1}
+
+
 class AutodartsVisitSensor(AutodartsLocalSensor):
     """The detected visit, with each dart's segment and position for cards."""
 
@@ -504,6 +522,10 @@ class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
         self._key = key
         if key == "started":
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        elif key in TRAINING_MEASUREMENTS:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            if key == "average":
+                self._attr_suggested_display_precision = 1
         else:
             # Totals only grow until the session is reset, like a meter.
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -514,5 +536,22 @@ class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
 
     @property
     def native_value(self):
-        value = self.coordinator.training.snapshot()[self._key]
-        return dt_util.parse_datetime(value) if self._key == "started" else value
+        session = self.coordinator.training.snapshot()
+        if self._key == "started":
+            return dt_util.parse_datetime(session["started"])
+        if self._key == "average":
+            # Points per three darts, as darts players compare their level.
+            darts = session["darts"]
+            return round(session["points"] / darts * 3, 2) if darts else None
+        return session[self._key]
+
+
+class AutodartsTrainingDartsSensor(AutodartsTrainingSensor):
+    """Darts of the session, with hits per bed for heatmaps."""
+
+    # The breakdown is for cards; long-term history only needs the total.
+    _unrecorded_attributes = frozenset({"hits"})
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"hits": self.coordinator.training.snapshot()["hits"]}

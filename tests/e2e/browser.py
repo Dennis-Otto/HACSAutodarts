@@ -1,4 +1,4 @@
-"""Verify the dashboard card in a real browser against the demo instance.
+"""Verify the dashboard cards in a real browser against the demo instance.
 
 Runs in the Playwright container on the demo's Compose network (see browser.sh).
 """
@@ -14,16 +14,24 @@ HA = "http://homeassistant:8123"
 BOARD = "http://board-mock:3180"
 LOADS = 5
 
-CARDS = """
-() => {
+
+def find(tag: str) -> str:
+    """A page function returning every card element with this tag, in shadow roots too."""
+    return f"""
+() => {{
   const cards = [];
-  (function collect(root) {
-    root.querySelectorAll('autodarts-card').forEach((card) => cards.push(card));
+  (function collect(root) {{
+    root.querySelectorAll('{tag}').forEach((card) => cards.push(card));
     root.querySelectorAll('*').forEach((el) => el.shadowRoot && collect(el.shadowRoot));
-  })(document);
+  }})(document);
   return cards;
-}
+}}
 """
+
+
+CARDS = find("autodarts-card")
+TRAINING_CARDS = find("autodarts-training-card")
+STATUS_CARDS = find("autodarts-status-card")
 RENDERED = f"() => ({CARDS})().filter((card) => card.shadowRoot?.querySelector('.board svg')).length"
 CARD_STATE = f"""
 () => {{
@@ -40,6 +48,34 @@ CARD_STATE = f"""
     toggle: root.querySelector('[data-action="toggle"]').textContent,
     numbers: root.querySelectorAll('.numbers text').length,
     beds: root.querySelectorAll('.face path').length,
+  }};
+}}
+"""
+TRAINING_STATE = f"""
+() => {{
+  const root = ({TRAINING_CARDS})()[0].shadowRoot;
+  const text = (selector) => root.querySelector(selector)?.textContent;
+  return {{
+    average: text('.average'),
+    darts: text('[data-total="darts"]'),
+    visits: text('[data-total="visits"]'),
+    heat: root.querySelectorAll('.heat-layer path').length,
+    top: [...root.querySelectorAll('.top-row .key')].map((el) => el.textContent),
+    history: root.querySelectorAll('.history-chart .visit-bar:not(.empty)').length,
+    highest: root.querySelector('[data-tile="highest"] .value')?.textContent,
+  }};
+}}
+"""
+STATUS_STATE = f"""
+() => {{
+  const root = ({STATUS_CARDS})()[0].shadowRoot;
+  return {{
+    cameras: root.querySelectorAll('.camera').length,
+    version: root.querySelector('.version')?.textContent,
+    update: root.querySelector('.update-badge')?.textContent,
+    detection: root.querySelector('.toggle')?.getAttribute('aria-checked'),
+    chips: root.querySelectorAll('.chip').length,
+    system: !root.querySelector('.system-tile')?.hidden,
   }};
 }}
 """
@@ -80,7 +116,9 @@ def board_requests() -> dict:
         return json.load(response)
 
 
-def open_board(browser: Browser, scheme: str = "dark") -> tuple[Page, list[str]]:
+def open_view(
+    browser: Browser, view: str, cards: str, ready: str, scheme: str = "dark"
+) -> tuple[Page, list[str]]:
     page = browser.new_page(
         locale="en-US", viewport={"width": 1280, "height": 820}, color_scheme=scheme
     )
@@ -94,9 +132,16 @@ def open_board(browser: Browser, scheme: str = "dark") -> tuple[Page, list[str]]
             and problems.append(f"console: {message.text}")
         ),
     )
-    page.goto(f"{HA}/autodarts-demo/board")
-    page.wait_for_function(RENDERED, timeout=30000)
+    page.goto(f"{HA}/autodarts-demo/{view}")
+    page.wait_for_function(
+        f"() => ({cards})().some((card) => card.shadowRoot?.querySelector('{ready}'))",
+        timeout=30000,
+    )
     return page, problems
+
+
+def open_board(browser: Browser, scheme: str = "dark") -> tuple[Page, list[str]]:
+    return open_view(browser, "board", CARDS, ".board svg", scheme)
 
 
 def page_errors(page: Page, problems: list[str]) -> list[str]:
@@ -169,18 +214,87 @@ def visit(browser: Browser) -> None:
     page.close()
 
 
-def editor(browser: Browser) -> None:
-    page, problems = open_board(browser)
-    page.goto(f"{HA}/autodarts-demo/board?edit=1")
-    page.wait_for_function(RENDERED, timeout=30000)
+def training(browser: Browser) -> None:
+    page, problems = open_view(browser, "training", TRAINING_CARDS, ".heat-layer path")
+    # The history of completed visits is loaded from the recorder.
+    page.wait_for_function(f"() => ({TRAINING_STATE})().history === 5", timeout=15000)
+    state = page.evaluate(TRAINING_STATE)
+    # Demo visits: 81, 125, 102, 112 and 90 points, plus 115 in progress.
+    expected = {
+        "average": "104.2",
+        "darts": "18",
+        "visits": "6",
+        "heat": 11,
+        "top": ["S20", "T20", "Bull", "S5", "25"],
+        "history": 5,
+        "highest": "125",
+    }
+    check(state == expected, f"Training card state {state} != {expected}")
+    errors = page_errors(page, problems)
+    check(not errors, f"Console problems: {errors}")
+    page.close()
+
+
+def status(browser: Browser) -> None:
+    page, problems = open_view(browser, "status", STATUS_CARDS, ".camera")
+    state = page.evaluate(STATUS_STATE)
+    check(state["cameras"] == 3, f"Status card cameras: {state}")
+    check(state["version"].startswith("Version "), f"Status card version: {state}")
+    check(state["detection"] == "true", f"Status card detection: {state}")
+    check(state["chips"] == 3, f"Status card connections: {state}")
+
+    commands = len(board_requests()["commands"])
+    toggle = page.locator("autodarts-status-card .toggle")
+    toggle.click()
+    page.wait_for_function(
+        f"() => ({STATUS_STATE})().detection === 'false'", timeout=15000
+    )
+    new = board_requests()["commands"][commands:]
+    check(
+        [(c["method"], c["path"]) for c in new] == [("PUT", "/api/stop")],
+        f"Stop sent {new}",
+    )
+    toggle.click()
+    page.wait_for_function(
+        f"() => ({STATUS_STATE})().detection === 'true'", timeout=15000
+    )
+
+    # Restarting the Board Manager needs a second tap.
+    restart = page.locator("autodarts-status-card button[data-action='restart']")
+    commands = len(board_requests()["commands"])
+    restart.click()
+    check(restart.text_content() == "Confirm?", "Restart did not ask for confirmation")
+    check(
+        len(board_requests()["commands"]) == commands,
+        "Restart ran without confirmation",
+    )
+    errors = page_errors(page, problems)
+    check(not errors, f"Console problems: {errors}")
+    page.close()
+
+
+def editor(
+    browser: Browser,
+    view: str = "board",
+    cards: str = CARDS,
+    ready: str = ".board svg",
+    tag: str = "autodarts-card-editor",
+    rows: int = 5,
+) -> None:
+    page, problems = open_view(browser, view, cards, ready)
+    page.goto(f"{HA}/autodarts-demo/{view}?edit=1")
+    page.wait_for_function(
+        f"() => ({cards})().some((card) => card.shadowRoot?.querySelector('{ready}'))",
+        timeout=30000,
+    )
     page.evaluate(
-        f"() => ({CARDS})()[0].dispatchEvent(new CustomEvent('ll-edit-card',"
+        f"() => ({cards})()[0].dispatchEvent(new CustomEvent('ll-edit-card',"
         " {bubbles: true, composed: true, detail: {path: [0, 0, 0]}}))"
     )
-    form = page.locator("autodarts-card-editor > ha-form")
+    form = page.locator(f"{tag} > ha-form")
     form.wait_for(timeout=15000)
     fields = form.evaluate("(element) => element.schema.length")
-    check(fields == 5, f"Editor schema has {fields} rows")
+    check(fields == rows, f"{tag} schema has {fields} rows")
     page.keyboard.press("Escape")
     errors = page_errors(page, problems)
     check(not errors, f"Console problems: {errors}")
@@ -199,13 +313,33 @@ def main() -> None:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         fresh_loads(browser)
+        # The training card reads the demo session before any control changes it.
+        training(browser)
         visit(browser)
+        status(browser)
         editor(browser)
+        editor(
+            browser,
+            "training",
+            TRAINING_CARDS,
+            ".heat-layer",
+            "autodarts-training-card-editor",
+            5,
+        )
+        editor(
+            browser,
+            "status",
+            STATUS_CARDS,
+            ".toggle",
+            "autodarts-status-card-editor",
+            3,
+        )
         light_theme(browser)
         browser.close()
     print(
         "Browser check passed: card registration on every load, visit, highlights, "
-        "controls with confirmation, editor and light theme."
+        "controls with confirmation, training heatmap and history, board status, "
+        "all three editors and light theme."
     )
 
 

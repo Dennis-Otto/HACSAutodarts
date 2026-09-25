@@ -156,3 +156,12 @@ def test_cloud_match_values():
         sensor._get_darts_thrown,
     ):
         assert value(empty) is None
+
+
+async def test_training_average_is_unknown_without_darts(hass, aioclient_mock):
+    await setup_local(hass, aioclient_mock)
+    assert state(hass, "sensor", "training_average") == "unknown"
+    average = hass.states.get(entity_id(hass, "sensor", "training_average"))
+    assert average.attributes["state_class"] == "measurement"
+    darts = hass.states.get(entity_id(hass, "sensor", "training_darts"))
+    assert darts.attributes["hits"] == {}

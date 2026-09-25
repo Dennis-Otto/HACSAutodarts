@@ -1,5 +1,6 @@
 """The dashboard card: dart details for the board view and automatic loading."""
 
+import hashlib
 import json
 from copy import deepcopy
 from pathlib import Path
@@ -157,7 +158,8 @@ async def test_card_is_served_and_loaded_on_dashboards(hass):
     )
     assert CARD_PATH.is_file()
     version = json.loads(MANIFEST.read_text())["version"]
-    add_js.assert_called_once_with(hass, f"{CARD_URL}?v={version}")
+    digest = hashlib.sha256(CARD_PATH.read_bytes()).hexdigest()[:8]
+    add_js.assert_called_once_with(hass, f"{CARD_URL}?v={version}-{digest}")
 
 
 async def test_card_is_skipped_without_web_frontend(hass):

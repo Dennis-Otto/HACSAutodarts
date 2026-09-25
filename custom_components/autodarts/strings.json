@@ -193,6 +193,27 @@
       "training_points": {
         "name": "Training points"
       },
+      "training_doubles": {
+        "name": "Training doubles"
+      },
+      "training_misses": {
+        "name": "Training misses"
+      },
+      "training_visits": {
+        "name": "Training visits"
+      },
+      "training_scores_100": {
+        "name": "Training 100+ visits"
+      },
+      "training_scores_140": {
+        "name": "Training 140+ visits"
+      },
+      "training_average": {
+        "name": "Training 3-dart average"
+      },
+      "training_highest_visit": {
+        "name": "Training highest visit"
+      },
       "training_started": {
         "name": "Training session start"
       },
@@ -310,7 +331,8 @@
               "dart_corrected": "Dart corrected",
               "takeout_started": "Takeout started",
               "takeout_finished": "Takeout finished",
-              "status_changed": "Status changed"
+              "status_changed": "Status changed",
+              "visit_completed": "Visit completed"
             }
           }
         }

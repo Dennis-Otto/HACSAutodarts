@@ -84,6 +84,10 @@ async def test_push_updates_entities_and_emits_one_event_per_dart(hass, aioclien
         assert event.attributes["source"] == "websocket"
     assert state(hass, "sensor", "training_darts") == "3"
     assert state(hass, "sensor", "training_scores_180") == "1"
+    assert state(hass, "sensor", "training_average") == "180.0"
+    assert state(hass, "sensor", "training_highest_visit") == "180"
+    darts = hass.states.get(entity_id(hass, "sensor", "training_darts"))
+    assert darts.attributes["hits"] == {"T20": 3}
     last_event = hass.states.get(event_id).state
     coordinator.async_receive("state", board(T20, T20, T20))
     await hass.async_block_till_done()
@@ -128,10 +132,13 @@ async def test_motion_sensors_and_takeout_events_are_not_replayed(hass, aioclien
     )
     await hass.async_block_till_done()
     assert hass.states.get(event_id).attributes["event_type"] == "takeout_finished"
-    finished = hass.states.get(event_id).state
     coordinator.async_receive("state", board(event="Takeout finished"))
     await hass.async_block_till_done()
-    assert hass.states.get(event_id).state == finished
+    # The empty board completes the visit; takeout events are not repeated.
+    completed = hass.states.get(event_id)
+    assert completed.attributes["event_type"] == "visit_completed"
+    assert completed.attributes["score"] == 60
+    assert completed.attributes["segments"] == ["T20"]
     assert state(hass, "sensor", "training_darts") == "1"
     coordinator.async_receive("state", {**STATE})
     assert state(hass, "binary_sensor", "takeout_full") == "off"

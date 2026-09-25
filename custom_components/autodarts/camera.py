@@ -37,6 +37,7 @@ class AutodartsCamera(AutodartsLocalEntity, Camera):
         AutodartsLocalEntity.__init__(self, coordinator, f"camera_{index}")
         self._attr_translation_key = "board_camera"
         self._attr_translation_placeholders = {"number": str(index + 1)}
+        self._attr_extra_state_attributes = {"camera": index + 1}
         self._index = index
 
     @property

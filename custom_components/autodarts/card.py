@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from homeassistant.components.frontend import add_extra_js_url
@@ -20,8 +21,13 @@ async def async_register_card(hass: HomeAssistant) -> None:
     if hass.http is None or "frontend" not in hass.config.components:
         return
     version = (await async_get_integration(hass, DOMAIN)).version
+    digest = await hass.async_add_executor_job(_digest)
     await hass.http.async_register_static_paths(
         [StaticPathConfig(CARD_URL, str(CARD_PATH), cache_headers=True)]
     )
-    # The version changes the URL on updates, so cached cards are never stale.
-    add_extra_js_url(hass, f"{CARD_URL}?v={version}")
+    # Version and content change the URL, so browsers never keep a stale card.
+    add_extra_js_url(hass, f"{CARD_URL}?v={version}-{digest}")
+
+
+def _digest() -> str:
+    return hashlib.sha256(CARD_PATH.read_bytes()).hexdigest()[:8]

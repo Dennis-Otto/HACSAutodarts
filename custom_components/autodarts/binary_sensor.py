@@ -87,6 +87,7 @@ class AutodartsLocalState(AutodartsLocalEntity, BinarySensorEntity):
         if index is not None:
             self._attr_translation_key = "individual_camera_problem"
             self._attr_translation_placeholders = {"number": str(index + 1)}
+            self._attr_extra_state_attributes = {"camera": index + 1}
 
     @property
     def available(self) -> bool:
