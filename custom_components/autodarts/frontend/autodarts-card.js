@@ -8,6 +8,8 @@
  *   statistics, the most hit beds and the recent visits.
  * - autodarts-status-card: detection, connections, cameras, the board PC and
  *   maintenance controls at a glance.
+ * - The dashboard strategy "custom:autodarts" builds a complete dashboard with
+ *   live, training and board views for every board.
  */
 
 const CARD_TYPE = "autodarts-card";
@@ -16,6 +18,8 @@ const TRAINING_TYPE = "autodarts-training-card";
 const TRAINING_EDITOR_TYPE = "autodarts-training-card-editor";
 const STATUS_TYPE = "autodarts-status-card";
 const STATUS_EDITOR_TYPE = "autodarts-status-card-editor";
+const STRATEGY_TYPE = "autodarts";
+const STRATEGY_ELEMENT = `ll-strategy-dashboard-${STRATEGY_TYPE}`;
 const DOCS = "https://github.com/Dennis-Otto/HACSAutodarts#dashboard-cards";
 
 // Board Manager geometry in millimetres; dart coordinates are normalised to
@@ -192,6 +196,13 @@ const TEXT = {
     show_cameras: "Show cameras",
     show_system: "Show board PC",
     unknown: "unknown",
+    // Dashboard strategy
+    view_live: "Live",
+    view_training: "Training",
+    view_board: "Board",
+    darts_per_day: "Darts per day",
+    average_trend: "3-dart average, last 7 days",
+    board_settings: "Board settings",
   },
   de: {
     visit: "Aktuelle Aufnahme",
@@ -294,6 +305,12 @@ const TEXT = {
     show_cameras: "Kameras anzeigen",
     show_system: "Board-PC anzeigen",
     unknown: "unbekannt",
+    view_live: "Live",
+    view_training: "Training",
+    view_board: "Board",
+    darts_per_day: "Darts pro Tag",
+    average_trend: "3-Dart-Average, letzte 7 Tage",
+    board_settings: "Board-Einstellungen",
   },
 };
 
@@ -682,6 +699,97 @@ function boardStatus(stateOf) {
   if (on("hand")) return ["takeout", "status_hand"];
   if (Number(stateOf("numThrows")?.state) >= 3) return ["takeout", "status_full"];
   return ["ready", "status_ready"];
+}
+
+// Dashboard strategy -------------------------------------------------------
+
+const SETTING_KEYS = [
+  "switch.auto_calibrate_on_start",
+  "switch.auto_calibrate",
+  "switch.auto_distortion",
+  "select.standby_minutes",
+];
+
+// A complete dashboard for every board: live play, training and maintenance.
+function dashboardStrategy(hass, config = {}) {
+  const t = (key) => translate(hass, key);
+  const devices = config.device_id ? [config.device_id] : autodartsDevices(hass);
+  if (!devices.length) {
+    return {
+      title: config.title || "Autodarts",
+      views: [{ title: "Autodarts", cards: [{ type: "markdown", content: t("no_board") }] }],
+    };
+  }
+  const views = [];
+  devices.forEach((deviceId, number) => {
+    const index = entityIndex(hass, deviceId);
+    const id = (key) => index[key]?.[0];
+    const device = hass.devices?.[deviceId];
+    const name = device?.name_by_user || device?.name || "Autodarts";
+    // Several boards get their own set of views.
+    const suffix = devices.length > 1 ? ` · ${name}` : "";
+    const slug = devices.length > 1 ? `-${number + 1}` : "";
+    const board = { device_id: deviceId };
+    const full = { grid_options: { columns: "full" } };
+
+    views.push({
+      title: `${t("view_live")}${suffix}`,
+      path: `live${slug}`,
+      icon: "mdi:bullseye-arrow",
+      type: "sections",
+      max_columns: 2,
+      sections: [{ type: "grid", column_span: 2, cards: [{ type: `custom:${CARD_TYPE}`, ...board, ...full }] }],
+    });
+
+    const trends = [];
+    if (id("sensor.training_darts")) {
+      trends.push({
+        type: "statistics-graph",
+        title: t("darts_per_day"),
+        entities: [id("sensor.training_darts")],
+        stat_types: ["change"],
+        period: "day",
+        chart_type: "bar",
+        days_to_show: 30,
+      });
+    }
+    if (id("sensor.training_average")) {
+      trends.push({
+        type: "history-graph",
+        title: t("average_trend"),
+        entities: [id("sensor.training_average")],
+        hours_to_show: 168,
+      });
+    }
+    views.push({
+      title: `${t("view_training")}${suffix}`,
+      path: `training${slug}`,
+      icon: "mdi:chart-box-outline",
+      type: "sections",
+      max_columns: 2,
+      sections: [
+        { type: "grid", column_span: 2, cards: [{ type: `custom:${TRAINING_TYPE}`, ...board, ...full }] },
+        ...(trends.length ? [{ type: "grid", column_span: 2, cards: trends }] : []),
+      ],
+    });
+
+    const settings = SETTING_KEYS.map(id).filter(Boolean);
+    const maintenance = [{ type: "heading", heading: t("board_settings") }];
+    if (settings.length) maintenance.push({ type: "entities", entities: settings });
+    if (id("update.board_software")) maintenance.push({ type: "tile", entity: id("update.board_software") });
+    views.push({
+      title: `${t("view_board")}${suffix}`,
+      path: `board${slug}`,
+      icon: "mdi:cog-outline",
+      type: "sections",
+      max_columns: 2,
+      sections: [
+        { type: "grid", cards: [{ type: `custom:${STATUS_TYPE}`, ...board, ...full }] },
+        ...(maintenance.length > 1 ? [{ type: "grid", cards: maintenance }] : []),
+      ],
+    });
+  });
+  return { title: config.title || "Autodarts", views };
 }
 
 // Styles ----------------------------------------------------------------------
@@ -2190,7 +2298,14 @@ function createElements(Base) {
     }
   }
 
+  class AutodartsDashboardStrategy extends Base {
+    static async generate(config, hass) {
+      return dashboardStrategy(hass, config);
+    }
+  }
+
   return {
+    [STRATEGY_ELEMENT]: AutodartsDashboardStrategy,
     [CARD_TYPE]: AutodartsCard,
     [EDITOR_TYPE]: AutodartsCardEditor,
     [TRAINING_TYPE]: AutodartsTrainingCard,
@@ -2230,6 +2345,17 @@ function register() {
       window.customCards.push({ ...card, preview: true, documentationURL: DOCS });
     }
   }
+  // Offered in the "Add dashboard" dialog of Home Assistant.
+  window.customStrategies = window.customStrategies || [];
+  if (!window.customStrategies.some((known) => known.type === STRATEGY_TYPE)) {
+    window.customStrategies.push({
+      type: STRATEGY_TYPE,
+      strategyType: "dashboard",
+      name: "Autodarts",
+      description: "Live board, training analytics and board status for every Autodarts board.",
+      documentationURL: DOCS,
+    });
+  }
 }
 
 async function frontendReady() {
@@ -2249,6 +2375,7 @@ export {
   boardStatus,
   boardSvg,
   cameraEntities,
+  dashboardStrategy,
   entityIndex,
   escapeHtml,
   heatColor,

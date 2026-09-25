@@ -273,6 +273,25 @@ def status(browser: Browser) -> None:
     page.close()
 
 
+def strategy(browser: Browser) -> None:
+    """The generated dashboard shows each card in its view."""
+    page = browser.new_page(locale="en-US", viewport={"width": 1280, "height": 900})
+    page.add_init_script(CAPTURE_ERRORS)
+    for view, cards, ready in (
+        ("live", CARDS, ".board svg"),
+        ("training", TRAINING_CARDS, ".heat-layer"),
+        ("board", STATUS_CARDS, ".camera"),
+    ):
+        page.goto(f"{HA}/autodarts-auto/{view}")
+        page.wait_for_function(
+            f"() => ({cards})().some((card) => card.shadowRoot?.querySelector('{ready}'))",
+            timeout=30000,
+        )
+    errors = page_errors(page, [])
+    check(not errors, f"Console problems: {errors}")
+    page.close()
+
+
 def editor(
     browser: Browser,
     view: str = "board",
@@ -317,6 +336,7 @@ def main() -> None:
         training(browser)
         visit(browser)
         status(browser)
+        strategy(browser)
         editor(browser)
         editor(
             browser,
@@ -339,7 +359,7 @@ def main() -> None:
     print(
         "Browser check passed: card registration on every load, visit, highlights, "
         "controls with confirmation, training heatmap and history, board status, "
-        "all three editors and light theme."
+        "the generated dashboard, all three editors and light theme."
     )
 
 

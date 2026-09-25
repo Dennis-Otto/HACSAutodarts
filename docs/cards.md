@@ -148,6 +148,34 @@ type: custom:autodarts-status-card
 show_system: false
 ```
 
+## Automatic dashboard
+
+Instead of arranging the cards yourself, let the integration build a whole dashboard:
+
+1. Go to **Settings → Dashboards → Add dashboard**.
+2. Choose **Autodarts**.
+
+For every board, the dashboard gets three views, which update themselves when you add a board or enable entities:
+
+| View | Contents |
+| --- | --- |
+| **Live** | The live card across the full width |
+| **Training** | The training card, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly) and the 3-dart average of the last 7 days |
+| **Board** | The board status card, the board settings and the Board Manager update |
+
+<img src="images/en/dashboard-strategy.png" alt="The training view of the automatic dashboard" width="760">
+
+In YAML, the whole dashboard is one line; `device_id` and `title` are optional:
+
+```yaml
+strategy:
+  type: custom:autodarts
+  device_id: 0123456789abcdef   # only this board
+  title: Darts
+```
+
+To customise it, open the dashboard's menu (⋮) → **Edit dashboard** → **Take control**. Home Assistant then turns the generated views into a normal dashboard that you can edit.
+
 ## Card editor
 
 All options can be set in the visual editor, which offers only Autodarts boards in its device picker.
