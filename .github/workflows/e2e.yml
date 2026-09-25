@@ -10,8 +10,16 @@ permissions:
 
 jobs:
   e2e:
+    name: e2e (Board Manager ${{ matrix.board_manager }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1: classic Board Manager app, 2: headless board with /api/system and mDNS.
+        board_manager: [1, 2]
+    env:
+      BOARD_MANAGER: ${{ matrix.board_manager }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -19,4 +27,5 @@ jobs:
       - name: Run Home Assistant end-to-end tests
         run: bash tests/e2e/run.sh
       - name: Check the dashboard card in a real browser
+        if: matrix.board_manager == 2
         run: bash tests/e2e/browser.sh

@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 import time
 from pathlib import Path
 
 import aiohttp
-from board_mock import API_KEY, BOARD_ID, PORT
+from board_mock import API_KEY, BOARD_ID, GENERATION, PORT, TLS_KEY, UPDATE, VERSION
 
 HA = "http://127.0.0.1:8123"
 BOARD = f"http://board-mock:{PORT}"
@@ -42,9 +43,7 @@ ENTITIES = {
     "camera_2_problem": "binary_sensor",
     "start": "button",
     "calibrate_camera_1": "button",
-    "connect": "button",
     "detection": "switch",
-    "upstream": "switch",
     "auto_calibrate_on_start": "switch",
     "auto_calibrate": "switch",
     "auto_distortion": "switch",
@@ -61,7 +60,20 @@ ENTITIES = {
     "training_bulls": "sensor",
     "training_points": "sensor",
 }
-DISABLED_BY_DEFAULT = {"connect", "detection_fps"}
+if GENERATION >= 2:
+    # Board Manager 2 reports its cloud link, load and updates, and has no toggle.
+    ENTITIES |= {
+        "cloud_link": "binary_sensor",
+        "cpu_usage": "sensor",
+        "memory_usage": "sensor",
+        "board_software": "update",
+    }
+    DISABLED_BY_DEFAULT = {"detection_fps", "memory_usage"}
+    ABSENT = {"upstream", "connect", "disconnect"}
+else:
+    ENTITIES |= {"connect": "button", "upstream": "switch"}
+    DISABLED_BY_DEFAULT = {"connect", "detection_fps"}
+    ABSENT = {"cloud_link", "cpu_usage", "memory_usage", "board_software"}
 
 
 class E2EFailure(AssertionError):
@@ -95,6 +107,8 @@ class Scenario:
         self.pending: dict[int, asyncio.Future] = {}
         self.events: asyncio.Queue = asyncio.Queue()
         self.reader: asyncio.Task | None = None
+        # Discovery stores the announced address instead of the service name.
+        self.board_ip = socket.gethostbyname("board-mock")
 
     async def http(self, method: str, url: str, *, status: int = 200, **kwargs):
         async with self.session.request(
@@ -240,7 +254,8 @@ class Scenario:
     async def local_flow(self, host: str, port: int) -> dict:
         menu = await self.flow()
         check(
-            menu["type"] == "menu" and menu["menu_options"] == ["local", "cloud"],
+            menu["type"] == "menu"
+            and menu["menu_options"] == ["discover", "local", "cloud"],
             f"Unexpected setup menu: {menu}",
         )
         form = await self.flow(menu["flow_id"], next_step_id="local")
@@ -257,9 +272,15 @@ class Scenario:
             result["errors"] == {"base": "cannot_connect_local"},
             f"Closed port accepted: {result}",
         )
-        result = await self.local_flow("Board-Mock", PORT)
+        if GENERATION >= 2:
+            result = await self.discovered_setup()
+        else:
+            result = await self.local_flow("Board-Mock", PORT)
+            check(
+                result["title"] == "Autodarts (board-mock)",
+                f"Title: {result['title']}",
+            )
         check(result["type"] == "create_entry", f"Local setup failed: {result}")
-        check(result["title"] == "Autodarts (board-mock)", f"Title: {result['title']}")
         entry_id = result["result"]["entry_id"]
 
         duplicate = await self.local_flow("board-mock", PORT)
@@ -270,6 +291,34 @@ class Scenario:
 
         await wait_for(lambda: self.entry_is("loaded"), "the config entry to load")
         return entry_id
+
+    async def discovered_setup(self) -> dict:
+        """Home Assistant finds the announced Board Manager 2 on its own."""
+
+        async def announced():
+            flows = await self.ws("config_entries/flow/progress")
+            return next(
+                (
+                    flow
+                    for flow in flows
+                    if flow["handler"] == "autodarts"
+                    and flow["context"].get("source") == "zeroconf"
+                ),
+                None,
+            )
+
+        flow = await wait_for(announced, "the mDNS announcement to be discovered", 60)
+        check(flow["step_id"] == "zeroconf_confirm", f"Discovery flow: {flow}")
+        result = await self.api(
+            "GET", f"/api/config/config_entries/flow/{flow['flow_id']}"
+        )
+        check(result["step_id"] == "zeroconf_confirm", f"Discovery form: {result}")
+        placeholders = result["description_placeholders"]
+        check(
+            placeholders["version"] == VERSION and placeholders["cameras"] == "3",
+            f"Discovery details: {placeholders}",
+        )
+        return await self.flow(flow["flow_id"])
 
     async def registries(self, entry_id: str) -> None:
         registered: dict[str, dict] = {}
@@ -294,6 +343,8 @@ class Scenario:
                 disabled == (key in DISABLED_BY_DEFAULT),
                 f"{key}: unexpected disabled_by {item['disabled_by']!r}",
             )
+        unexpected = {f"{BOARD_ID}_{key}" for key in ABSENT} & set(registered)
+        check(not unexpected, f"Entities of the other generation: {unexpected}")
         self.entities = {
             unique_id: item["entity_id"] for unique_id, item in registered.items()
         }
@@ -305,27 +356,36 @@ class Scenario:
         ]
         check(len(devices) == 1, f"Expected one board device, got {devices}")
         device = devices[0]
-        check(device["sw_version"] == "1.0.7", f"Firmware: {device['sw_version']}")
+        check(device["sw_version"] == VERSION, f"Firmware: {device['sw_version']}")
         check(
-            device["configuration_url"] == BOARD,
+            device["configuration_url"] in (BOARD, f"http://{self.board_ip}:{PORT}"),
             f"Configuration URL: {device['configuration_url']}",
         )
 
     async def initial_state(self) -> None:
-        await self.expect_states(
-            {
-                "local_connected": "on",
-                "realtime_connected": "on",
-                "detection": "off",
-                "upstream": "on",
-                "auto_calibrate_on_start": "on",
-                "auto_calibrate": "on",
-                "auto_distortion": "off",
-                "standby_minutes": "15",
-                "local_status": "Stopped",
-                "training_darts": "0",
-            }
-        )
+        expected = {
+            "local_connected": "on",
+            "realtime_connected": "on",
+            "detection": "off",
+            "auto_calibrate_on_start": "on",
+            "auto_calibrate": "on",
+            "auto_distortion": "off",
+            "standby_minutes": "15",
+            "local_status": "Stopped",
+            "training_darts": "0",
+        }
+        if GENERATION >= 2:
+            expected |= {"cloud_link": "on", "cpu_usage": "7.5", "board_software": "on"}
+        else:
+            expected |= {"upstream": "on"}
+        await self.expect_states(expected)
+        if GENERATION >= 2:
+            update = await self.state("board_software")
+            versions = (
+                update["attributes"]["installed_version"],
+                update["attributes"]["latest_version"],
+            )
+            check(versions == (VERSION, UPDATE), f"Update versions: {versions}")
 
     async def controls(self) -> None:
         await self.service("button", "press", "start")
@@ -335,10 +395,11 @@ class Scenario:
         await self.service("select", "select_option", "standby_minutes", option="30")
         await self.expect_states({"standby_minutes": "30"})
         await self.service("button", "press", "calibrate_camera_1")
-        await self.service("switch", "turn_off", "upstream")
-        await self.expect_states({"upstream": "off"})
-        await self.service("switch", "turn_on", "upstream")
-        await self.expect_states({"upstream": "on"})
+        if GENERATION < 2:
+            await self.service("switch", "turn_off", "upstream")
+            await self.expect_states({"upstream": "off"})
+            await self.service("switch", "turn_on", "upstream")
+            await self.expect_states({"upstream": "on"})
 
         board = await self.board("GET", "/control/requests")
         expected = [
@@ -358,9 +419,12 @@ class Scenario:
                 "path": "/api/config/calibration/auto/1?distortion=true",
                 "body": None,
             },
-            {"method": "PUT", "path": "/api/upstream/disconnect", "body": None},
-            {"method": "PUT", "path": "/api/upstream/connect", "body": None},
         ]
+        if GENERATION < 2:
+            expected += [
+                {"method": "PUT", "path": "/api/upstream/disconnect", "body": None},
+                {"method": "PUT", "path": "/api/upstream/connect", "body": None},
+            ]
         check(
             board["commands"] == expected,
             f"Board commands differ:\n{json.dumps(board['commands'], indent=2)}",
@@ -492,6 +556,7 @@ class Scenario:
         report = await self.api("GET", f"/api/diagnostics/config_entry/{entry_id}")
         data = report["data"]
         check(API_KEY not in json.dumps(report), "Diagnostics expose the board API key")
+        check(TLS_KEY not in json.dumps(report), "Diagnostics expose the TLS key")
         check(BOARD_ID not in json.dumps(data), "Diagnostics expose the board ID")
         check(
             data["local_available"] is True
@@ -510,6 +575,7 @@ class Scenario:
         check(not problems, f"Home Assistant logged problems: {problems}")
         log = LOG.read_text() if LOG.exists() else ""
         check(API_KEY not in log, "Home Assistant log contains the board API key")
+        check(TLS_KEY not in log, "Home Assistant log contains the TLS key")
         check("Traceback" not in log, "Home Assistant log contains a traceback")
 
         board = await self.board("GET", "/control/requests")
@@ -554,7 +620,9 @@ async def main() -> None:
         await scenario.remove(entry_id)
         await scenario.socket.close()
     print(
-        "Docker E2E passed: onboarding, local config flow and validation, registries, "
+        f"Docker E2E passed for Board Manager {GENERATION}: onboarding, "
+        + ("mDNS discovery, " if GENERATION >= 2 else "")
+        + "local config flow and validation, registries, "
         "controls, realtime darts/corrections/takeouts with positions, persistence, "
         "dashboard card, private diagnostics, clean logs and removal."
     )

@@ -18,6 +18,8 @@ frontend:
 onboarding:
 system_log:
 websocket_api:
+# Finds boards that announce themselves via mDNS, like Board Manager 2.
+zeroconf:
 
 logger:
   default: warning

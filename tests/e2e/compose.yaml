@@ -3,6 +3,8 @@ services:
     # The Home Assistant image already provides aiohttp for the Board Manager double.
     image: ${HOME_ASSISTANT_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.9.3@sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196}
     entrypoint: ["python3", "/e2e/board_mock.py"]
+    environment:
+      BOARD_MANAGER: ${BOARD_MANAGER:-1}
     user: "65534:65534"
     read_only: true
     tmpfs:
@@ -22,6 +24,7 @@ services:
         condition: service_healthy
     environment:
       TZ: Europe/Berlin
+      BOARD_MANAGER: ${BOARD_MANAGER:-1}
     ports:
       - "127.0.0.1:${E2E_PORT:-18123}:8123"
     volumes:
