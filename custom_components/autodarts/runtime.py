@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from homeassistant.config_entries import ConfigEntry
+
 from .coordinator import AutodartsDataUpdateCoordinator
 from .local_coordinator import AutodartsLocalCoordinator
 
@@ -10,3 +12,6 @@ from .local_coordinator import AutodartsLocalCoordinator
 class AutodartsRuntimeData:
     cloud: AutodartsDataUpdateCoordinator | None = None
     local: AutodartsLocalCoordinator | None = None
+
+
+type AutodartsConfigEntry = ConfigEntry[AutodartsRuntimeData]

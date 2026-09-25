@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
+from functools import partial
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -13,10 +15,9 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfInformation
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -32,6 +33,8 @@ from .const import (
 )
 from .coordinator import AutodartsDataUpdateCoordinator
 from .entity import AutodartsEntity, AutodartsLocalEntity
+from .local_coordinator import AutodartsLocalCoordinator
+from .runtime import AutodartsConfigEntry
 from .training import COUNTERS
 
 # Session values that can go down again, unlike the counters.
@@ -165,12 +168,12 @@ def _get_last_throw(data: dict[str, Any]) -> str | None:
 
 def _number(value: Any) -> int | float | None:
     """A board value a numeric sensor can show; anything else reads as unknown."""
-    if type(value) in (int, float) and math.isfinite(value):
-        return value
-    return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value if math.isfinite(value) else None
 
 
-def _get_num_throws(data: dict[str, Any]) -> int | None:
+def _get_num_throws(data: dict[str, Any]) -> int | float | None:
     """Number of throws in the current turn (from local board, 0–3)."""
     local = _local(data)
     if local:
@@ -270,8 +273,8 @@ STATIC_SENSORS: tuple[AutodartsSensorEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    entry: AutodartsConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Autodarts sensors from a config entry."""
     runtime = entry.runtime_data
@@ -315,7 +318,7 @@ async def async_setup_entry(
         known: set[int] = set()
 
         @callback
-        def discover_cameras():
+        def discover_cameras() -> None:
             count = (coordinator.data or {}).get("settings", {}).get("camera_count", 0)
             new = set(range(count)) - known
             if not new:
@@ -333,7 +336,7 @@ async def async_setup_entry(
                             native_unit_of_measurement="fps",
                             entity_category=EntityCategory.DIAGNOSTIC,
                             entity_registry_enabled_default=False,
-                            value_fn=lambda data, i=index: _camera_fps(data, i),
+                            value_fn=partial(_camera_fps, index=index),
                         ),
                     )
                     for index in sorted(new)
@@ -455,8 +458,12 @@ SYSTEM_SENSORS = (
 
 
 class AutodartsLocalSensor(AutodartsLocalEntity, SensorEntity):
+    entity_description: AutodartsSensorEntityDescription
+
     def __init__(
-        self, coordinator, description: AutodartsSensorEntityDescription
+        self,
+        coordinator: AutodartsLocalCoordinator,
+        description: AutodartsSensorEntityDescription,
     ) -> None:
         super().__init__(coordinator, description.key)
         self.entity_description = description
@@ -471,7 +478,10 @@ class AutodartsCameraSensor(AutodartsLocalSensor):
     """A per-camera value; the camera number lets cards group its entities."""
 
     def __init__(
-        self, coordinator, index: int, description: AutodartsSensorEntityDescription
+        self,
+        coordinator: AutodartsLocalCoordinator,
+        index: int,
+        description: AutodartsSensorEntityDescription,
     ) -> None:
         super().__init__(coordinator, description)
         self._attr_extra_state_attributes = {"camera": index + 1}
@@ -484,14 +494,16 @@ class AutodartsVisitSensor(AutodartsLocalSensor):
     _unrecorded_attributes = frozenset({"throws"})
 
     def __init__(
-        self, coordinator, description: AutodartsSensorEntityDescription
+        self,
+        coordinator: AutodartsLocalCoordinator,
+        description: AutodartsSensorEntityDescription,
     ) -> None:
         super().__init__(coordinator, description)
         self._throws: list[dict[str, Any]] = []
         self._update_throws()
 
     def _update_throws(self) -> None:
-        throws = []
+        throws: list[dict[str, Any]] = []
         for dart in _darts(self.coordinator.data or {}):
             previous = (
                 self._throws[len(throws)] if len(throws) < len(self._throws) else {}
@@ -517,7 +529,7 @@ class AutodartsVisitSensor(AutodartsLocalSensor):
 class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
     """Locally stored session totals remain readable while the board is offline."""
 
-    def __init__(self, coordinator, key: str) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
         super().__init__(coordinator, f"training_{key}")
         self._key = key
         if key == "started":
@@ -535,7 +547,7 @@ class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
         return True
 
     @property
-    def native_value(self):
+    def native_value(self) -> datetime | float | int | None:
         session = self.coordinator.training.snapshot()
         if self._key == "started":
             return dt_util.parse_datetime(session["started"])
@@ -543,7 +555,7 @@ class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
             # Points per three darts, as darts players compare their level.
             darts = session["darts"]
             return round(session["points"] / darts * 3, 2) if darts else None
-        return session[self._key]
+        return int(session[self._key])
 
 
 class AutodartsTrainingDartsSensor(AutodartsTrainingSensor):

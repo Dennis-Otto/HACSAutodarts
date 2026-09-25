@@ -1,17 +1,26 @@
 """Local detection, upstream connection and automatic calibration settings."""
 
 from functools import partial
+from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import AutodartsLocalEntity
 from .local_api import CONFIG_SWITCHES
+from .local_coordinator import AutodartsLocalCoordinator
+from .runtime import AutodartsConfigEntry
 
 PARALLEL_UPDATES = 1
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: AutodartsConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
     if coordinator := entry.runtime_data.local:
         # Board Manager 2 manages its cloud link itself; it offers no toggle.
         upstream = () if coordinator.board_manager_2 else ("upstream",)
@@ -24,7 +33,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AutodartsSwitch(AutodartsLocalEntity, SwitchEntity):
-    def __init__(self, coordinator, key: str) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
         super().__init__(coordinator, key)
         self._key = key
         if key in CONFIG_SWITCHES:
@@ -38,7 +47,8 @@ class AutodartsSwitch(AutodartsLocalEntity, SwitchEntity):
     def is_on(self) -> bool | None:
         data = self.coordinator.data or {}
         if self._key in CONFIG_SWITCHES:
-            return data.get("settings", {}).get(self._key)
+            setting = data.get("settings", {}).get(self._key)
+            return setting if isinstance(setting, bool) else None
         value = data.get("local", {}).get(
             "running" if self._key == "detection" else "connected"
         )
@@ -54,8 +64,8 @@ class AutodartsSwitch(AutodartsLocalEntity, SwitchEntity):
             action = partial(client.set_config_switch, self._key, enabled)
         await self.coordinator.async_action(action)
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         await self._async_set(True)
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         await self._async_set(False)

@@ -88,7 +88,9 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
         client = AutodartsLocalClient(host, port, async_get_clientsession(self.hass))
         return await client.identify()
 
-    def _local_entry(self, host: str, port: int, identity: dict[str, Any]):
+    def _local_entry(
+        self, host: str, port: int, identity: dict[str, Any]
+    ) -> ConfigFlowResult:
         data = {
             CONF_BOARD_ID: identity["board_id"],
             CONF_HOST: host,
@@ -291,7 +293,7 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._auth_error = None
                 return await self.async_step_auth()
 
-        schema = {
+        schema: dict[vol.Marker, Any] = {
             vol.Required(
                 CONF_CLIENT_ID, default=self._user_input.get(CONF_CLIENT_ID, "")
             ): vol.All(str, vol.Strip, vol.Length(min=1)),

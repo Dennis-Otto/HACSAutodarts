@@ -24,6 +24,7 @@ python3.14 -m venv .venv
 .venv/bin/pytest --cov          # fails below 95 % coverage
 .venv/bin/ruff check custom_components tests .github/scripts
 .venv/bin/ruff format --check custom_components tests .github/scripts
+.venv/bin/mypy                  # strict typing of the integration
 npm ci
 npm test                        # includes property-based fuzzing with fast-check
 ```
@@ -73,7 +74,7 @@ BOARD_MANAGER=2 bash tests/e2e/run.sh   # includes discovery by mDNS
 
 Every pull request runs:
 
-- pytest with a coverage gate, Ruff and the Node tests;
+- pytest with a coverage gate, Ruff, strict mypy and the Node tests;
 - the Docker end-to-end test against both Board Manager generations, and the browser test;
 - HACS validation and hassfest;
 - actionlint, CodeQL and dependency review;

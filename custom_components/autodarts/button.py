@@ -2,9 +2,12 @@
 
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.const import EntityCategory
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import AutodartsLocalEntity
+from .local_coordinator import AutodartsLocalCoordinator
+from .runtime import AutodartsConfigEntry
 
 PARALLEL_UPDATES = 1
 
@@ -25,7 +28,11 @@ BUTTONS = {
 V1_ONLY = ("connect", "disconnect")
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: AutodartsConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
     if coordinator := entry.runtime_data.local:
         unsupported = V1_ONLY if coordinator.board_manager_2 else ()
         async_add_entities(
@@ -39,7 +46,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         known: set[int] = set()
 
         @callback
-        def discover_cameras():
+        def discover_cameras() -> None:
             count = (coordinator.data or {}).get("settings", {}).get("camera_count", 0)
             new = set(range(count)) - known
             if new:
@@ -56,7 +63,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class AutodartsButton(AutodartsLocalEntity, ButtonEntity):
-    def __init__(self, coordinator, command: str) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator, command: str) -> None:
         super().__init__(coordinator, command)
         self._command = command
         enabled, category = BUTTONS[command]
@@ -74,7 +81,7 @@ class AutodartsButton(AutodartsLocalEntity, ButtonEntity):
 class AutodartsCameraCalibration(AutodartsLocalEntity, ButtonEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator, index: int) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator, index: int) -> None:
         super().__init__(coordinator, f"calibrate_camera_{index}")
         self._index = index
         self._attr_translation_key = "calibrate_camera"
@@ -94,7 +101,7 @@ class AutodartsCameraCalibration(AutodartsLocalEntity, ButtonEntity):
 
 
 class AutodartsTrainingReset(AutodartsLocalEntity, ButtonEntity):
-    def __init__(self, coordinator) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
         super().__init__(coordinator, "reset_training")
 
     @property

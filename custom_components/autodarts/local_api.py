@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 from yarl import URL
@@ -82,15 +82,14 @@ class AutodartsLocalClient:
         method: str,
         path: str,
         *,
-        payload: dict | None = None,
+        payload: dict[str, Any] | None = None,
         response_type: str = "json",
         timeout: int = 10,
     ) -> Any:
         try:
             async with asyncio.timeout(timeout):
-                kwargs = {"json": payload} if payload is not None else {}
                 async with self._session.request(
-                    method, f"{self.base_url}{path}", **kwargs
+                    method, f"{self.base_url}{path}", json=payload
                 ) as response:
                     if response.status in (404, 405):
                         raise AutodartsEndpointMissing(
@@ -140,7 +139,9 @@ class AutodartsLocalClient:
         if not isinstance(raw, dict):
             raise AutodartsConnectionError("Invalid Board Manager system state")
         stats = _dict(raw.get("stats"))
-        cameras = raw.get("camStats") if isinstance(raw.get("camStats"), list) else []
+        cameras = raw.get("camStats")
+        if not isinstance(cameras, list):
+            cameras = []
         return {
             "config": _config_summary(raw.get("config") or {}),
             "stats": {"fps": stats.get("fps")},
@@ -171,7 +172,7 @@ class AutodartsLocalClient:
         }
 
     async def get_version(self) -> str:
-        return await self._request("GET", "/api/version", response_type="text")
+        return str(await self._request("GET", "/api/version", response_type="text"))
 
     async def get_stats(self) -> dict[str, Any]:
         result = await self._request("GET", "/api/state/stats")
@@ -197,7 +198,7 @@ class AutodartsLocalClient:
             raise AutodartsConnectionError("Invalid camera state")
         return result
 
-    async def events(self) -> AsyncIterator[tuple[str, dict]]:
+    async def events(self) -> AsyncIterator[tuple[str, dict[str, Any]]]:
         """Receive local notifications; no subscription or control writes needed."""
         try:
             async with asyncio.timeout(10):
@@ -246,9 +247,10 @@ class AutodartsLocalClient:
             )
 
     async def get_camera_image(self, index: int) -> bytes:
-        return await self._request(
+        image = await self._request(
             "GET", f"/api/img/cams/{index}", response_type="image"
         )
+        return cast(bytes, image)
 
     async def command(self, command: str) -> None:
         """Send an explicit user action once. Only missing routes permit fallback."""

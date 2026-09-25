@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from urllib.parse import urlparse
 
 from homeassistant.config_entries import ConfigEntry
@@ -33,11 +34,9 @@ from .coordinator import AutodartsDataUpdateCoordinator
 from .errors import AutodartsApiError
 from .local_api import AutodartsLocalClient
 from .local_coordinator import AutodartsLocalCoordinator
-from .runtime import AutodartsRuntimeData
+from .runtime import AutodartsConfigEntry, AutodartsRuntimeData
 
 _LOGGER = logging.getLogger(__name__)
-
-type AutodartsConfigEntry = ConfigEntry[AutodartsRuntimeData]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -113,7 +112,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
 
     if not entry.data.get(CONF_LOCAL_ONLY, False):
 
-        def persist_token(token: dict) -> None:
+        def persist_token(token: dict[str, Any]) -> None:
             hass.config_entries.async_update_entry(
                 entry, data={**entry.data, CONF_TOKEN: token}
             )

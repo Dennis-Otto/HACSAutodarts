@@ -2,14 +2,22 @@
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import AutodartsLocalEntity
 from .local_api import STANDBY_MINUTES
+from .local_coordinator import AutodartsLocalCoordinator
+from .runtime import AutodartsConfigEntry
 
 PARALLEL_UPDATES = 1
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: AutodartsConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
     if coordinator := entry.runtime_data.local:
         async_add_entities([AutodartsStandbySelect(coordinator)])
 
@@ -18,7 +26,7 @@ class AutodartsStandbySelect(AutodartsLocalEntity, SelectEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_options = [str(value) for value in STANDBY_MINUTES]
 
-    def __init__(self, coordinator) -> None:
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
         super().__init__(coordinator, "standby_minutes")
 
     @property
