@@ -1,0 +1,162 @@
+# Dashboard cards
+
+[← Documentation](README.md) · [Deutsch](de/karten.md)
+
+The integration includes three cards. Home Assistant loads them automatically, so no dashboard resource and no separate HACS download are needed. Each card:
+
+- has a visual editor and follows your theme (light or dark) and language (English or German);
+- adapts to its width, from a phone to a wall tablet;
+- finds your board by itself. With several boards, choose one in the editor.
+
+To add one, edit a dashboard, select **Add card** and search for **Autodarts**.
+
+## Live card
+
+`custom:autodarts-card` shows the current visit, dart by dart, on a board drawn with the geometry of the Autodarts Board Manager.
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="images/en/card-light.png">
+  <img src="images/en/card.png" alt="Live card with visit score, dart slots, the board with blinking beds, statistics, connection chips and controls" width="760">
+</picture>
+
+- **Visit:** score, the three dart slots and a progress indicator. The latest dart is outlined.
+- **Board:**
+  - Hit beds blink in the highlight colour.
+  - Numbered markers show where each dart landed.
+  - The board glows in the detection status colour: green when ready, yellow during a takeout, orange when stopped, purple while calibrating, red when offline or when a camera has a problem.
+- **Training statistics:** darts, 3-dart average, triples, bulls and 180s of the session.
+- **Connections:** Board Manager, realtime and cameras. Tap a chip for details.
+- **Controls:** start or stop detection, reset detection and calibrate. Resetting and calibrating need a second tap to confirm.
+
+Tap the board, or press Enter on it, to open the visit details.
+
+<img src="images/en/card-visit.webp" alt="Animation: three darts land, their beds blink and the score adds up; the takeout empties the board" width="620">
+
+### Options
+
+| Option | Values | Default | Description |
+| --- | --- | --- | --- |
+| `device_id` | device | first board | The board to show |
+| `title` | text | board name | Card title |
+| `layout` | `auto`, `horizontal`, `vertical`, `board` | `auto` | Board on the right, board below, or board only. `auto` switches to vertical on narrow cards |
+| `board_style` | `classic`, `autodarts` | `classic` | Classic board with wires, or the flat Autodarts look |
+| `highlight` | `visit`, `last`, `none` | `visit` | Highlight all darts of the visit, only the last one, or none |
+| `blink` | boolean | `true` | Blink the hit beds |
+| `show_markers` | boolean | `true` | Show dart positions |
+| `show_numbers` | boolean | `true` | Show the numbers around the board |
+| `show_stats` | boolean | `true` | Show the training statistics |
+| `show_connection` | boolean | `true` | Show the connection chips |
+| `show_controls` | boolean | `true` | Show the controls |
+| `accent_color` | CSS colour | theme primary colour | Labels and main button |
+| `highlight_color` | CSS colour | `#ffd60a` | Hit beds and the latest dart |
+
+<table>
+  <tr>
+    <td><img src="images/en/card-autodarts-style.png" alt="Vertical layout with the Autodarts board style" width="360"></td>
+    <td><img src="images/en/card-board-only.png" alt="Board-only layout" width="360"></td>
+  </tr>
+  <tr>
+    <td align="center"><code>layout: vertical</code>, <code>board_style: autodarts</code></td>
+    <td align="center"><code>layout: board</code></td>
+  </tr>
+</table>
+
+```yaml
+type: custom:autodarts-card
+layout: vertical
+board_style: autodarts
+highlight: last
+highlight_color: "#00e5ff"
+```
+
+## Training card
+
+`custom:autodarts-training-card` turns the local [training session](entities.md#training-session) into a dashboard you'll want to look at after every session.
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="images/en/training-card-light.png">
+  <img src="images/en/training-card.png" alt="Training card with 3-dart average, heatmap, statistics tiles, most hit beds and recent visits" width="760">
+</picture>
+
+- **3-dart average**, the number of darts and visits, and when the session started.
+- **Heatmap:**
+  - Every bed is coloured by how often you hit it, from blue (rarely) to red (most often).
+  - Hover a bed for its count and share.
+  - In `numbers` mode, the heatmap sums each number's singles, doubles and triples instead.
+- **Statistics:** highest visit, 100+, 140+ and 180 visits, triple rate, doubles, bulls and misses. 180s light up in gold.
+- **Most hit beds:** the top five, with count and share of all darts.
+- **Recent visits:** a bar chart of your last visits with the session average as a dashed line.
+  - Bars are coloured grey below 60, accent colour from 60, green for 100+, orange for 140+ and gold for 180.
+  - The visits come from the recorder, so the chart survives page reloads.
+- **New session** starts a new session after a second tap to confirm.
+
+### Options
+
+| Option | Values | Default | Description |
+| --- | --- | --- | --- |
+| `device_id` | device | first board | The board to show |
+| `title` | text | *Training · board name* | Card title |
+| `mode` | `beds`, `numbers` | `beds` | Heatmap per bed or per number |
+| `board_style` | `muted`, `classic`, `autodarts` | `muted` | The muted board lets the heatmap stand out |
+| `history_size` | 5–60 | `20` | Visits in the chart; labels are shown up to 30 |
+| `show_heatmap` | boolean | `true` | Show the heatmap |
+| `show_stats` | boolean | `true` | Show the statistics tiles |
+| `show_top` | boolean | `true` | Show the most hit beds |
+| `show_history` | boolean | `true` | Show the recent visits |
+| `show_reset` | boolean | `true` | Show the *New session* button |
+| `accent_color` | CSS colour | theme primary colour | Labels and 60+ visits |
+
+```yaml
+type: custom:autodarts-training-card
+mode: numbers
+history_size: 40
+show_reset: false
+```
+
+<img src="images/en/training-card-mobile.png" alt="Training card on a phone" width="320">
+
+## Board status card
+
+`custom:autodarts-status-card` shows the health of the board and gathers the maintenance actions in one place.
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="images/en/status-card-light.png">
+  <img src="images/en/status-card.png" alt="Board status card with detection switch, Board Manager version and update, connections, CPU load, cameras and maintenance buttons" width="760">
+</picture>
+
+- **Detection:** a switch with the current status, tinted in the status colour.
+- **Board Manager:** the installed version and, with Board Manager 2, a badge for an available update. Tap the badge for its details.
+- **Connections:** Board Manager, realtime and the cloud connection of the board.
+- **Board PC** (Board Manager 2): CPU and memory load, plus the detection frame rate if you enabled it.
+- **Cameras:** a tile for every camera with its status and frame rate (if the frame-rate sensor is enabled) and its own calibration. A camera with a problem turns red.
+- **Maintenance:** calibrate, reset detection and restart Board Manager. Each needs a second tap to confirm.
+
+### Options
+
+| Option | Values | Default | Description |
+| --- | --- | --- | --- |
+| `device_id` | device | first board | The board to show |
+| `title` | text | board name | Card title |
+| `show_connection` | boolean | `true` | Show the connections |
+| `show_system` | boolean | `true` | Show the board PC load |
+| `show_cameras` | boolean | `true` | Show the cameras |
+| `show_controls` | boolean | `true` | Show the maintenance buttons |
+| `accent_color` | CSS colour | theme primary colour | Labels and the detection switch |
+
+```yaml
+type: custom:autodarts-status-card
+show_system: false
+```
+
+## Card editor
+
+All options can be set in the visual editor, which offers only Autodarts boards in its device picker.
+
+<img src="images/en/card-editor.png" alt="The visual editor of the live card" width="760">
+
+## Tips
+
+- **Wall tablet:** the live card with `layout: vertical` fills a portrait screen. The board scales with the card.
+- **Combine:** put the live card and the training card next to each other in a sections view with two columns.
+- **Several boards:** add one card per board and choose the board in each card's editor.
+- **Cached old version:** after an update, the card URL changes automatically. If a browser still shows an old card, reload the page. In the companion app, use *Settings → Companion app → Debugging → Reset frontend cache*.

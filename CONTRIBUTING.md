@@ -9,9 +9,10 @@ All changes, including release version commits, reach the protected `main` branc
 ## Requirements for changes
 
 - New functionality and bug fixes must include automated tests. Use pytest for integration behavior and extend the Docker end-to-end test in `tests/e2e/` when a user-visible Home Assistant flow changes.
-- Code must pass Ruff with the rules configured in `pyproject.toml` and remain compatible with the Home Assistant version used by the tests.
+- Code must pass Ruff (lint and format) with the rules configured in `pyproject.toml`, keep the total test coverage at 95 % or more, and remain compatible with the Home Assistant version used by the tests.
+- Dashboard card changes need Node tests in `tests/frontend/` and, for visible changes, the browser test in `tests/e2e/browser.py`.
 - User-facing text belongs in `strings.json` and the English and German translations.
-- Update the README or `docs/` when behavior, setup, or supported versions change.
+- Update the README and `docs/` when behavior, setup, or supported versions change. The documentation is English, with a German translation in `docs/de/`; update both. Regenerate screenshots with `bash tests/e2e/screenshots.sh` when a visible card or dialog changes.
 - Local Board Manager communication must not log, store, or expose the board API key. Cloud tokens remain in the config entry.
 
 Before opening a pull request, run:
@@ -19,11 +20,14 @@ Before opening a pull request, run:
 ```bash
 python3.14 -m venv .venv
 .venv/bin/pip install -r requirements-test.txt
-.venv/bin/pytest -q
+.venv/bin/pytest --cov
 .venv/bin/ruff check custom_components tests .github/scripts
-bash tests/e2e/run.sh
+.venv/bin/ruff format --check custom_components tests .github/scripts
+node --test "tests/frontend/*.test.mjs"
+BOARD_MANAGER=2 bash tests/e2e/run.sh
+bash tests/e2e/browser.sh
 ```
 
-The end-to-end test requires Docker with Compose.
+The end-to-end and browser tests require Docker with Compose. The [development guide](docs/development.md) describes every tool, including the demo instance.
 
 Do not include real credentials, board IDs, API keys, private network addresses, or logs containing personal data. Use reserved documentation addresses such as `192.0.2.10` and clearly synthetic values in tests and documentation.
