@@ -25,6 +25,10 @@ api:
 config:
 diagnostics:
 frontend:
+# Every real installation records history; the frontend expects it.
+history:
+logbook:
+recorder:
 onboarding:
 system_log:
 websocket_api:
