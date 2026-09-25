@@ -1,10 +1,13 @@
-# Autodarts for Home Assistant — WIP
+<div align="center">
 
-<img src="custom_components/autodarts/brand/icon.png" alt="Autodarts" width="80" height="80">
+<img src="custom_components/autodarts/brand/icon.png" alt="Autodarts" width="96" height="96">
 
-> **Work in progress.** Local Board Manager control works without a client ID. Local reads have been verified with Board Manager 1.0.7; control actions and dart events still require hardware validation. Cloud account linking requires an approved project client ID and has not yet been validated with a live account.
+# Autodarts for Home Assistant
+
+**Your Autodarts board, live in Home Assistant: local, realtime and ready for automations.**
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8%2B-41BDF5.svg?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![CI](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/tests.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/tests.yml)
 [![Docker E2E](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/e2e.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/e2e.yml)
 [![Secret scan](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/Dennis-Otto/HACSAutodarts/actions/workflows/secret-scan.yml)
@@ -13,184 +16,199 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Dennis-Otto/HACSAutodarts/badge)](https://scorecard.dev/viewer/?uri=github.com/Dennis-Otto/HACSAutodarts)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14935/badge)](https://www.bestpractices.dev/projects/14935)
 
-A [Home Assistant](https://www.home-assistant.io/) custom integration for [Autodarts](https://autodarts.io/) — the automatic dart scoring system.
+[**Documentation**](docs/README.md) · [**Deutsche Anleitung**](docs/de/README.md) · [Dashboard cards](#dashboard-cards) · [Blueprints](#automations-and-blueprints) · [Troubleshooting](docs/troubleshooting.md)
 
-This fork of [Trkal/HACSAutodarts](https://github.com/Trkal/HACSAutodarts) uses the new Autodarts **device-link login**: Home Assistant displays an 8-character code, you approve it in your browser, and setup continues automatically. It supports local board control on its own, plus optional cloud match data. Local control keeps working when Home Assistant’s cloud credentials expire.
+<img src="docs/images/en/card-visit.webp" alt="The Autodarts card: three darts land, their beds blink on the board and the visit score adds up" width="760">
 
-> **Cloud setup requirement:** A public OAuth client ID approved for this integration with device authorization enabled is required. No project client ID is bundled yet, and the old `autodarts-play` client does not support the new login flow. Without a valid client ID, cloud account linking cannot be completed. **Local setup does not require this ID.** See the [German setup instructions](docs/SETUP-DE.md).
+</div>
 
-The device-link implementation follows the [Autodarts authentication migration guide](https://gist.github.com/lloydowen/960079f2b518f6f5d68e160465298964).
+## Highlights
 
-## Features
+- **Local and realtime.** Talks directly to the Autodarts Board Manager in your network. Darts appear within a fraction of a second, and no cloud account or client ID is needed.
+- **Found automatically.** Board Manager 2 announces itself on the network, so Home Assistant offers the board with one click. You can also search for your boards or enter an address.
+- **Both Board Manager generations.** Works with the classic Board Manager 1 and the headless Board Manager 2. It detects the generation and switches over by itself when you update the board.
+- **Three dashboard cards** are included and load automatically:
+  - a live dartboard with blinking hit beds and dart positions;
+  - a training card with a hit heatmap and visit history;
+  - a board status card for detection, connections and cameras.
+- **Training analytics:**
+  - 3-dart average, visits, highest visit, 100+/140+/180 and triple rate;
+  - hits per bed, stored locally and kept across restarts.
+- **Automations that feel like a stage.** Board events for every dart, correction, takeout and completed visit, plus six ready-made blueprints: 180 celebrations, a dart caller, takeout lights, automatic detection, alerts and daily reports.
+- **Full control.**
+  - Start, stop and reset detection; calibrate the board or single cameras; restart Board Manager.
+  - Board settings, camera standby and Board Manager updates.
+  - Health sensors for every camera.
+- **Built to last.**
+  - Reconnects automatically and flags a wrong board address in Repairs.
+  - Redacts all secrets in diagnostics.
+  - Translated into English and German.
+  - About 300 automated tests, including a Docker end-to-end test against both Board Manager generations and a real browser test of every card.
 
-### Board Sensors
-- **Board Status** — connected / disconnected
-- **Board Event** — last detection event (Throw, Takeout, Starting)
+## Screenshots
 
-### Match Sensors
-- **Game Mode** — X01, Cricket, Count Up, etc.
-- **Match State** — Active / Finished / No match
-- **Round** — current round number
-- **Visit Score** — points scored in the current turn
-- **Total Turns** — total turns played in the match
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/images/en/training-card-light.png">
+        <img src="docs/images/en/training-card.png" alt="Training card with 3-dart average, heatmap, most hit beds and recent visits">
+      </picture>
+      <p align="center"><b>Training card</b>: heatmap, statistics and recent visits</p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/images/en/status-card-light.png">
+        <img src="docs/images/en/status-card.png" alt="Board status card with detection switch, version, connections, board PC load and cameras">
+      </picture>
+      <p align="center"><b>Board status card</b>: detection, connections, cameras</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: light)" srcset="docs/images/en/card-light.png">
+        <img src="docs/images/en/card.png" alt="Live card with the current visit, a dartboard with blinking beds and training statistics">
+      </picture>
+      <p align="center"><b>Live card</b>: the current visit on a real board</p>
+    </td>
+    <td width="50%">
+      <img src="docs/images/en/device.png" alt="The Autodarts device page in Home Assistant with controls, sensors and diagnostics">
+      <p align="center"><b>Device page</b>: controls, sensors and diagnostics</p>
+    </td>
+  </tr>
+</table>
 
-### Local board control (no integration client ID needed)
+## Quick start
 
-- **Buttons:** start/stop detection, reset detection, restart Board Manager, start automatic calibration for all cameras or an individual camera, reset local training statistics.
-- **Additional buttons, disabled by default:** connect/disconnect the board’s cloud connection, start/stop camera streams.
-- **Switches:** detection, board cloud connection, calibration on start, automatic recalibration, automatic distortion correction.
-- **Select:** camera standby after 5, 10, 15, 30 or 60 minutes.
-- **Sensors:** local connectivity, detection status/event, last segment, number of detected darts, last dart score and sum of detected darts.
-- **Optional diagnostics:** detection/camera FPS and one snapshot camera per configured camera, disabled by default.
-- **Realtime events:** detected/corrected darts, takeout start/finish and status changes as a native HA event entity, with WebSocket reconnect and HTTP fallback.
-- **Detection states:** hand detected, stable image, partial/full takeout, cameras active and calibration in progress.
-- **Camera health:** per-camera and combined problem sensors after 15 seconds of zero FPS during active detection; normal stops, calibration and standby are excluded.
-- **Persistent local training session:** observed darts, triples, bull hits, 180s, points and session start, with a reset button. Current-visit corrections adjust counts; startup/reconnection snapshots are not replayed as new darts. No player assignment or game rules are inferred.
-- Local reads every 2 seconds complement immediate push updates; settings and firmware version every 30 seconds. Actions request a refresh.
+1. **Install with HACS.**
 
-See [local setup, controls and examples (German)](docs/LOCAL-CONTROL.md).
+   [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Dennis-Otto&repository=HACSAutodarts&category=integration)
 
-## Requirements
+   Or add `https://github.com/Dennis-Otto/HACSAutodarts` in HACS as a custom repository of the type **Integration**, then install **Autodarts** and restart Home Assistant.
 
-For **local control**: an already configured Autodarts Board Manager reachable from Home Assistant on the local network (default port **3180**). No separate cloud login, password or client ID is needed in this integration. Board Manager’s own registration and connection to Autodarts remain separate.
+2. **Add your board.** If your board runs Board Manager 2, Home Assistant usually shows it under **Settings → Devices & services → Discovered** already. Otherwise:
 
-For **cloud match sensors**, additionally: an Autodarts account with access to the board and a public OAuth client ID registered for this integration with device authorization enabled. No client secret or redirect URI is required.
+   [![Open your Home Assistant instance and start setting up Autodarts.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=autodarts)
 
-## Installation
+   Choose **Search for boards on this network** or **Enter board address** and confirm. You need no account, password or client ID.
 
-### HACS (recommended)
+3. **Add a card.** Edit a dashboard, choose **Add card** and search for *Autodarts*. All three cards pick your board automatically.
 
-1. Open HACS in your Home Assistant instance
-2. Go to **Integrations** → click the **three dots** menu → **Custom repositories**
-3. Add `https://github.com/Dennis-Otto/HACSAutodarts` as an **Integration**
-4. Search for **Autodarts** and install it
-5. Restart Home Assistant
+The [installation guide](docs/installation.md) covers requirements, manual installation, cloud linking, updates and removal.
 
-### Manual
+## What you get
 
-1. Copy the `custom_components/autodarts` folder into your Home Assistant `config/custom_components/` directory
-2. Restart Home Assistant
+| Area | Entities and features | Board Manager 1 | Board Manager 2 |
+| --- | --- | :---: | :---: |
+| Live visit | Detection status, last dart, darts in visit, visit score with dart positions | ✓ | ✓ |
+| Board events | Dart detected and corrected, takeout started and finished, visit completed, status changed | ✓ | ✓ |
+| Training | Darts, points, 3-dart average, visits, highest visit, 100+/140+/180, triples, doubles, bulls, misses, hits per bed, session start and reset | ✓ | ✓ |
+| Controls | Detection switch; start, stop and reset buttons; calibration (board and per camera); restart; camera streams | ✓ | ✓ |
+| Settings | Calibrate on start, automatic recalibration, distortion correction, camera standby | ✓ | ✓ |
+| Health | Board Manager connection, realtime connection, cameras active, calibration, camera problems (overall and per camera), frame rates | ✓ | ✓ |
+| Motion | Hand detected, image stable, darts partially or fully removed | ✓ | ✓ |
+| Board cloud link | Switch and buttons for the board's own cloud connection | ✓ | – |
+| System | Autodarts cloud connection, CPU and memory of the board PC, Board Manager update | – | ✓ |
+| Snapshots | One camera entity per board camera (disabled by default) | ✓ | ✓ |
+| Cloud match data *(optional)* | Board status, game mode, match state, round, visit score, darts thrown | Needs an Autodarts client ID | Needs an Autodarts client ID |
 
-### Integration icon
+The [entity reference](docs/entities.md) lists every entity with its states, attributes and defaults.
 
-Version 0.4.1 bundles the Autodarts icon and light/dark logos, including high-resolution versions. Home Assistant **2026.3 or newer** loads these directly from the integration, including for local-only setups without a client ID. After updating, restart Home Assistant and refresh the browser/app if an old placeholder remains. See [Home Assistant's local brand image support](https://developers.home-assistant.io/docs/core/integration/brand_images/).
+## Dashboard cards
 
-The HACS repository list may still show a placeholder: its current frontend uses the central Home Assistant brands server rather than bundled images. The local assets apply to Home Assistant's integration UI. [Asset sources and rendering instructions](docs/branding/README.md).
+The integration serves its cards itself, so no dashboard resource is needed. Each card has a visual editor, follows your theme and language and works on phones.
 
-## Configuration
+| Card | Type | Highlights |
+| --- | --- | --- |
+| **Autodarts** | `custom:autodarts-card` | The current visit on a dartboard drawn to Board Manager geometry. Hit beds blink, darts appear at their detected position and the board glows in the detection status colour. Also shows training statistics, connection chips and controls. |
+| **Autodarts training** | `custom:autodarts-training-card` | 3-dart average, a heatmap of your hits (per bed or per number), statistics tiles, your most hit beds and a chart of recent visits, plus a *New session* button. |
+| **Autodarts board status** | `custom:autodarts-status-card` | Detection switch, Board Manager version and updates, connections, board PC load, a health tile for every camera and maintenance controls. |
 
-Choose **Local board** in **Settings → Devices & Services → Add Integration → Autodarts**. Enter the IP/hostname without `http://` or a port, and enter the port separately (normally `3180`). The board ID is read automatically. No Autodarts credentials are stored for this mode.
-
-To add cloud access later, choose **Reconfigure → Link cloud account** on the existing integration. Its board and entity IDs are retained.
-
-For cloud setup:
-
-1. Choose **Link cloud account** in the integration setup menu.
-2. Enter the registered **Autodarts client ID**, and optionally your local board IP/port.
-3. Home Assistant shows a code such as `ABCD-EFGH` and a direct login link.
-4. Open the displayed link, or visit `https://auth.autodarts.io/link` on another device and enter the code. Sign in and approve the connection.
-5. Home Assistant waits for approval automatically. If you have several boards, choose one.
-
-No passwords or redirect URLs are entered into Home Assistant. Device-code expiry and denied requests offer a new login attempt. Polling follows the server's interval and `slow_down` responses; cancelling setup stops polling.
-
-Access tokens refresh through `/auth/v1/refresh`. Rotated refresh tokens are saved immediately, including when a subsequent cloud request fails. Revoked or expired credentials trigger Home Assistant's reauthentication flow.
-
-### Updating an existing installation
-
-The fork uses the same `autodarts` integration domain as the original, so only one can be installed at a time. Change the HACS repository supplying the integration to this fork, or replace only `config/custom_components/autodarts` manually, then restart Home Assistant. Keep the existing integration entry in **Devices & Services**.
-
-Existing version-2 entries using the old Keycloak flow ask you to **re-authenticate**. If a local host is configured, local controls remain available while cloud login is pending. To add or update the local address, use **Reconfigure → Local board** on the existing entry. Enter the registered client ID and approve the new code using the account that owns the existing board. The entry, board ID, sensor unique IDs and local connection settings are retained. Linking an account without the original board is rejected instead of switching boards.
-
-## Validation
-
-Automated tests use **Home Assistant 2026.9.2 / Python 3.14**, with mocked Autodarts HTTP responses. They cover device approval, polling/backoff, denial/expiry/cancellation, board selection, reauthentication, refresh-token rotation, local onboarding/upgrading, entity services, partial settings updates, command errors, connectivity recovery operation during cloud failures, push/poll races, reconnect/cancellation, camera failure thresholds and training persistence/corrections. Earlier Home Assistant versions have not been validated.
-
-Local status, version, sanitized settings, FPS, motion and camera state reads, and WebSocket connection handling have been verified with Board Manager 1.0.7. Hardware validation of control actions and dart sequences, and live validation of cloud login and match data, are still pending.
-
-```sh
-python3.14 -m venv .venv
-.venv/bin/pip install -r requirements-test.txt
-.venv/bin/pytest -q
-.venv/bin/ruff check custom_components tests
+```yaml
+type: custom:autodarts-training-card
+mode: numbers        # heatmap per number instead of per bed
+history_size: 30     # visits in the chart
 ```
 
-The [Docker end-to-end test](tests/e2e/README.md) starts a real Home Assistant
-2026.9.3 container with this integration and a simulated Board Manager. It covers
-onboarding, local setup, entity services, realtime dart events, diagnostics and
-removal. It requires Docker with Compose:
+All options, with screenshots, are in the [card guide](docs/cards.md).
 
-```sh
-bash tests/e2e/run.sh
+## Automations and blueprints
+
+Import a blueprint with one click, choose your board and you're done:
+
+| Blueprint | Import |
+| --- | --- |
+| **Celebrate a visit score.** Your actions for every 180, every ton, or any score you choose. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2FHACSAutodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Fvisit_score.yaml) |
+| **Dart caller.** Every visit is announced on your speakers, with a special call for 180. Every dart can be called too. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2FHACSAutodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Fdart_caller.yaml) |
+| **Takeout actions.** Light up the board while you pull your darts. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2FHACSAutodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Ftakeout.yaml) |
+| **Start and stop detection automatically**, based on presence in the darts room. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2FHACSAutodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Fauto_detection.yaml) |
+| **Board problem alert** when the board goes offline or a camera fails, with an optional all-clear. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2FHACSAutodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Fboard_alert.yaml) |
+| **Training report.** Your daily summary with the 3-dart average. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2FHACSAutodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Ftraining_report.yaml) |
+
+Prefer writing your own? The [automation guide](docs/automations.md) explains the board events and has ready-to-use examples.
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph PC["Board PC"]
+    CAM["Cameras"] --> BM["Autodarts Board Manager<br/>port 3180"]
+  end
+  subgraph HA["Home Assistant"]
+    CO["Autodarts integration<br/>realtime + reconciliation"]
+    TR[("Training session<br/>stored locally")]
+    EN["Entities and board events"]
+    UI["Dashboard cards, automations"]
+  end
+  BM -- "WebSocket events" --> CO
+  CO -- "HTTP reads and actions" --> BM
+  BM -. "mDNS announcement" .-> HA
+  CO --> TR --> EN
+  CO --> EN --> UI
+  CL[("Autodarts cloud")] -. "optional match data" .-> EN
 ```
 
-Dependabot checks Python dependencies, GitHub Actions and the Home Assistant image
-of the Docker end-to-end test weekly on Monday mornings
-(Europe/Berlin). Patch and minor updates are grouped and automatically squash-merged
-after all required checks pass. Major updates remain separate pull requests for
-manual review. Repository auto-merge and required checks are enforced through the
-repository settings and main-branch ruleset. Merged dependency updates automatically
-produce a checked maintenance release with a new patch version and changelog,
-including test dependencies and GitHub Actions updates. Major dependency updates
-enter the same release process after a maintainer merges them. This does not install
-updates into Home Assistant automatically.
+- The integration listens to the Board Manager's realtime events and reconciles them with an HTTP read every 30 seconds. Without realtime events, it reads every 2 seconds instead.
+- Actions are sent once, and failures are reported instead of retried.
+- The training session is computed from what the board detects and stored in Home Assistant.
 
-Pull requests are checked with pytest, Ruff, the Docker end-to-end test, HACS
-validation, Home Assistant hassfest, workflow linting, Python CodeQL analysis,
-dependency vulnerability review, Gitleaks and an SPDX SBOM. HACS/hassfest, CodeQL
-and the SBOM also run weekly to detect changes in platform requirements and security
-checks. OpenSSF Scorecard evaluates the repository's supply-chain security on every
-push to `main` and weekly. GitHub Actions are pinned to commit hashes or container
-digests and maintained by Dependabot.
+Details: [how it works](docs/how-it-works.md).
 
-## Releases and changelogs
+## Privacy and security
 
-The **Release integration** workflow generates categorized release notes for the
-HACS/Home Assistant update dialog. An optional introduction appears above the
-automatic changelog. It verifies that the version matches `manifest.json` and can
-save a draft or publish a stable/prerelease version. **Release dependency updates**
-automatically prepares and publishes maintenance versions after Dependabot merges,
-with a scheduled fallback every 30 minutes. It retains the latest release's channel:
-WIP updates require the repository's prerelease switch in HACS to be enabled.
-See the [release guide](docs/releases.md).
+- **Local first.** Local mode sends nothing to the internet. *Search for boards* asks the public Autodarts discovery service which boards are registered from your internet connection; nothing else leaves your network.
+- **No passwords.** The optional cloud link uses the Autodarts device login; Home Assistant never sees your password.
+- **Secrets stay on the board.** Board API keys, TLS keys and camera device paths are never stored or shown, not even in diagnostics.
+- **Security reports:** please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
-## Sensors
+## Known limitations
 
-| Sensor | Source | Description | Unit |
-|--------|--------|-------------|------|
-| Board Status | Cloud | Board connection state | — |
-| Board Event | Local/Cloud | Last detection event | — |
-| Game Mode | Cloud | Active game type (X01, Cricket, etc.) | — |
-| Match State | Cloud | Match status (Active/Finished/No match) | — |
-| Round | Cloud | Current round number | — |
-| Last Throw | Local | Last dart segment (e.g. T20, D16) | — |
-| Throws in Turn | Local | Darts thrown this turn (0–3) | darts |
-| Visit Score | Cloud | Points scored in current turn | points |
-| Total Turns | Cloud | Total turns in the match | turns |
-| Board Manager connection | Local | HTTP reachability, independent of cloud connection | — |
-| Local detection status | Local | Board Manager status | — |
-| Last throw score | Local | Segment number × multiplier | points |
-| Detected visit score | Local | Sum of detected darts, without game rules such as bust | points |
-| Detection / camera frame rate | Local | Optional performance diagnostics | fps |
+- **Cloud match data is on hold.** It needs an OAuth client ID that Autodarts issues for this integration, and none is bundled yet. Everything local works without it.
+- **No game logic in training.** Training statistics count the darts the board detects. They do not know players, legs, busts or checkouts.
+- **Board Manager updates are not installed from Home Assistant.** The update entity reports new Board Manager 2 versions; you install them on the board PC.
+- **Snapshots only.** Camera entities show snapshots; the Board Manager offers no video stream for Home Assistant.
+- **Test coverage.** Every control is tested against a protocol-accurate Board Manager simulator in CI. Reads are also verified against real Board Manager 1.0.7 and 2.0.0 installations.
 
-## Automations
+## Documentation
 
-Use these sensors to trigger Home Assistant automations, for example:
+| Guide | Contents |
+| --- | --- |
+| [Installation](docs/installation.md) | Requirements, HACS and manual installation, setup, cloud link, updates, removal |
+| [Entities](docs/entities.md) | Every entity, event, state and attribute |
+| [Dashboard cards](docs/cards.md) | All three cards and their options |
+| [Automations](docs/automations.md) | Board events, blueprints and examples |
+| [How it works](docs/how-it-works.md) | Data flow, update intervals, training rules, privacy |
+| [Troubleshooting](docs/troubleshooting.md) | Common problems, repairs, diagnostics and logs |
+| [Development](docs/development.md) | Tests, Docker E2E, demo instance, screenshots, releases |
+| [Deutsche Dokumentation](docs/de/README.md) | Die komplette Anleitung auf Deutsch |
 
-- Flash lights when a player checks out (match state changes to "Finished")
-- Play a sound when a 180 is scored (visit score = 180)
-- Send a notification with match results
-- Display live scores on a dashboard
+## Contributing and support
 
-## Contributing and security
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains the checks, and [SUPPORT.md](SUPPORT.md) explains where to ask questions and report bugs. Participation follows the [code of conduct](CODE_OF_CONDUCT.md) and the project's [governance](GOVERNANCE.md).
 
-Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) for requirements
-and checks. Use [SUPPORT.md](SUPPORT.md) for bug reports and questions. Report
-suspected vulnerabilities privately as described in [SECURITY.md](SECURITY.md), never
-in a public issue. Participation follows the [code of conduct](CODE_OF_CONDUCT.md)
-and the project's [governance](GOVERNANCE.md).
+## Credits and license
 
-## License
+This integration started as a fork of [Trkal/HACSAutodarts](https://github.com/Trkal/HACSAutodarts). Thanks to Trkal for the original work and to the Autodarts team for their open local API.
 
-MIT
-
-Autodarts and Winmau names and brand artwork belong to their respective owners. The bundled brand assets identify the supported product; they are not covered by the integration's MIT license. This is an unofficial community integration.
+Licensed under the [MIT license](LICENSE). Autodarts and Winmau names and brand artwork belong to their respective owners. The bundled brand assets identify the supported product and are not covered by the MIT license. This is an unofficial community integration and is not affiliated with Autodarts.

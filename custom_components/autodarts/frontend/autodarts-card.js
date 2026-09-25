@@ -252,7 +252,7 @@ const TEXT = {
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
-    highest: "Höchste Aufnahme",
+    highest: "Beste Aufnahme",
     scores_100: "100+",
     scores_140: "140+",
     doubles: "Doubles",

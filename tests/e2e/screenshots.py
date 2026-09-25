@@ -15,6 +15,7 @@ from pathlib import Path
 
 from PIL import Image
 from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 HA = "http://homeassistant:8123"
 BOARD = "http://board-mock:3180"
@@ -93,8 +94,10 @@ def peak(page: Page) -> None:
     page.evaluate(SEEK, 800)
 
 
-def card_shot(page: Page, name: str, index: int = 0) -> None:
-    card = page.locator("autodarts-card").nth(index)
+def card_shot(
+    page: Page, name: str, index: int = 0, tag: str = "autodarts-card"
+) -> None:
+    card = page.locator(tag).nth(index)
     card.screenshot(path=str(OUTPUT / f"{name}.png"), animations="allow")
     print(f"saved {OUTPUT / name}.png")
 
@@ -105,7 +108,7 @@ def page_shot(page: Page, name: str) -> None:
 
 
 def visit_animation(page: Page) -> None:
-    """Darts landing one by one, then the takeout, as an animated GIF."""
+    """Darts landing one by one, then the takeout, as an animation."""
     frames: list[Image.Image] = []
     durations: list[int] = []
     card = page.locator("autodarts-card").first
@@ -131,19 +134,25 @@ def visit_animation(page: Page) -> None:
     wait_for_score(page, "0")
     capture(1, hold=1200)
 
-    palette = [
-        frame.convert("RGB").quantize(colors=128, method=Image.Quantize.MEDIANCUT)
+    # The documentation shows the animation at 760 pixels. Animated WebP keeps the
+    # colours of every frame at a fraction of the size of a GIF.
+    width = 760
+    resized = [
+        frame.convert("RGB").resize(
+            (width, round(frame.height * width / frame.width)),
+            Image.Resampling.LANCZOS,
+        )
         for frame in frames
     ]
-    target = OUTPUT / "card-visit.gif"
-    palette[0].save(
+    target = OUTPUT / "card-visit.webp"
+    resized[0].save(
         target,
         save_all=True,
-        append_images=palette[1:],
+        append_images=resized[1:],
         duration=durations,
         loop=0,
-        optimize=True,
-        disposal=2,
+        quality=85,
+        method=6,
     )
     print(f"saved {target} ({target.stat().st_size // 1024} KiB, {len(frames)} frames)")
     # Restore the demo visit for the remaining screenshots.
@@ -152,11 +161,52 @@ def visit_animation(page: Page) -> None:
     wait_for_score(page, "115")
 
 
+def find(tag: str) -> str:
+    return FIND_CARDS.replace("'autodarts-card'", f"'{tag}'")
+
+
+def training_card(page: Page, suffix: str) -> None:
+    """The heatmap, statistics and the visit history read from the recorder."""
+    size = page.viewport_size
+    # A tall page keeps the whole card below the toolbar.
+    tall = 2600 if size["width"] < 600 else 1700
+    page.set_viewport_size({"width": size["width"], "height": tall})
+    page.goto(f"{HA}/autodarts-demo/training")
+    page.wait_for_function(
+        f"() => ({find('autodarts-training-card')})().some((c) =>"
+        " c.shadowRoot.querySelectorAll('.history-chart .visit-bar:not(.empty)').length >= 5)",
+        timeout=60000,
+    )
+    page.wait_for_timeout(1200)
+    card_shot(page, f"training-card{suffix}", tag="autodarts-training-card")
+    page.set_viewport_size(size)
+
+
+def status_card(page: Page, suffix: str) -> None:
+    page.goto(f"{HA}/autodarts-demo/status")
+    page.wait_for_function(
+        f"() => ({find('autodarts-status-card')})().some((c) =>"
+        " c.shadowRoot.querySelectorAll('.camera').length === 3)",
+        timeout=60000,
+    )
+    page.wait_for_timeout(1200)
+    card_shot(page, f"status-card{suffix}", tag="autodarts-status-card")
+
+
 def config_flow(page: Page) -> None:
     page.goto(f"{HA}/config/integrations/dashboard/add?domain=autodarts")
-    dialog = page.locator("dialog-data-entry-flow")
+    # An integration that is already set up asks before adding another entry.
+    confirm = page.get_by_role("button", name="OK", exact=True)
+    try:
+        confirm.wait_for(timeout=10000)
+        confirm.click()
+    except PlaywrightTimeoutError:
+        pass
+    # Never open the network search here: it would list the real boards of this
+    # internet connection in a public screenshot.
     menu = page.get_by_text(
-        "Local board" if LANGUAGE == "en" else "Lokales Board", exact=True
+        "Enter board address" if LANGUAGE == "en" else "Board-Adresse eingeben",
+        exact=True,
     )
     menu.wait_for(timeout=30000)
     page.wait_for_timeout(800)
@@ -166,8 +216,8 @@ def config_flow(page: Page) -> None:
     page.get_by_text(title, exact=True).wait_for(timeout=15000)
     page.wait_for_timeout(800)
     page_shot(page, "setup-local")
-    page.keyboard.press("Escape")
-    dialog.wait_for(state="detached", timeout=15000)
+    # Leave the unfinished flow; the demo instance is discarded afterwards.
+    page.goto(f"{HA}/autodarts-demo/board")
 
 
 def device_page(page: Page) -> None:
@@ -209,6 +259,8 @@ def main() -> None:
             wait_for_score(page, "115")
             peak(page)
             card_shot(page, f"card{suffix}")
+            training_card(page, suffix)
+            status_card(page, suffix)
             if scheme == "dark":
                 open_dashboard(page, "styles")
                 peak(page)
@@ -231,6 +283,7 @@ def main() -> None:
         open_dashboard(page, "board")
         peak(page)
         card_shot(page, "card-mobile")
+        training_card(page, "-mobile")
         mobile.close()
 
         animation = browser.new_context(

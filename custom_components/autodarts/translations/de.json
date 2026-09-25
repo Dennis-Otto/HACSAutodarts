@@ -90,7 +90,7 @@
       "wait_for_device": "Öffne die [Autodarts-Anmeldung]({verification_uri_complete}) und bestätige die Verknüpfung. Alternativ kannst du [{verification_uri}]({verification_uri}) auf einem anderen Gerät öffnen und **{user_code}** eingeben.\n\nNach der Freigabe geht es hier automatisch weiter. Gib diesen Code nur bei deiner eigenen Autodarts-Anmeldung ein."
     },
     "error": {
-      "invalid_client": "Diese Client-ID ist ungültig oder nicht für die Geräteanmeldung freigeschaltet. Prüfe die Client-ID für diese Integration. Die Einrichtung über Lokales Board ist ohne Client-ID möglich.",
+      "invalid_client": "Diese Client-ID ist ungültig oder nicht für die Geräteanmeldung freigeschaltet. Prüfe die Client-ID für diese Integration. Ein lokales Board lässt sich ohne Client-ID einrichten.",
       "expired_token": "Der Anmeldecode ist abgelaufen. Bitte fordere einen neuen Code an.",
       "access_denied": "Die Verknüpfung wurde abgelehnt. Bitte starte die Anmeldung neu und bestätige sie.",
       "invalid_auth": "Autodarts konnte diese Verbindung nicht autorisieren. Bitte verknüpfe dein Konto erneut.",

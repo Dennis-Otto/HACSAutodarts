@@ -11,6 +11,7 @@ PROJECT_NAME="${E2E_PROJECT_NAME:-autodarts_demo}"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.63.0-noble@sha256:72bd171a9ffc2b4b59532aaa6210e21014d07093120dc25528870c0b840da1f0"
 PILLOW_VERSION="12.3.0"
 PLAYWRIGHT_VERSION="1.63.0"
+ALPINE_IMAGE="alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8"
 
 export E2E_PROJECT_NAME="${PROJECT_NAME}"
 # Keep container paths unchanged and mount the Windows path when running from Git Bash.
@@ -35,3 +36,7 @@ for language in ${LANGUAGES:-en de}; do
 		"${PLAYWRIGHT_IMAGE}" \
 		sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore 'playwright==${PLAYWRIGHT_VERSION}' 'pillow==${PILLOW_VERSION}' && python screenshots.py"
 done
+
+# Shrink the screenshots to about a fifth without visible loss.
+"${DOCKER_BIN}" run --rm --volume "${ROOT_MOUNT}:/repo" "${ALPINE_IMAGE}" \
+	sh -c "apk add --no-cache pngquant >/dev/null && pngquant --force --skip-if-larger --strip --quality=80-95 --ext .png /repo/docs/images/*/*.png"
