@@ -4,19 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version aus manifest.json, z. B. 0.4.3"
+        description: "Version from manifest.json, for example 1.0.0"
         required: true
         type: string
       introduction:
-        description: "Optionaler eigener Text oberhalb des automatischen Changelogs (Markdown)"
+        description: "Optional introduction above the generated changelog (Markdown)"
         required: false
         type: string
       prerelease:
-        description: "Als Vorabversion markieren (für WIP empfohlen)"
+        description: "Mark as prerelease (HACS offers it only with its beta switch on)"
         default: true
         type: boolean
       draft:
-        description: "Als Entwurf speichern und vor Veröffentlichung prüfen"
+        description: "Save as a draft to review before publishing"
         default: true
         type: boolean
 
@@ -66,6 +66,9 @@ jobs:
       url: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}
     permissions:
       contents: write
+      # Sign the build provenance of the release package with Sigstore.
+      id-token: write
+      attestations: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -137,3 +140,25 @@ jobs:
           if [[ "$RELEASE_PRERELEASE" == "true" ]]; then args+=(--prerelease); fi
           if [[ "$RELEASE_DRAFT" == "true" ]]; then args+=(--draft); fi
           gh release create "${args[@]}"
+
+      - name: Package the integration reproducibly
+        run: |
+          # The archive holds the integration folder's content, as HACS zip releases do.
+          git archive --format=zip --output="$RUNNER_TEMP/autodarts.zip" \
+            "$GITHUB_SHA:custom_components/autodarts"
+          sha256sum "$RUNNER_TEMP/autodarts.zip" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/autodarts.zip
+
+      - name: Attach the package and its signed provenance
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          cp "$BUNDLE_PATH" "$RUNNER_TEMP/autodarts.zip.sigstore.json"
+          gh release upload "$RELEASE_TAG" --clobber \
+            "$RUNNER_TEMP/autodarts.zip" "$RUNNER_TEMP/autodarts.zip.sigstore.json"

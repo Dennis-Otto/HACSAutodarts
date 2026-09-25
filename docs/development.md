@@ -10,7 +10,7 @@
 | `custom_components/autodarts/frontend/autodarts-card.js` | The three dashboard cards, served by the integration |
 | `blueprints/automation/autodarts/` | Automation blueprints |
 | `tests/` | Unit and integration tests with `pytest-homeassistant-custom-component` |
-| `tests/frontend/` | Node tests of the card logic |
+| `tests/frontend/` | Node tests of the card logic, including property-based tests with fast-check |
 | `tests/e2e/` | Docker end-to-end test, demo instance, browser test and screenshot tool |
 | `docs/` | Documentation, with German translations in `docs/de/` |
 
@@ -20,11 +20,12 @@ Python 3.14 and Node.js 24:
 
 ```sh
 python3.14 -m venv .venv
-.venv/bin/pip install -r requirements-test.txt
+.venv/bin/pip install --require-hashes -r requirements-test.txt
 .venv/bin/pytest --cov          # fails below 95 % coverage
 .venv/bin/ruff check custom_components tests .github/scripts
 .venv/bin/ruff format --check custom_components tests .github/scripts
-node --test "tests/frontend/*.test.mjs"
+npm ci
+npm test                        # includes property-based fuzzing with fast-check
 ```
 
 Without a local Python, run the same in Docker:
@@ -41,6 +42,8 @@ The test suite covers:
 - the training rules and every platform;
 - repairs, diagnostics and the dashboard card registration;
 - every blueprint, run by Home Assistant's automation engine.
+
+The card logic is also fuzzed with [fast-check](https://fast-check.dev/): thousands of random and hostile inputs per run check that escaping, bed geometry, the heatmap and the history parser never break.
 
 ## Docker end-to-end test
 
@@ -76,7 +79,15 @@ Every pull request runs:
 - actionlint, CodeQL and dependency review;
 - Gitleaks and an SPDX SBOM.
 
-OpenSSF Scorecard evaluates the repository weekly and on every push to `main`. Actions are pinned to commit hashes and maintained by Dependabot.
+OpenSSF Scorecard evaluates the repository weekly and on every push to `main`.
+
+Every dependency is pinned:
+
+- Actions and container images by commit hash or digest.
+- Python tools with hashes, in `requirements-test.txt` (compiled from `requirements-test.in` with `pip-compile --generate-hashes`) and `tests/e2e/requirements-browser.txt`.
+- Node tools by `package-lock.json`.
+
+Dependabot keeps all of them current.
 
 ## Releases
 

@@ -1,0 +1,59 @@
+name: Board compatibility report
+description: Tell us whether the integration works with your board setup; working setups help too.
+labels:
+  - compatibility
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports of working setups help other players choose, and reports of problems help support more boards.
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Everything works
+        - Works with limitations
+        - Does not work
+    validations:
+      required: true
+  - type: input
+    id: board_manager_version
+    attributes:
+      label: Board Manager version
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: input
+    id: board_pc
+    attributes:
+      label: Board PC and operating system
+      placeholder: "Raspberry Pi 5, Raspberry Pi OS / mini PC, Ubuntu 24.04"
+  - type: input
+    id: cameras
+    attributes:
+      label: Cameras
+      placeholder: "3 × Autodarts camera kit"
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: How was the board added?
+      options:
+        - Discovered automatically
+        - Search for boards
+        - Entered address
+        - Cloud link
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: What works and what doesn't?
+      description: For example realtime events, controls, calibration, camera health or the cards.

@@ -22,8 +22,10 @@ WORKFLOWS = (
     "validate.yml",
     "codeql.yml",
     "secret-scan.yml",
+    "e2e.yml",
     "dependency-review.yml",
 )
+E2E_CHECKS = {"e2e (Board Manager 1)", "e2e (Board Manager 2)"}
 CHECKS = {
     "test",
     "hacs",
@@ -31,6 +33,7 @@ CHECKS = {
     "workflow-lint",
     "codeql",
     "gitleaks",
+    *E2E_CHECKS,
     "dependency-review",
 }
 MAIN_CHECKS = {
@@ -38,7 +41,10 @@ MAIN_CHECKS = {
     "validate.yml": {"hacs", "hassfest", "workflow-lint"},
     "codeql.yml": {"codeql"},
     "secret-scan.yml": {"gitleaks"},
+    "e2e.yml": E2E_CHECKS,
 }
+# Only these paths reach users; updates of tests and CI alone never release.
+SHIPPED = ("custom_components/", "hacs.json")
 
 
 class GitHub:
@@ -113,6 +119,16 @@ def dependency_prs(pulls, commits, repository):
             and (pr["head"].get("repo") or {}).get("full_name") == repository
         )
     ]
+
+
+def changed_files(github, pr):
+    return [
+        f["filename"] for f in github.items(f"pulls/{pr['number']}/files?per_page=100")
+    ]
+
+
+def ships_integration(files):
+    return any(name.startswith(SHIPPED) for name in files)
 
 
 def owned_release_pr(pr, branch, repository):
@@ -446,28 +462,13 @@ def validate_and_merge(github, pr, version):
 
 def publish(github, version, prerelease, dependencies):
     introduction = (
-        "## WIP – automatisches Wartungsupdate\n\n"
-        "Diese Vorabversion enthält übernommene Abhängigkeitsupdates. "
-        "Für Update-Benachrichtigungen muss der Beta-Schalter dieses Repositorys in HACS eingeschaltet sein."
+        "## Maintenance update (prerelease)\n\n"
+        "This prerelease contains dependency updates of the integration. "
+        "HACS offers prereleases once the beta switch of this repository is on."
         if prerelease
-        else "## Wartungsupdate\n\nDiese Version enthält übernommene Abhängigkeitsupdates."
+        else "## Maintenance update\n\nThis version contains dependency updates of the integration."
     )
-    changed = [
-        f["filename"]
-        for pr in dependencies
-        for f in github.items(f"pulls/{pr['number']}/files?per_page=100")
-    ]
-    if changed and all(
-        f == "requirements-test.txt" or f.startswith((".github/", "tests/"))
-        for f in changed
-    ):
-        introduction += (
-            "\n\nDie Dependabot-Änderungen betreffen Testabhängigkeiten oder GitHub-Abläufe; "
-            "sie führen selbst keine neuen Integrationsfunktionen ein."
-        )
-    introduction += (
-        "\n\nAlle Änderungen stehen im folgenden automatisch erzeugten Changelog."
-    )
+    introduction += "\n\nThe generated changelog below lists every change."
     # A failed publishing run can be resumed without creating another version PR.
     github.dispatch(
         "release.yml",
@@ -523,6 +524,14 @@ def run(github):
     dependencies = dependency_prs(pulls, commits, github.repository)
     if not dependencies:
         summary("No merged, unreleased Dependabot updates. No release needed.")
+        return
+    dependencies = [
+        pr for pr in dependencies if ships_integration(changed_files(github, pr))
+    ]
+    if not dependencies:
+        summary(
+            "The unreleased Dependabot updates change only tests or CI. No release needed."
+        )
         return
     manifest, _ = github.manifest(base_sha)
     branch = f"automation/dependency-release-v{version}"

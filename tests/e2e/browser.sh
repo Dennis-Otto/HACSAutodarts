@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 PROJECT_NAME="${E2E_PROJECT_NAME:-autodarts_browser}"
+# Keep the image version equal to playwright in requirements-browser.in.
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.63.0-noble@sha256:72bd171a9ffc2b4b59532aaa6210e21014d07093120dc25528870c0b840da1f0"
-PLAYWRIGHT_VERSION="1.63.0"
 
 export E2E_PROJECT_NAME="${PROJECT_NAME}"
 export E2E_PORT="${E2E_PORT:-18125}"
@@ -37,4 +37,4 @@ bash "${SCRIPT_DIR}/demo.sh"
 	--volume "${ROOT_MOUNT}:/repo:ro" \
 	--workdir /repo/tests/e2e \
 	"${PLAYWRIGHT_IMAGE}" \
-	sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore 'playwright==${PLAYWRIGHT_VERSION}' && python browser.py"
+	sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore --break-system-packages --require-hashes -r requirements-browser.txt && python browser.py"

@@ -19,11 +19,12 @@ Before opening a pull request, run:
 
 ```bash
 python3.14 -m venv .venv
-.venv/bin/pip install -r requirements-test.txt
+.venv/bin/pip install --require-hashes -r requirements-test.txt
 .venv/bin/pytest --cov
 .venv/bin/ruff check custom_components tests .github/scripts
 .venv/bin/ruff format --check custom_components tests .github/scripts
-node --test "tests/frontend/*.test.mjs"
+npm ci
+npm test
 BOARD_MANAGER=2 bash tests/e2e/run.sh
 bash tests/e2e/browser.sh
 ```

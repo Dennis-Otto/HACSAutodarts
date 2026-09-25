@@ -6,3 +6,6 @@ __pycache__/
 htmlcov/
 .venv/
 /.claude/settings.local.json
+/.claude/launch.json
+/.idea/
+/node_modules/

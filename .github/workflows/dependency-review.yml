@@ -30,3 +30,7 @@ jobs:
           fail-on-scopes: runtime, development, unknown
           show-patched-versions: true
           retry-on-snapshot-warnings: true
+          # Home Assistant 2026.9 pins cryptography 48.0.1, which only the test
+          # environment installs; the integration ships no Python dependencies.
+          # Remove these exceptions once the test base uses cryptography 50 or newer.
+          allow-ghsas: GHSA-g6cj-pr64-35w5, GHSA-jwv3-5hgf-82ww, GHSA-m2h6-j472-rp4c

@@ -1,0 +1,94 @@
+name: Bug report
+description: Something in the integration, a card or a blueprint does not work as documented.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please check the [troubleshooting guide](https://github.com/Dennis-Otto/HACSAutodarts/blob/main/docs/troubleshooting.md) first.
+
+        **Never post** access tokens, board API keys, public IP addresses or other personal data. Diagnostics downloaded from Home Assistant are already redacted.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the detection
+        2. Throw three darts
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Setup or reconfiguration
+        - Entities or board events
+        - Training statistics
+        - Live card
+        - Training card
+        - Board status card
+        - Blueprints
+        - Cloud link
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: home_assistant_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.9.3"
+    validations:
+      required: true
+  - type: dropdown
+    id: board_manager
+    attributes:
+      label: Board Manager
+      options:
+        - Board Manager 2 (headless)
+        - Board Manager 1 (classic app)
+        - I don't know
+    validations:
+      required: true
+  - type: input
+    id: board_manager_version
+    attributes:
+      label: Board Manager version
+      description: Shown on the device page in Home Assistant.
+      placeholder: "2.0.0"
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Settings → Devices & services → Autodarts → ⋮ → Download diagnostics. Drag the file here.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: Relevant lines with debug logging enabled for the integration.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues and did not find this problem.
+          required: true
+        - label: I removed tokens, keys and personal data from everything I posted.
+          required: true

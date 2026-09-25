@@ -3,22 +3,22 @@ changelog:
     labels:
       - release
   categories:
-    - title: Wichtige Änderungen und Migration
+    - title: Breaking changes and migration
       labels:
         - breaking-change
-    - title: Neue Funktionen
+    - title: New features
       labels:
         - enhancement
-    - title: Fehlerbehebungen
+    - title: Bug fixes
       labels:
         - bug
-    - title: Abhängigkeiten und Wartung
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Dependencies and maintenance
       labels:
         - dependencies
         - maintenance
-    - title: Dokumentation
-      labels:
-        - documentation
-    - title: Weitere Änderungen
+    - title: Other changes
       labels:
         - "*"

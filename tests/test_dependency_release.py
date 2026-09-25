@@ -138,7 +138,11 @@ def fake_repository():
     github = Mock(repository=REPOSITORY)
     published = {"tag_name": "v0.4.2", "draft": False, "prerelease": True}
     github.items.side_effect = lambda path, *args: (
-        [published] if path.startswith("releases?") else [pull()]
+        [published]
+        if path.startswith("releases?")
+        else [{"filename": "custom_components/autodarts/manifest.json"}]
+        if path.startswith("pulls/")
+        else [pull()]
     )
     github.api.side_effect = lambda path, **kwargs: (
         {"object": {"sha": "main"}}
@@ -181,6 +185,42 @@ def test_unrelated_changes_do_not_start_dependency_release():
     github.manifest.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "files",
+    [
+        ["requirements-test.txt"],
+        [".github/workflows/tests.yml", "tests/e2e/compose.yaml"],
+    ],
+)
+def test_test_and_ci_updates_never_release(files):
+    github = fake_repository()
+    published = {"tag_name": "v0.4.2", "draft": False, "prerelease": True}
+    github.items.side_effect = lambda path, *args: (
+        [published]
+        if path.startswith("releases?")
+        else [{"filename": name} for name in files]
+        if path.startswith("pulls/")
+        else [pull()]
+    )
+    release.run(github)
+    github.dispatch.assert_not_called()
+    github.manifest.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "files,shipped",
+    [
+        (["custom_components/autodarts/manifest.json"], True),
+        (["hacs.json"], True),
+        (["requirements-test.txt", "custom_components/autodarts/card.py"], True),
+        (["requirements-test.txt", "tests/test_card.py"], False),
+        ([], False),
+    ],
+)
+def test_only_shipped_files_justify_a_release(files, shipped):
+    assert release.ships_integration(files) is shipped
+
+
 def test_manual_version_is_never_overwritten():
     github = fake_repository()
     github.manifest.return_value = ({"version": "0.5.0"}, "blob")
@@ -216,36 +256,26 @@ def test_release_inherits_channel_after_successful_protected_merge(monkeypatch):
     publish.assert_called_once_with(github, "0.4.3", True, [pull()])
 
 
-@pytest.mark.parametrize(
-    "filename,test_only",
-    [
-        ("requirements-test.txt", True),
-        ("tests/e2e/compose.yaml", True),
-        ("custom_components/autodarts/manifest.json", False),
-    ],
-)
-def test_publish_uses_workflow_and_checks_tag_manifest(filename, test_only):
+@pytest.mark.parametrize("prerelease", [True, False])
+def test_publish_uses_workflow_and_checks_tag_manifest(prerelease):
     github = Mock()
-    github.items.side_effect = lambda path: (
-        [{"filename": filename}]
-        if path.startswith("pulls/")
-        else [
-            {
-                "tag_name": "v0.4.3",
-                "draft": False,
-                "prerelease": True,
-                "html_url": "https://example.test/release",
-            }
-        ]
-    )
+    github.items.side_effect = lambda path: [
+        {
+            "tag_name": "v0.4.3",
+            "draft": False,
+            "prerelease": prerelease,
+            "html_url": "https://example.test/release",
+        }
+    ]
     github.manifest.return_value = ({"version": "0.4.3"}, "blob")
-    release.publish(github, "0.4.3", True, [pull()])
+    release.publish(github, "0.4.3", prerelease, [pull()])
     workflow, ref, inputs = github.dispatch.call_args.args
     assert (workflow, ref) == ("release.yml", "main")
     assert inputs["version"] == "0.4.3"
-    assert inputs["prerelease"] is True
+    assert inputs["prerelease"] is prerelease
     assert inputs["draft"] is False
-    assert ("Testabhängigkeiten" in inputs["introduction"]) is test_only
+    assert inputs["introduction"].startswith("## Maintenance update")
+    assert ("beta switch" in inputs["introduction"]) is prerelease
     assert github.manifest.call_args == call("v0.4.3")
 
 
@@ -308,6 +338,8 @@ def test_retry_after_merged_version_pr_does_not_bump_again(monkeypatch):
     github.items.side_effect = lambda path, *args: (
         [{"tag_name": "v0.4.2", "draft": False, "prerelease": True}]
         if path.startswith("releases?")
+        else [{"filename": "custom_components/autodarts/manifest.json"}]
+        if path.startswith("pulls/")
         else [pull(), merged_pr]
     )
     github.api.side_effect = lambda path, **kwargs: (
