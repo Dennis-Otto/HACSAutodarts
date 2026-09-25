@@ -1,0 +1,61 @@
+blueprint:
+  name: "Autodarts: takeout actions"
+  description: >-
+    Runs actions when you start pulling the darts from the board and when
+    the board is clear again, for example to light up the board or to pause
+    music while you walk to it.
+  domain: automation
+  author: Dennis Otto
+  source_url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/takeout.yaml
+  homeassistant:
+    min_version: "2026.8.0"
+  input:
+    board_events:
+      name: Board events
+      description: The "Board events" entity of your Autodarts board.
+      selector:
+        entity:
+          filter:
+            - integration: autodarts
+              domain: event
+    takeout_started:
+      name: When the takeout starts
+      default: []
+      selector:
+        action: {}
+    takeout_finished:
+      name: When the board is clear
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max: 5
+max_exceeded: silent
+
+triggers:
+  - trigger: event.received
+    id: started
+    target:
+      entity_id: !input board_events
+    options:
+      event_type:
+        - takeout_started
+  - trigger: event.received
+    id: finished
+    target:
+      entity_id: !input board_events
+    options:
+      event_type:
+        - takeout_finished
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: started
+        sequence: !input takeout_started
+      - conditions:
+          - condition: trigger
+            id: finished
+        sequence: !input takeout_finished
