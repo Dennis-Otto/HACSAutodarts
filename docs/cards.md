@@ -2,7 +2,7 @@
 
 [← Documentation](README.md) · [Deutsch](de/karten.md)
 
-The integration includes three cards. Home Assistant loads them automatically, so no dashboard resource and no separate HACS download are needed. Each card:
+The integration includes four cards. Home Assistant loads them automatically, so no dashboard resource and no separate HACS download are needed. Each card:
 
 - has a visual editor and follows your theme (light or dark) and language (English or German);
 - adapts to its width, from a phone to a wall tablet;
@@ -165,6 +165,38 @@ type: custom:autodarts-status-card
 show_system: false
 ```
 
+## Scoreboard card
+
+`custom:autodarts-scoreboard-card` is made for a tablet or TV next to the board: large enough to read from the oche, and it always shows what is being played.
+
+<img src="images/en/scoreboard.png" alt="Scoreboard during a 501 match: Alex at the board with 81 left and the route T15 D18, Sam with 361, and the darts of the current visit below" width="760">
+
+- **X01:** a tile for every player with the remaining score, legs, sets and average. The player at the board is outlined and gets the checkout route, a bust or the game shot.
+- **Cricket:** a large chalkboard with the marks of every player, the points and the marks per round; the next open number is shown below.
+- **Training games:** the target in large type, with the progress, darts and hit rate (Bob's 27: points and round; checkout training: the score, the route and the checkout rate).
+- **Between games:** the score of the current visit together with darts, 3-dart average, highest visit and 180s of the training session.
+- **Winner:** a banner names the winner of the match until the next dart.
+- **Visit:** the three darts of the current visit and its score along the bottom.
+
+<img src="images/en/scoreboard-cricket.png" alt="Scoreboard in Cricket between Alex and Sam: the chalkboard with marks, points and marks per round, and T19 as the next target" width="760">
+
+The [automatic dashboard](#automatic-dashboard) has a *Scoreboard* view that shows the card across the whole screen. Open it on the tablet, and use the browser's full-screen mode or the Home Assistant app in kiosk mode.
+
+### Options
+
+| Option | Values | Default | Description |
+| --- | --- | --- | --- |
+| `device_id` | device | first board | The board to show |
+| `full_height` | boolean | `false` | Fill the height of the screen, for a view in panel mode |
+| `show_visit` | boolean | `true` | Show the darts of the current visit |
+| `show_status` | boolean | `true` | Show the board status |
+| `accent_color` | CSS colour | theme primary colour | The player at the board, routes and the visit score |
+
+```yaml
+type: custom:autodarts-scoreboard-card
+full_height: true
+```
+
 ## Automatic dashboard
 
 Instead of arranging the cards yourself, let the integration build a whole dashboard:
@@ -172,11 +204,12 @@ Instead of arranging the cards yourself, let the integration build a whole dashb
 1. Go to **Settings → Dashboards → Add dashboard**.
 2. Choose **Autodarts**.
 
-For every board, the dashboard gets three views, which update themselves when you add a board or enable entities:
+For every board, the dashboard gets four views, which update themselves when you add a board or enable entities:
 
 | View | Contents |
 | --- | --- |
 | **Live** | The live card across the full width, the practice game controls and the player names |
+| **Scoreboard** | The [scoreboard card](#scoreboard-card) across the whole screen, for a tablet or TV at the board |
 | **Training** | The training card, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly), the 3-dart average of the last 7 days, practice legs per day, and the first 9 average and checkout rate of the practice game |
 | **Board** | The board status card, the board settings and the Board Manager update |
 
@@ -201,7 +234,7 @@ All options can be set in the visual editor, which offers only Autodarts boards 
 
 ## Tips
 
-- **Wall tablet:** the live card with `layout: vertical` fills a portrait screen. The board scales with the card.
+- **Wall tablet:** the live card with `layout: vertical` fills a portrait screen. The board scales with the card. For a landscape screen at the board, use the [scoreboard](#scoreboard-card).
 - **Combine:** put the live card and the training card next to each other in a sections view with two columns.
 - **Several boards:** add one card per board and choose the board in each card's editor.
 - **Cached old version:** after an update, the card URL changes automatically. If a browser still shows an old card, reload the page. In the companion app, use *Settings → Companion app → Debugging → Reset frontend cache*.

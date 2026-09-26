@@ -18,6 +18,8 @@ const TRAINING_TYPE = "autodarts-training-card";
 const TRAINING_EDITOR_TYPE = "autodarts-training-card-editor";
 const STATUS_TYPE = "autodarts-status-card";
 const STATUS_EDITOR_TYPE = "autodarts-status-card-editor";
+const SCOREBOARD_TYPE = "autodarts-scoreboard-card";
+const SCOREBOARD_EDITOR_TYPE = "autodarts-scoreboard-card-editor";
 const STRATEGY_TYPE = "autodarts";
 const STRATEGY_ELEMENT = `ll-strategy-dashboard-${STRATEGY_TYPE}`;
 const DOCS = "https://github.com/Dennis-Otto/ha-autodarts#dashboard-cards";
@@ -181,6 +183,14 @@ const TEXT = {
     cricket: "Cricket",
     cricket_mpr: "MPR",
     cricket_points: "Points",
+    // Scoreboard card
+    view_scoreboard: "Scoreboard",
+    full_height: "Fill the screen",
+    show_visit: "Show the current visit",
+    show_status: "Show the board status",
+    legs_per_set: "legs per set",
+    sets_to_win: "sets to win",
+    visit_short: "Visit",
     // Training card
     training: "Training",
     average_long: "3-dart average",
@@ -336,6 +346,13 @@ const TEXT = {
     cricket: "Cricket",
     cricket_mpr: "MPR",
     cricket_points: "Punkte",
+    view_scoreboard: "Anzeigetafel",
+    full_height: "Bildschirm füllen",
+    show_visit: "Aktuelle Aufnahme anzeigen",
+    show_status: "Board-Status anzeigen",
+    legs_per_set: "Legs pro Satz",
+    sets_to_win: "Sätze zum Sieg",
+    visit_short: "Aufnahme",
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
@@ -435,6 +452,12 @@ const STATUS_DEFAULTS = {
   show_controls: true,
 };
 
+const SCOREBOARD_DEFAULTS = {
+  full_height: false,
+  show_visit: true,
+  show_status: true,
+};
+
 // Entities a card reads, by domain and translation key of the integration.
 const BOARD_KEYS = {
   status: "sensor.local_status",
@@ -500,6 +523,17 @@ const STATUS_KEYS = {
   hostOs: "sensor.host_os",
   processor: "sensor.host_processor",
   vision: "sensor.vision_version",
+};
+
+const SCOREBOARD_KEYS = {
+  ...BOARD_KEYS,
+  visit: "sensor.local_visit_score",
+  practice: "sensor.practice_remaining",
+  drill: "sensor.practice_target",
+  darts: "sensor.training_darts",
+  average: "sensor.training_average",
+  highest: "sensor.training_highest_visit",
+  max: "sensor.training_scores_180",
 };
 
 // Per-camera entities carry their camera number as an attribute.
@@ -960,6 +994,181 @@ function cricketBeds(cricket) {
   return hitBeds(cricket.target);
 }
 
+// Scoreboard -----------------------------------------------------------------
+
+// What the scoreboard shows: a training game, Cricket, X01, or the session between games.
+function scoreboardView(stateOf) {
+  const drill = drillView(stateOf("drill"));
+  if (drill) return { mode: "drill", drill };
+  const cricket = cricketView(stateOf("practice"));
+  if (cricket) return { mode: "cricket", cricket };
+  const practice = practiceView(stateOf("practice"));
+  if (practice) return { mode: "x01", practice };
+  return { mode: "idle" };
+}
+
+// Players without a name are numbered in a match; alone, nobody needs a name.
+const playerName = (ui, score, match) =>
+  score.name || (match ? `${ui.t("score_player")} ${score.player}` : "");
+
+const bedChips = (ui, route) =>
+  route.map((bed) => `<span class="bed">${escapeHtml(ui.label(bed))}</span>`).join("");
+
+function x01Board(practice, ui) {
+  const { t, format } = ui;
+  const scores = practice.scores.length
+    ? practice.scores
+    : [{ player: 1, name: practice.name, remaining: practice.remaining, legs: 0, sets: 0, average: null }];
+  const match = scores.length > 1;
+  const tiles = scores.map((score) => {
+    const active = practice.winner === null && score.player === practice.player;
+    const details = match
+      ? [
+          practice.legsToWin > 1 ? `${t("score_legs")} ${score.legs}` : "",
+          practice.setsToWin > 1 ? `${t("score_sets")} ${score.sets}` : "",
+          score.average === null ? "" : `Ø ${format(score.average, 1)}`,
+        ]
+      : [
+          practice.darts ? `${practice.darts} ${t("leg_darts")}` : "",
+          practice.average === null ? "" : `Ø ${format(practice.average, 1)}`,
+        ];
+    let route = "";
+    if (active && practice.won) route = `<span class="note won">${escapeHtml(t("game_shot"))}</span>`;
+    else if (active && practice.bust) route = `<span class="note bust">${escapeHtml(t("bust"))}</span>`;
+    else if (active && practice.route.length) route = bedChips(ui, practice.route);
+    else if (active && score.remaining <= 170) route = `<span class="note">${escapeHtml(t("no_checkout"))}</span>`;
+    const state = practice.winner === score.player ? " winner" : active && match ? " active" : "";
+    return (
+      `<div class="player${state}"><div class="name">${escapeHtml(playerName(ui, score, match))}</div>` +
+      `<div class="big">${score.remaining}</div><div class="route">${route}</div>` +
+      `<div class="details">${escapeHtml(details.filter(Boolean).join(" · "))}</div></div>`
+    );
+  });
+  return `<div class="players n${scores.length}">${tiles.join("")}</div>`;
+}
+
+function cricketBoard(cricket, ui) {
+  const { t, format } = ui;
+  const match = cricket.scores.length > 1;
+  const column = (score) =>
+    cricket.winner === score.player
+      ? "winner"
+      : match && cricket.winner === null && cricket.player === score.player
+        ? "active"
+        : "";
+  const row = (kind, label, content) =>
+    `<tr class="${kind}"><th>${escapeHtml(label)}</th>${cricket.scores
+      .map((score) => `<td class="${column(score)}">${escapeHtml(content(score))}</td>`)
+      .join("")}</tr>`;
+  const rows = cricket.numbers.map((number, slot) => {
+    const bed = number === 25 ? "BULL" : `T${number}`;
+    const kind = cricket.scores.every((score) => score.marks[slot] >= 3)
+      ? "closed"
+      : bed === cricket.target
+        ? "target"
+        : "";
+    return row(kind, number === 25 ? "Bull" : String(number), (score) => CRICKET_MARKS[score.marks[slot]]);
+  });
+  if (match) rows.push(row("total", t("cricket_points"), (score) => String(score.points)));
+  rows.push(row("detail", t("cricket_mpr"), (score) => (score.mpr === null ? "–" : format(score.mpr, 2))));
+  if (match && cricket.legsToWin > 1) rows.push(row("detail", t("score_legs"), (score) => String(score.legs)));
+  if (match && cricket.setsToWin > 1) rows.push(row("detail", t("score_sets"), (score) => String(score.sets)));
+  const head = cricket.scores
+    .map((score) => `<th class="${column(score)}">${escapeHtml(playerName(ui, score, match))}</th>`)
+    .join("");
+  const aim = cricket.target && !cricket.won && cricket.winner === null ? bedChips(ui, [cricket.target]) : "";
+  const note = cricket.won && cricket.winner === null ? `<span class="note won">${escapeHtml(t("game_shot"))}</span>` : "";
+  // The next number sits above the numbers, so the chalkboard fits a landscape screen.
+  return (
+    `<table class="cricket"><thead><tr><th class="aim">${note || aim}</th>${head}</tr></thead>` +
+    `<tbody>${rows.join("")}</tbody></table>`
+  );
+}
+
+function drillBoard(drill, ui) {
+  const { t, format, label } = ui;
+  const percent = (value) => (value === null ? "–" : `${format(value, 0)} %`);
+  const fact = (value, name) => `<span><b>${escapeHtml(value)}</b> ${escapeHtml(name)}</span>`;
+  let big = drill.finished ? "✓" : label(drill.target ?? "–");
+  let route = drill.finished
+    ? `<span class="note won">${escapeHtml(`${t("drill_done")} ${drill.darts} ${t("leg_darts")}`)}</span>`
+    : "";
+  let facts = [
+    fact(`${drill.progress} / ${drill.targets}`, ""),
+    fact(String(drill.darts), t("leg_darts")),
+    fact(percent(drill.hitRate), t("drill_hits")),
+  ];
+  if (drill.kind === "bobs_27") {
+    facts = [
+      fact(String(drill.score ?? "–"), t("drill_points")),
+      fact(`${Math.min(drill.progress + 1, drill.targets)} / ${drill.targets}`, t("drill_round")),
+    ];
+    if (drill.finished) {
+      route = drill.completed
+        ? `<span class="note won">${escapeHtml(`${t("drill_bobs_done")} ${drill.score} ${t("drill_points")}`)}</span>`
+        : `<span class="note bust">${escapeHtml(t("drill_bobs_lost"))}</span>`;
+    }
+  } else if (drill.kind === "checkout") {
+    big = String(drill.remaining ?? drill.target ?? "–");
+    route = drill.won
+      ? `<span class="note won">${escapeHtml(t("game_shot"))}</span>`
+      : drill.bust
+        ? `<span class="note bust">${escapeHtml(t("bust"))}</span>`
+        : bedChips(ui, drill.route);
+    facts = [
+      fact(`${drill.visit ?? 1} / ${drill.visits ?? 3}`, t("drill_visit")),
+      fact(`${drill.successes} / ${drill.attempts}`, t("drill_checked")),
+      ...(drill.rate === null ? [] : [fact(percent(drill.rate), "")]),
+    ];
+  }
+  return (
+    `<div class="single"><div class="big">${escapeHtml(big)}</div><div class="route">${route}</div>` +
+    `<div class="facts">${facts.join("")}</div></div>`
+  );
+}
+
+function idleBoard(stats, ui) {
+  const { t, format } = ui;
+  const fact = (value, name) => `<span><b>${escapeHtml(value)}</b> ${escapeHtml(name)}</span>`;
+  return (
+    `<div class="single"><div class="label">${escapeHtml(t("visit"))}</div>` +
+    `<div class="big">${escapeHtml(stats.visit ?? "–")}</div><div class="facts">` +
+    fact(format(stats.darts, 0), t("darts")) +
+    fact(format(stats.average, 1), t("average")) +
+    fact(format(stats.highest, 0), t("highest")) +
+    fact(format(stats.max, 0), t("max")) +
+    `</div></div>`
+  );
+}
+
+// Title, format, winner banner and main markup of the scoreboard.
+function scoreboardHtml(view, ui) {
+  const { t } = ui;
+  if (view.mode === "drill") {
+    return { title: t(`drill_${view.drill.kind}`), meta: "", banner: "", main: drillBoard(view.drill, ui) };
+  }
+  if (view.mode === "idle") {
+    return { title: ui.name, meta: t("training"), banner: "", main: idleBoard(ui.stats, ui) };
+  }
+  const game = view.mode === "cricket" ? view.cricket : view.practice;
+  const match = game.scores.length > 1;
+  const meta = match
+    ? [
+        game.legsToWin > 1 ? `${game.legsToWin} ${t("legs_per_set")}` : "",
+        game.setsToWin > 1 ? `${game.setsToWin} ${t("sets_to_win")}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+  const winner = game.scores.find((score) => score.player === game.winner);
+  return {
+    title: view.mode === "cricket" ? t("cricket") : `${t("practice")} ${game.game ?? ""}`.trim(),
+    meta,
+    banner: winner ? `${playerName(ui, winner, true)} ${t("score_winner")}` : "",
+    main: view.mode === "cricket" ? cricketBoard(view.cricket, ui) : x01Board(view.practice, ui),
+  };
+}
+
 // Board status shared by the live and status cards.
 function boardStatus(stateOf) {
   const on = (name) => stateOf(name)?.state === "on";
@@ -1043,6 +1252,15 @@ function dashboardStrategy(hass, config = {}) {
             ]
           : []),
       ],
+    });
+
+    // The scoreboard fills the screen of a tablet or TV at the board.
+    views.push({
+      title: `${t("view_scoreboard")}${suffix}`,
+      path: `scoreboard${slug}`,
+      icon: "mdi:scoreboard-outline",
+      panel: true,
+      cards: [{ type: `custom:${SCOREBOARD_TYPE}`, ...board, full_height: true }],
     });
 
     const trends = [];
@@ -1255,7 +1473,7 @@ const CSS = `${BASE_CSS}
   .cricket-grid thead th {
     font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .cricket-grid tr > :first-child { width: 3.2em; text-align: left; }
+  .cricket-grid tr > :first-child { width: 4.2em; text-align: left; }
   .cricket-grid tbody th { font-weight: 700; color: var(--secondary-text-color); }
   .cricket-grid td { font-size: 17px; font-weight: 800; line-height: 1.1; color: var(--ad-accent); }
   .cricket-grid tr.closed > * { opacity: 0.35; }
@@ -1454,6 +1672,120 @@ const STATUS_CSS = `${BASE_CSS}
   .camera.problem .dot { background: ${STATUS_COLORS.problem}; box-shadow: 0 0 6px ${STATUS_COLORS.problem}; }
   .camera .fps { font-size: 12px; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
   .camera button.action { min-height: 32px; font-size: 12px; }
+`;
+
+const SCOREBOARD_CSS = `${BASE_CSS}
+  .scoreboard {
+    display: flex; flex-direction: column; gap: clamp(12px, 2cqi, 24px);
+    padding: clamp(14px, 2.4cqi, 32px); box-sizing: border-box;
+  }
+  .scoreboard.full { min-height: calc(100vh - var(--header-height, 56px) - 16px); }
+  .heading { display: grid; gap: 2px; min-width: 0; }
+  .scoreboard .title { font-size: clamp(18px, 3cqi, 36px); font-weight: 700; }
+  .scoreboard .meta { font-size: clamp(12px, 1.7cqi, 20px); }
+  .scoreboard .pill { font-size: clamp(12px, 1.5cqi, 18px); }
+  .banner {
+    padding: .5em 1em; border-radius: 16px; text-align: center; font-weight: 800;
+    font-size: clamp(18px, 3.4cqi, 44px); color: ${STATUS_COLORS.ready};
+    background: color-mix(in srgb, ${STATUS_COLORS.ready} 16%, transparent);
+  }
+  .banner[hidden] { display: none; }
+  .main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; min-height: 0; }
+  .players { display: grid; gap: clamp(8px, 1.6cqi, 24px); }
+  .players.n1 { grid-template-columns: minmax(0, 1fr); }
+  .players.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .players.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .players.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .player {
+    display: flex; flex-direction: column; align-items: center; gap: clamp(4px, .8cqi, 12px); min-width: 0;
+    padding: clamp(12px, 2.2cqi, 32px) 12px; border-radius: 20px;
+    border: 2px solid var(--divider-color, rgba(127,127,127,.25)); transition: border-color .3s, background .3s;
+  }
+  .player.active { border-color: var(--ad-accent); background: color-mix(in srgb, var(--ad-accent) 12%, transparent); }
+  .player.winner {
+    border-color: ${STATUS_COLORS.ready}; background: color-mix(in srgb, ${STATUS_COLORS.ready} 14%, transparent);
+  }
+  .player .name {
+    max-width: 100%; min-height: 1.2em; font-size: clamp(16px, 2.8cqi, 40px); font-weight: 700;
+    color: var(--primary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .player.active .name::before { content: "▶ "; color: var(--ad-accent); }
+  .big {
+    font-weight: 800; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+    color: var(--primary-text-color);
+  }
+  /* Sized by width and height, so a landscape screen shows everything at once. */
+  .n1 .big, .single .big { font-size: clamp(80px, min(24cqi, 32vh), 320px); }
+  .n2 .big { font-size: clamp(64px, min(15cqi, 26vh), 240px); }
+  .n3 .big { font-size: clamp(48px, min(10cqi, 22vh), 170px); }
+  .n4 .big { font-size: clamp(44px, min(8cqi, 20vh), 140px); }
+  @container (max-width: 640px) {
+    .players.n3, .players.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .n3 .big, .n4 .big { font-size: clamp(44px, min(15cqi, 14vh), 120px); }
+  }
+  .route {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .4em;
+    min-height: 1.8em; font-size: clamp(14px, 2.6cqi, 34px);
+  }
+  .bed {
+    padding: .12em .55em; border-radius: 10px; font-weight: 800;
+    color: var(--ad-accent); border: 2px solid var(--ad-accent);
+  }
+  .bed:first-child { color: var(--text-primary-color, #fff); background: var(--ad-accent); }
+  .note { font-weight: 800; color: var(--secondary-text-color); }
+  .note.won { color: ${STATUS_COLORS.ready}; }
+  .note.bust { color: ${STATUS_COLORS.problem}; }
+  .details { font-size: clamp(12px, 1.9cqi, 24px); color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
+  .cricket { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+  .cricket th, .cricket td { padding: .1em .3em; text-align: center; }
+  .cricket thead th {
+    font-size: clamp(14px, min(2.6cqi, 3.4vh), 34px); font-weight: 700; color: var(--primary-text-color);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cricket tr > :first-child { width: 20%; }
+  .cricket tbody th {
+    font-size: clamp(16px, min(3cqi, 3vh), 42px); font-weight: 800; color: var(--secondary-text-color);
+  }
+  .cricket td { font-size: clamp(20px, min(4.4cqi, 3.6vh), 60px); font-weight: 800; line-height: 1.05; color: var(--ad-accent); }
+  .cricket th.aim { font-size: clamp(14px, min(2.4cqi, 3vh), 30px); }
+  .cricket th.aim .bed { display: inline-block; }
+  .cricket tr.closed > * { opacity: .3; }
+  .cricket tr.target th { color: var(--ad-accent); }
+  .cricket tr.total > * { border-top: 2px solid var(--divider-color, rgba(127,127,127,.25)); }
+  .cricket tr.total td { font-size: clamp(24px, min(5cqi, 4.4vh), 68px); color: var(--primary-text-color); }
+  .cricket tr.detail > * {
+    font-size: clamp(12px, min(1.9cqi, 2.4vh), 24px); font-weight: 600; color: var(--secondary-text-color);
+  }
+  .cricket .active { background: color-mix(in srgb, var(--ad-accent) 14%, transparent); }
+  .cricket .winner { background: color-mix(in srgb, ${STATUS_COLORS.ready} 16%, transparent); }
+  .single { display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.2cqi, 16px); text-align: center; }
+  .single .label {
+    font-size: clamp(12px, 1.9cqi, 24px); font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ad-accent);
+  }
+  .facts {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: .3em 1.2em;
+    font-size: clamp(14px, 2.4cqi, 32px); color: var(--secondary-text-color); font-variant-numeric: tabular-nums;
+  }
+  .facts b { color: var(--primary-text-color); }
+  .visit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: clamp(6px, 1.2cqi, 16px); }
+  .visit.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .visit[hidden] { display: none; }
+  .dart, .sum {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding: clamp(6px, 1.2cqi, 16px); border-radius: 14px;
+  }
+  .dart {
+    border: 1px solid var(--divider-color, rgba(127,127,127,.25));
+    background: color-mix(in srgb, var(--primary-text-color) 4%, transparent);
+  }
+  .dart .segment { font-size: clamp(18px, 3.6cqi, 48px); font-weight: 800; color: var(--primary-text-color); }
+  .dart.empty .segment { color: var(--secondary-text-color); }
+  .dart .points, .sum .muted { font-size: clamp(11px, 1.6cqi, 20px); min-height: 1.2em; }
+  .dart .points { color: var(--secondary-text-color); }
+  .sum { min-width: 4.5em; color: var(--text-primary-color, #fff); background: var(--ad-accent); }
+  .sum .muted { color: inherit; opacity: .85; }
+  .sum .value { font-size: clamp(22px, 4.2cqi, 56px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 `;
 
 // Elements ------------------------------------------------------------------
@@ -2920,6 +3252,115 @@ function createElements(Base) {
     }
   }
 
+  // Scoreboard card -------------------------------------------------------------
+
+  class AutodartsScoreboardCard extends CardBase {
+    static keys = SCOREBOARD_KEYS;
+
+    static defaults = SCOREBOARD_DEFAULTS;
+
+    static getConfigElement() {
+      return document.createElement(SCOREBOARD_EDITOR_TYPE);
+    }
+
+    getCardSize() {
+      return 8;
+    }
+
+    getGridOptions() {
+      return { columns: "full", min_columns: 6 };
+    }
+
+    _css() {
+      return SCOREBOARD_CSS;
+    }
+
+    _build() {
+      const c = this._config;
+      this.shadowRoot.innerHTML = `
+        <style>${SCOREBOARD_CSS}</style>
+        <ha-card>
+          <div class="root">
+            <div class="scoreboard${c.full_height ? " full" : ""}">
+              <header>
+                <div class="heading">
+                  <div class="title"></div>
+                  <div class="muted meta"></div>
+                </div>
+                ${c.show_status ? `<div class="pill" role="status"></div>` : ""}
+              </header>
+              <div class="banner" role="status" hidden></div>
+              <div class="main"></div>
+              ${c.show_visit ? `<div class="visit"></div>` : ""}
+            </div>
+          </div>
+        </ha-card>
+      `;
+      const root = this.shadowRoot;
+      this._el = {
+        title: root.querySelector(".title"),
+        meta: root.querySelector(".meta"),
+        pill: root.querySelector(".pill"),
+        banner: root.querySelector(".banner"),
+        main: root.querySelector(".main"),
+        visit: root.querySelector(".visit"),
+      };
+    }
+
+    _update() {
+      const c = this._config;
+      const el = this._el;
+      const t = (key) => this._t(key);
+      const [status, statusText] = boardStatus((name) => this._state(name));
+      this.style.setProperty("--ad-status", STATUS_COLORS[status]);
+      this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
+      if (el.pill) el.pill.textContent = t(statusText);
+
+      const visit = this._state("visit");
+      const throws = Array.isArray(visit?.attributes?.throws)
+        ? visit.attributes.throws.filter(
+            (dart) => dart && Number.isInteger(dart.number) && Number.isInteger(dart.multiplier)
+          )
+        : [];
+      const view = scoreboardView((name) => this._state(name));
+      const board = scoreboardHtml(view, {
+        t,
+        format: (value, digits) => this._format(value, digits),
+        label: (key) => hitLabel(this._hass, key),
+        name: this._deviceName(),
+        stats: {
+          visit: usable(visit) ? visit.state : null,
+          darts: this._number("darts"),
+          average: this._number("average"),
+          highest: this._number("highest"),
+          max: this._number("max"),
+        },
+      });
+      el.title.textContent = board.title;
+      el.meta.textContent = board.meta;
+      el.banner.hidden = !board.banner;
+      el.banner.textContent = board.banner;
+      this._setHtml(el.main, board.main);
+      if (!el.visit) return;
+      // Between games the big number already is the visit score.
+      el.visit.classList.toggle("plain", view.mode === "idle");
+      const darts = throws.slice(-3);
+      const slots = [0, 1, 2].map((index) => {
+        const dart = darts[index];
+        return dart
+          ? `<div class="dart"><span class="segment">${escapeHtml(label(this._hass, dart))}</span>` +
+              `<span class="points">${dart.number * dart.multiplier}</span></div>`
+          : `<div class="dart empty"><span class="segment">–</span><span class="points"></span></div>`;
+      });
+      const sum =
+        view.mode === "idle"
+          ? ""
+          : `<div class="sum"><span class="muted">${escapeHtml(t("visit_short"))}</span>` +
+            `<span class="value">${escapeHtml(usable(visit) ? visit.state : "–")}</span></div>`;
+      this._setHtml(el.visit, slots.join("") + sum);
+    }
+  }
+
   // Editors ---------------------------------------------------------------------
 
   class CardEditor extends Base {
@@ -3057,6 +3498,14 @@ function createElements(Base) {
     }
   }
 
+  class AutodartsScoreboardCardEditor extends CardEditor {
+    static defaults = SCOREBOARD_DEFAULTS;
+
+    _schema() {
+      return [device, title, toggles(["full_height", "show_visit", "show_status"])];
+    }
+  }
+
   class AutodartsDashboardStrategy extends Base {
     static async generate(config, hass) {
       return dashboardStrategy(hass, config);
@@ -3071,6 +3520,8 @@ function createElements(Base) {
     [TRAINING_EDITOR_TYPE]: AutodartsTrainingCardEditor,
     [STATUS_TYPE]: AutodartsStatusCard,
     [STATUS_EDITOR_TYPE]: AutodartsStatusCardEditor,
+    [SCOREBOARD_TYPE]: AutodartsScoreboardCard,
+    [SCOREBOARD_EDITOR_TYPE]: AutodartsScoreboardCardEditor,
   };
 }
 
@@ -3090,6 +3541,12 @@ const CARDS = [
     type: STATUS_TYPE,
     name: "Autodarts board status",
     description: "Detection, connections, cameras, board PC and maintenance controls of an Autodarts board.",
+  },
+  {
+    type: SCOREBOARD_TYPE,
+    name: "Autodarts scoreboard",
+    description:
+      "Large scoreboard for a tablet or TV at the board: scores, checkout, Cricket marks, training games and the visit.",
   },
 ];
 
@@ -3150,6 +3607,8 @@ export {
   parseSegment,
   pastSessions,
   practiceView,
+  scoreboardHtml,
+  scoreboardView,
   cricketBeds,
   cricketView,
   drillBeds,

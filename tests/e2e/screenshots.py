@@ -203,6 +203,20 @@ def visit_animation(page: Page) -> None:
     wait_for_score(page, "115")
 
 
+def scoreboard_page(page: Page) -> Page:
+    """The scoreboard view of the generated dashboard, as on a tablet at the board."""
+    board = page.context.new_page()
+    board.set_viewport_size({"width": 1280, "height": 800})
+    board.goto(f"{HA}/autodarts-auto/scoreboard")
+    board.wait_for_function(
+        f"() => ({find('autodarts-scoreboard-card')})().some((c) =>"
+        " c.shadowRoot.querySelectorAll('.player').length === 2)",
+        timeout=60000,
+    )
+    board.wait_for_timeout(1500)
+    return board
+
+
 def practice_card(page: Page) -> None:
     """A 501 practice leg with the checkout route and the bed to aim at."""
 
@@ -255,6 +269,8 @@ def practice_card(page: Page) -> None:
     page.wait_for_timeout(800)
     peak(page)
     card_shot(page, "card-match")
+    scoreboard = scoreboard_page(page)
+    page_shot(scoreboard, "scoreboard")
 
     # Cricket between the same two players, Alex aiming at the 19.
     takeout()
@@ -282,6 +298,14 @@ def practice_card(page: Page) -> None:
     peak(page)
     card_shot(page, "card-cricket")
     page.set_viewport_size({"width": 1280, "height": 820})
+    scoreboard.wait_for_function(
+        f"() => ({find('autodarts-scoreboard-card')})().some((c) => c.shadowRoot"
+        ".querySelectorAll('.cricket tbody tr')[4]?.children[1]?.textContent === 'Ⓧ')",
+        timeout=15000,
+    )
+    scoreboard.wait_for_timeout(800)
+    page_shot(scoreboard, "scoreboard-cricket")
+    scoreboard.close()
     page.evaluate(
         CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
     )

@@ -1,0 +1,176 @@
+// The scoreboard card: what it shows for every game and between games.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { scoreboardHtml, scoreboardView } from "../../custom_components/autodarts/frontend/autodarts-card.js";
+
+const ui = {
+  t: (key) => key,
+  format: (value, digits) => (Number.isFinite(value) ? value.toFixed(digits) : "–"),
+  label: (key) => (key === "BULL" ? "Bull" : key),
+  name: "Dartboard",
+  stats: { visit: "60", darts: 123, average: 45.6, highest: 140, max: 1 },
+};
+const board = (states) => scoreboardHtml(scoreboardView((name) => states[name]), ui);
+
+test("the scoreboard shows the game that runs, a training game first", () => {
+  const off = { state: "unknown", attributes: { game: null } };
+  assert.equal(scoreboardView(() => undefined).mode, "idle");
+  assert.equal(scoreboardView((name) => ({ practice: off })[name]).mode, "idle");
+  assert.equal(scoreboardView(() => ({ state: "501", attributes: { game: 501 } })).mode, "x01");
+  assert.equal(scoreboardView(() => ({ state: "unknown", attributes: { game: "cricket" } })).mode, "cricket");
+  const drill = { state: "7", attributes: { drill: "around_the_clock" } };
+  assert.equal(scoreboardView((name) => ({ practice: off, drill })[name]).mode, "drill");
+});
+
+test("an X01 match shows every player, the player at the board and the route", () => {
+  const match = board({
+    practice: {
+      state: "81",
+      attributes: {
+        game: 501,
+        player: 1,
+        checkout: "T15 D18",
+        legs_to_win: 3,
+        sets_to_win: 1,
+        scores: [
+          { player: 1, name: "Alex", remaining: 81, legs: 1, sets: 0, average: 84.2 },
+          { player: 2, name: null, remaining: 361, legs: 0, sets: 0, average: 46.7 },
+        ],
+      },
+    },
+  });
+  assert.deepEqual([match.title, match.meta, match.banner], ["practice 501", "3 legs_per_set", ""]);
+  assert.match(match.main, /<div class="players n2">/);
+  assert.match(
+    match.main,
+    /<div class="player active"><div class="name">Alex<\/div><div class="big">81<\/div><div class="route"><span class="bed">T15<\/span><span class="bed">D18<\/span><\/div><div class="details">score_legs 1 · Ø 84\.2<\/div>/
+  );
+  assert.match(
+    match.main,
+    /<div class="player"><div class="name">score_player 2<\/div><div class="big">361<\/div><div class="route"><\/div>/
+  );
+});
+
+test("the winner gets the banner; alone, busts and missing routes show a note", () => {
+  const won = board({
+    practice: {
+      state: "0",
+      attributes: {
+        game: 301,
+        player: 2,
+        winner: 2,
+        sets_to_win: 2,
+        scores: [
+          { player: 1, name: "<b>", remaining: 40, legs: 0, sets: 1 },
+          { player: 2, name: null, remaining: 0, legs: 0, sets: 2 },
+        ],
+      },
+    },
+  });
+  assert.equal(won.banner, "score_player 2 score_winner");
+  assert.equal(won.meta, "2 sets_to_win");
+  assert.match(won.main, /<div class="player winner"><div class="name">score_player 2/);
+  assert.match(won.main, /&#60;b&#62;/);
+  assert.doesNotMatch(won.main, /active/);
+
+  const alone = (attributes, state = "32") => board({ practice: { state, attributes } }).main;
+  const player = { player: 1, name: null, remaining: 32, legs: 0, sets: 0, average: 50 };
+  const bust = alone({ game: 301, bust: true, darts: 9, average: 56.33, scores: [player] });
+  assert.match(bust, /<div class="player"><div class="name"><\/div><div class="big">32<\/div>/);
+  assert.match(bust, /<span class="note bust">bust<\/span>/);
+  assert.match(bust, /<div class="details">9 leg_darts · Ø 56\.3<\/div>/);
+  const stuck = alone({ game: 501, scores: [{ ...player, remaining: 169 }] }, "169");
+  assert.match(stuck, /<span class="note">no_checkout<\/span>/);
+  const shot = alone({ game: 501, won: true, scores: [{ ...player, remaining: 0 }] }, "0");
+  assert.match(shot, /<span class="note won">game_shot<\/span>/);
+});
+
+test("cricket shows the chalkboard, the points and the next number", () => {
+  const cricket = board({
+    practice: {
+      state: "unknown",
+      attributes: {
+        game: "cricket",
+        player: 1,
+        target: "T19",
+        scores: [
+          { player: 1, name: "Alex", marks: [3, 1, 0, 0, 0, 0, 0], points: 60, legs: 0, sets: 0, mpr: 3.5 },
+          { player: 2, name: "Sam", marks: [3, 0, 0, 0, 0, 0, 0], points: 0, legs: 0, sets: 0, mpr: 3 },
+        ],
+      },
+    },
+  });
+  assert.equal(cricket.title, "cricket");
+  assert.match(
+    cricket.main,
+    /<thead><tr><th class="aim"><span class="bed">T19<\/span><\/th><th class="active">Alex<\/th><th class="">Sam<\/th><\/tr><\/thead>/
+  );
+  assert.match(cricket.main, /<tr class="closed"><th>20<\/th><td class="active">Ⓧ<\/td><td class="">Ⓧ<\/td><\/tr>/);
+  assert.match(cricket.main, /<tr class="target"><th>19<\/th><td class="active">\/<\/td><td class=""><\/td><\/tr>/);
+  assert.match(cricket.main, /<tr class="total"><th>cricket_points<\/th><td class="active">60<\/td><td class="">0<\/td><\/tr>/);
+  assert.match(cricket.main, /<tr class="detail"><th>cricket_mpr<\/th><td class="active">3\.50<\/td>/);
+
+  const alone = board({
+    practice: {
+      state: "unknown",
+      attributes: {
+        game: "cricket",
+        won: true,
+        scores: [{ player: 1, marks: [3, 3, 3, 3, 3, 3, 3], points: 0, mpr: null }],
+      },
+    },
+  });
+  assert.match(alone.main, /<th class=""><\/th>/);
+  assert.doesNotMatch(alone.main, /class="total"/);
+  assert.match(alone.main, /<td class="">–<\/td>/);
+  assert.match(alone.main, /<span class="note won">game_shot<\/span>/);
+});
+
+test("training games show their target, between games the visit and the session", () => {
+  const clock = board({
+    drill: {
+      state: "7",
+      attributes: { drill: "around_the_clock", progress: 6, targets: 21, darts: 9, hit_rate: 66.7 },
+    },
+  });
+  assert.equal(clock.title, "drill_around_the_clock");
+  assert.match(clock.main, /<div class="big">7<\/div>/);
+  assert.match(clock.main, /<b>6 \/ 21<\/b>.*<b>9<\/b> leg_darts.*<b>67 %<\/b> drill_hits/);
+
+  const bobs = board({
+    drill: {
+      state: "unknown",
+      attributes: { drill: "bobs_27", finished: true, score: 77, progress: 21, targets: 21, results: [{ completed: true }] },
+    },
+  });
+  assert.match(bobs.main, /<div class="big">✓<\/div><div class="route"><span class="note won">drill_bobs_done 77 drill_points/);
+  assert.match(bobs.main, /<b>77<\/b> drill_points<\/span><span><b>21 \/ 21<\/b> drill_round/);
+  const lost = board({ drill: { state: "unknown", attributes: { drill: "bobs_27", finished: true, score: -3 } } });
+  assert.match(lost.main, /<span class="note bust">drill_bobs_lost<\/span>/);
+
+  const checkout = board({
+    drill: {
+      state: "81",
+      attributes: {
+        drill: "checkout",
+        remaining: 81,
+        checkout: "T15 D18",
+        attempt_visit: 2,
+        attempt_visits: 3,
+        attempts: 4,
+        successes: 1,
+        rate: 25,
+      },
+    },
+  });
+  assert.match(checkout.main, /<div class="big">81<\/div><div class="route"><span class="bed">T15<\/span><span class="bed">D18<\/span>/);
+  assert.match(checkout.main, /<b>2 \/ 3<\/b> drill_visit.*<b>1 \/ 4<\/b> drill_checked.*<b>25 %<\/b>/);
+  const bust = board({ drill: { state: "81", attributes: { drill: "checkout", remaining: 81, bust: true } } });
+  assert.match(bust.main, /<span class="note bust">bust<\/span>/);
+
+  const idle = board({});
+  assert.deepEqual([idle.title, idle.meta, idle.banner], ["Dartboard", "training", ""]);
+  assert.match(idle.main, /<div class="label">visit<\/div><div class="big">60<\/div>/);
+  assert.match(idle.main, /<b>123<\/b> darts.*<b>45\.6<\/b> average.*<b>140<\/b> highest.*<b>1<\/b> max/);
+});

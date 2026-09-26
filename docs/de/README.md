@@ -16,10 +16,11 @@
   - Board Manager 2 meldet sich selbst im Netzwerk; Home Assistant bietet das Board mit einem Klick an.
   - Alternativ suchst du nach deinen Boards oder gibst die Adresse ein.
 - **Beide Board-Manager-Generationen.** Unterstützt den klassischen Board Manager 1 und den Headless Board Manager 2. Nach einem Update stellt sich die Integration selbst um.
-- **Drei Dashboard-Karten**, die automatisch geladen werden:
+- **Vier Dashboard-Karten**, die automatisch geladen werden:
   - Live-Dartscheibe mit blinkenden Treffern und Dart-Positionen;
   - Trainingskarte mit Trefferbild und Aufnahmeverlauf;
   - Board-Status mit Erkennung, Verbindungen und Kameras;
+  - Anzeigetafel für ein Tablet oder einen Fernseher am Board, lesbar vom Abwurf aus;
   - dazu ein automatisches Dashboard, das alles pro Board mit einem Klick anordnet.
 - **Trainingsanalyse:**
   - Trainingssessions, die mit dem ersten Dart oder bewusst beginnen, nach einer Pause enden und die letzten 20 Sessions behalten;
@@ -76,7 +77,7 @@
 | --- | --- |
 | [Installation und Einrichtung](installation.md) | Voraussetzungen, HACS, manuelle Installation, Einrichtung, Cloud-Verknüpfung, Updates, Entfernen |
 | [Entitäten und Ereignisse](entitaeten.md) | Alle Entitäten, Board-Ereignisse, Zustände und Attribute |
-| [Dashboard-Karten](karten.md) | Live-Karte, Trainingskarte und Board-Status mit allen Optionen |
+| [Dashboard-Karten](karten.md) | Live-Karte, Trainingskarte, Board-Status und Anzeigetafel mit allen Optionen |
 | [Automationen](automationen.md) | Blueprints, Board-Ereignisse und fertige Beispiele |
 | [Funktionsweise](funktionsweise.md) | Architektur, Aktualisierung, Trainingsregeln, Datenschutz |
 | [Fehlerbehebung](fehlerbehebung.md) | Meldungen, Reparaturen, Diagnose und Logs |

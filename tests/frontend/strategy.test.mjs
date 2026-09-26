@@ -1,4 +1,4 @@
-// The dashboard strategy builds live, training and board views for every board.
+// The dashboard strategy builds live, scoreboard, training and board views for every board.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -28,19 +28,23 @@ const hass = (entities, devices = {}) => ({
   states: {},
 });
 
-test("one board gets a live, a training and a board view", () => {
+test("one board gets a live, a scoreboard, a training and a board view", () => {
   const config = dashboardStrategy(hass(board("dev1", "b")));
   assert.equal(config.title, "Autodarts");
   assert.deepEqual(
     config.views.map((view) => view.path),
-    ["live", "training", "board"]
+    ["live", "scoreboard", "training", "board"]
   );
-  const [live, training, maintenance] = config.views;
+  const [live, scoreboard, training, maintenance] = config.views;
   assert.deepEqual(live.sections[0].cards[0], {
     type: "custom:autodarts-card",
     device_id: "dev1",
     grid_options: { columns: "full" },
   });
+  assert.equal(scoreboard.panel, true);
+  assert.deepEqual(scoreboard.cards, [
+    { type: "custom:autodarts-scoreboard-card", device_id: "dev1", full_height: true },
+  ]);
   const trends = training.sections[1].cards;
   assert.deepEqual(
     trends.map((card) => [card.type, card.entities]),
@@ -64,11 +68,11 @@ test("several boards get their own named views", () => {
   );
   assert.deepEqual(
     config.views.map((view) => view.path),
-    ["live-1", "training-1", "board-1", "live-2", "training-2", "board-2"]
+    ["live-1", "scoreboard-1", "training-1", "board-1", "live-2", "scoreboard-2", "training-2", "board-2"]
   );
   assert.equal(config.views[0].title, "Live · Club board");
-  assert.equal(config.views[3].title, "Live · Garage");
-  assert.equal(config.views[4].sections[0].cards[0].device_id, "dev2");
+  assert.equal(config.views[5].title, "Scoreboard · Garage");
+  assert.equal(config.views[6].sections[0].cards[0].device_id, "dev2");
 });
 
 test("a chosen board and title are respected, and missing entities are left out", () => {
@@ -77,9 +81,9 @@ test("a chosen board and title are respected, and missing entities are left out"
     title: "Darts",
   });
   assert.equal(config.title, "Darts");
-  assert.equal(config.views[1].sections[1].cards.length, 1);
+  assert.equal(config.views[2].sections[1].cards.length, 1);
   // Without settings or update entities, the board view shows only the status card.
-  assert.equal(config.views[2].sections.length, 1);
+  assert.equal(config.views[3].sections.length, 1);
 });
 
 test("without boards the dashboard explains what to do", () => {

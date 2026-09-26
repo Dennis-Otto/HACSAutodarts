@@ -140,7 +140,7 @@ test("the training view charts practice legs per day and the practice trend", ()
     devices: {},
     states: {},
   };
-  const training = dashboardStrategy(hass).views[1];
+  const training = dashboardStrategy(hass).views.find((view) => view.path === "training");
   const [darts, legs, trend] = training.sections[1].cards;
   assert.deepEqual(darts.entities, ["sensor.board_darts"]);
   assert.deepEqual([legs.title, legs.entities, legs.stat_types], [

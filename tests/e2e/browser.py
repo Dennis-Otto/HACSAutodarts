@@ -36,6 +36,30 @@ def find(tag: str) -> str:
 CARDS = find("autodarts-card")
 TRAINING_CARDS = find("autodarts-training-card")
 STATUS_CARDS = find("autodarts-status-card")
+SCOREBOARD_CARDS = find("autodarts-scoreboard-card")
+SCOREBOARD_STATE = f"""
+() => {{
+  const root = ({SCOREBOARD_CARDS})()[0].shadowRoot;
+  const text = (selector) => root.querySelector(selector)?.textContent ?? null;
+  return {{
+    title: text('.title'),
+    banner: root.querySelector('.banner').hidden ? null : text('.banner'),
+    players: [...root.querySelectorAll('.player')].map((el) => [
+      el.querySelector('.name').textContent,
+      el.querySelector('.big').textContent,
+      el.classList.contains('active'),
+    ]),
+    route: [...root.querySelectorAll('.main .bed')].map((el) => el.textContent),
+    big: text('.single .big'),
+    cricket: [...root.querySelectorAll('.cricket tr')].map((row) =>
+      [...row.children].map((cell) => cell.textContent)
+    ),
+    darts: [...root.querySelectorAll('.visit .segment')].map((el) => el.textContent),
+    sum: text('.sum .value'),
+    full: root.querySelector('.scoreboard').classList.contains('full'),
+  }};
+}}
+"""
 RENDERED = f"() => ({CARDS})().filter((card) => card.shadowRoot?.querySelector('.board svg')).length"
 CARD_STATE = f"""
 () => {{
@@ -484,12 +508,95 @@ def status(browser: Browser) -> None:
     page.close()
 
 
+def scoreboard(browser: Browser) -> None:
+    """The scoreboard view follows the visit, an X01 match, Cricket and a training game."""
+    page = browser.new_page(locale="en-US", viewport={"width": 1280, "height": 800})
+    page.add_init_script(CAPTURE_ERRORS)
+    page.goto(f"{HA}/autodarts-auto/scoreboard")
+    page.wait_for_function(
+        f"() => ({SCOREBOARD_CARDS})().some((card) => card.shadowRoot?.querySelector('.main'))",
+        timeout=30000,
+    )
+
+    def wait(condition: str) -> dict:
+        page.wait_for_function(
+            f"() => {{ const state = ({SCOREBOARD_STATE})(); return {condition}; }}",
+            timeout=15000,
+        )
+        return page.evaluate(SCOREBOARD_STATE)
+
+    def takeout() -> None:
+        control({"status": "Takeout in progress", "event": "Takeout started"})
+        control({"status": "Throw", "event": "Takeout finished", "throws": []})
+
+    def game(option: str) -> None:
+        page.evaluate(
+            CALL_SERVICE,
+            ["select", "select_option", "practice_game", {"option": option}],
+        )
+
+    # Between games, the visit score is the big number.
+    takeout()
+    control({"event": "Throw detected", "throws": [T20]})
+    state = wait("state.big === '60'")
+    check(
+        state["full"] and state["darts"] == ["T20", "–", "–"] and state["sum"] is None,
+        f"Scoreboard between games {state}",
+    )
+    takeout()
+
+    # An X01 match: every player's score, the player at the board and the route.
+    page.evaluate(SET_NAME, [0, "Alex"])
+    page.evaluate(SET_NAME, [1, "Sam"])
+    page.evaluate(
+        CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 2}]
+    )
+    game("501")
+    state = wait("state.players.length === 2")
+    check(state["title"] == "Practice 501", f"Scoreboard title {state}")
+    for count in range(1, 4):
+        control({"event": "Throw detected", "throws": [T20] * count})
+    state = wait("state.sum === '180'")
+    check(
+        state["players"][0] == ["Alex", "321", True] and state["darts"][2] == "T20",
+        f"Scoreboard during the visit {state}",
+    )
+    takeout()
+    state = wait("state.players[1][2]")
+    check(
+        state["players"] == [["Alex", "321", False], ["Sam", "501", True]],
+        f"Scoreboard after the turn {state}",
+    )
+
+    # Cricket: the chalkboard with both players.
+    game("cricket")
+    state = wait("state.title === 'Cricket'")
+    check(
+        state["cricket"][0] == ["T20", "Alex", "Sam"] and state["route"] == ["T20"],
+        f"Scoreboard in Cricket {state}",
+    )
+
+    # A training game: the target is the big number.
+    page.evaluate(
+        CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
+    )
+    game("around_the_clock")
+    state = wait("state.title === 'Around the Clock'")
+    check(state["big"] == "1", f"Scoreboard in Around the Clock {state}")
+    game("off")
+    wait("state.big !== null && state.title !== 'Around the Clock'")
+    errors = page_errors(page, [])
+    check(not errors, f"Console problems: {errors}")
+    page.close()
+
+
 def strategy(browser: Browser) -> None:
     """The generated dashboard shows each card in its view."""
     page = browser.new_page(locale="en-US", viewport={"width": 1280, "height": 900})
     page.add_init_script(CAPTURE_ERRORS)
     for view, cards, ready in (
         ("live", CARDS, ".board svg"),
+        ("scoreboard", SCOREBOARD_CARDS, ".main"),
         ("training", TRAINING_CARDS, ".heat-layer"),
         ("board", STATUS_CARDS, ".camera"),
     ):
@@ -549,6 +656,7 @@ def main() -> None:
             ("live card", lambda: visit(browser)),
             ("practice game", lambda: practice(browser)),
             ("status card", lambda: status(browser)),
+            ("scoreboard", lambda: scoreboard(browser)),
             ("automatic dashboard", lambda: strategy(browser)),
             ("live card editor", lambda: editor(browser)),
             (
@@ -573,6 +681,17 @@ def main() -> None:
                     3,
                 ),
             ),
+            (
+                "scoreboard editor",
+                lambda: editor(
+                    browser,
+                    "scoreboard",
+                    SCOREBOARD_CARDS,
+                    ".main",
+                    "autodarts-scoreboard-card-editor",
+                    3,
+                ),
+            ),
             ("light theme", lambda: light_theme(browser)),
         ]
         for name, step in steps:
@@ -586,8 +705,8 @@ def main() -> None:
         "training games, "
         "training heatmap, "
         "history and "
-        "sessions, board status, "
-        "the generated dashboard, all three editors and light theme."
+        "sessions, board status, the scoreboard, "
+        "the generated dashboard, all four editors and light theme."
     )
 
 
