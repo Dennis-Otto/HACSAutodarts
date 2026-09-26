@@ -24,6 +24,7 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       # Do not check out or execute pull request code in this privileged workflow.
       - name: Read verified Dependabot metadata

@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sbom-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   sbom:
     runs-on: ubuntu-latest
@@ -28,4 +32,4 @@ jobs:
           artifact-name: autodarts.spdx.json
           output-file: autodarts.spdx.json
           upload-release-assets: false
-          syft-version: v1.51.0
+          syft-version: v1.52.0

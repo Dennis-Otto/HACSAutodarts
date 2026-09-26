@@ -8,6 +8,9 @@ updates:
       time: "04:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    # Let a fresh release settle for a week; security updates skip the wait.
+    cooldown:
+      default-days: 7
     groups:
       python-routine:
         patterns:
@@ -33,6 +36,9 @@ updates:
       time: "04:10"
       timezone: Europe/Berlin
     open-pull-requests-limit: 3
+    # Let a fresh release settle for a week; security updates skip the wait.
+    cooldown:
+      default-days: 7
     ignore:
       # Playwright must match the browsers of the pinned Playwright image.
       - dependency-name: playwright
@@ -52,6 +58,9 @@ updates:
       time: "04:15"
       timezone: Europe/Berlin
     open-pull-requests-limit: 3
+    # Let a fresh release settle for a week; security updates skip the wait.
+    cooldown:
+      default-days: 7
     groups:
       npm-routine:
         patterns:
@@ -71,6 +80,9 @@ updates:
       time: "04:20"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    # Let a fresh release settle for a week; security updates skip the wait.
+    cooldown:
+      default-days: 7
     groups:
       actions-routine:
         patterns:
@@ -95,6 +107,9 @@ updates:
       time: "04:40"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    # Let a fresh release settle for a week; security updates skip the wait.
+    cooldown:
+      default-days: 7
     groups:
       containers-routine:
         patterns:

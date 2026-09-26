@@ -61,14 +61,20 @@ BOARD_MANAGER=2 bash tests/e2e/run.sh   # includes discovery by mDNS
 
 `tests/e2e/browser.sh` checks the cards in Chromium against the demo:
 
-- the card is registered on every load;
+- the cards are registered on every load;
 - the live visit, highlights and controls with confirmation;
-- the training heatmap and history, and the status card;
-- all editors and the light theme.
+- the practice game, match and training games;
+- the training heatmap, history and sessions, and the status card;
+- the scoreboard and its caller, the players and doubles cards;
+- the generated dashboard, all six editors and the light theme.
+
+When a step fails, the browser test saves a screenshot of every open page, and
+the scripts save the Home Assistant log, in `tests/e2e/artifacts/` or in the
+folder named by `E2E_ARTIFACTS`. CI keeps them as a workflow artifact for 14 days.
 
 ## Screenshots
 
-`tests/e2e/screenshots.sh` regenerates every image in `docs/images/en` and `docs/images/de` from the demo, including the animated GIF. Every image shows the simulated board, so no personal data can appear. The tool never opens the network search, which would list real boards.
+`tests/e2e/screenshots.sh` regenerates every image in `docs/images/en` and `docs/images/de` from the demo, including the animated WebP images. Every image shows the simulated board, so no personal data can appear. The tool never opens the network search, which would list real boards.
 
 ## Diagrams
 
@@ -80,23 +86,36 @@ bash scripts/render_diagrams.sh
 
 ## Continuous integration
 
-Every pull request runs:
+Every pull request, and every push to `main`, runs:
 
-- pytest with a coverage gate, Ruff, strict mypy and the Node tests;
-- the Docker end-to-end test against both Board Manager generations, and the browser test;
+- pytest with a coverage gate, Ruff, strict mypy and the Node tests, with the coverage report in the job summary;
+- the Docker end-to-end test against both Board Manager generations, the browser test,
+  and the end-to-end test against Home Assistant 2026.8.0, the oldest supported release;
 - HACS validation and hassfest;
-- actionlint, CodeQL and dependency review;
+- actionlint, CodeQL for Python, the card JavaScript and the workflows, and dependency review;
 - Gitleaks and an SPDX SBOM.
 
-OpenSSF Scorecard evaluates the repository weekly and on every push to `main`.
+A new commit to a pull request cancels the older, still running checks of that
+pull request; runs on `main` are never cancelled. Every Monday the end-to-end tests
+also run against the current Home Assistant beta, as an early warning before the
+next release. OpenSSF Scorecard evaluates the repository weekly and on every push to `main`.
 
-Every dependency is pinned:
+Pull request titles follow Conventional Commits. The **Pull request labels**
+workflow checks the title and sets the label that sorts the change into the
+release notes (see the [release guide](releases.md#keep-generated-notes-useful)).
 
-- Actions and container images by commit hash or digest.
+Dependencies are pinned:
+
+- Actions by commit hash, and container images by digest.
 - Python tools with hashes, in `requirements-test.txt` (compiled from `requirements-test.in` with `pip-compile --generate-hashes`) and `tests/e2e/requirements-browser.txt`.
 - Node tools by `package-lock.json`.
 
-Dependabot keeps all of them current.
+Dependabot keeps the Python and Node tools, the Actions and the Compose images
+current, and waits seven days before it proposes a new version; security updates
+come at once. The Playwright, Alpine and Mermaid images in the scripts under
+`tests/e2e/` and `scripts/` are updated by hand. Two checks deliberately run moving
+images: HACS validation and hassfest always apply the rules that HACS and Home
+Assistant use for new submissions today, and the weekly beta run uses the beta tag.
 
 ## Releases
 

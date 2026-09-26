@@ -9,3 +9,7 @@ htmlcov/
 /.claude/launch.json
 /.idea/
 /node_modules/
+.hypothesis/
+coverage.xml
+/tests/e2e/artifacts/
+/e2e-artifacts/
