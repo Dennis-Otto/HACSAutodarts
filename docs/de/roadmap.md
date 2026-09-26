@@ -35,15 +35,13 @@ Enthalten, alles ohne Autodarts-Cloud:
 - Übungsstatistik: First-9-Average, Checkout-Quote, Doppelquote und Legs pro Tag.
 - Zwei Blueprints: ein Übungs-Caller und ein Highlight-Foto nach einer 180 oder einem Checkout.
 
-## Als Nächstes: 1.4
+## Version 1.4: Cricket, Anzeigetafel und Bestleistungen
 
-| Thema | Was es bringt |
-| --- | --- |
-| **Lokales Cricket** | Cricket für einen bis vier Spieler mit Marks, geschlossenen Zahlen und Punkten sowie einer Anzeigetafel in der Live-Karte |
-| **Scoreboard-Ansicht** | Eine Vollbild-Ansicht für einen Bildschirm am Board, aus der Wurfdistanz lesbar: Restpunkte, Checkout-Weg und der Spieler am Board |
-| **Bestleistungen und Serien** | Ein Ereignis für eine neue Bestleistung, etwa den höchsten Checkout oder die wenigsten Darts für ein Leg, eine Trainingsserie in Tagen und ein Tagesziel |
-| **Spiel mit einer Aktion starten** | `autodarts.start_game` mit Spiel, Spielern, Namen und Format, für Automationen und Sprachsteuerung |
-| **Erkennungsqualität** | Der Anteil korrigierter Darts, mit einem Reparaturhinweis zum Nachkalibrieren, wenn er steigt |
+- Cricket für einen bis vier Spieler mit Treffern, geschlossenen Zahlen, Punkten und Treffern pro Runde sowie einer Kreidetafel in der Live-Karte.
+- Eine Anzeigetafel als Karte und als Vollbild-Ansicht für einen Bildschirm am Board, lesbar vom Abwurf aus.
+- Bestleistungen mit einem Ereignis, sobald eine fällt, eine Trainingsserie in Tagen und ein Tagesziel.
+- `autodarts.start_game` startet X01, Cricket oder ein Trainingsspiel mit Spielern, Namen und Format in einer Aktion.
+- Erkennungsqualität: der Anteil korrigierter Darts, mit einer Reparatur, die das Board nachkalibriert, wenn er steigt.
 
 ## Später
 
