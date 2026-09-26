@@ -116,3 +116,68 @@ async def test_practice_game_survives_a_restart(hass, aioclient_mock, hass_stora
     assert remaining.attributes["darts"] == 30
     assert len(remaining.attributes["legs"]) == 1
     assert state(hass, "sensor", "practice_checkout") == "T20 D20"
+
+
+async def set_number(hass, key: str, value: int) -> None:
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {"entity_id": entity_id(hass, "number", key), "value": value},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+
+async def test_a_match_of_two_players_with_names_turns_and_a_winner(
+    hass, aioclient_mock, hass_storage
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    events = record(hass, coordinator)
+    name = entity_id(hass, "text", "practice_player_1")
+    assert (
+        er.async_get(hass).async_get(name).entity_category == er.EntityCategory.CONFIG
+    )
+    await hass.services.async_call(
+        "text", "set_value", {"entity_id": name, "value": "Dennis"}, blocking=True
+    )
+    await select_game(hass, "301")
+    await set_number(hass, "practice_players", 2)
+    await set_number(hass, "practice_legs", 1)
+    assert state(hass, "number", "practice_players") == "2"
+    assert state(hass, "text", "practice_player_1") == "Dennis"
+
+    await throw(hass, coordinator, T20, T20, T20)
+    turns = [attributes for kind, attributes in events if kind == "turn_changed"]
+    assert turns[-1]["player"] == 2 and turns[-1]["remaining"] == 301
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.state == "301" and remaining.attributes["player"] == 2
+    scores = remaining.attributes["scores"]
+    assert [(score["name"], score["remaining"]) for score in scores] == [
+        ("Dennis", 121),
+        (None, 301),
+    ]
+
+    await throw(hass, coordinator, OUTER_BULL)
+    coordinator.practice.players[0].remaining = 36
+    await throw(hass, coordinator, D18)
+    won = [attributes for kind, attributes in events if kind == "match_won"]
+    assert won and won[0]["name"] == "Dennis" and won[0]["sets"] == 1
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.attributes["winner"] == 1
+
+    await hass.services.async_call(
+        "button",
+        "press",
+        {"entity_id": entity_id(hass, "button", "practice_new_match")},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.attributes["winner"] is None
+    assert [score["remaining"] for score in remaining.attributes["scores"]] == [
+        301,
+        301,
+    ]
+    saved = hass_storage[f"autodarts.{entry.entry_id}.training"]["data"]["practice"]
+    assert saved["names"][0] == "Dennis" and len(saved["players"]) == 2

@@ -21,7 +21,7 @@ To add one, edit a dashboard, select **Add card** and search for **Autodarts**.
 
 - **Visit:** score, the three dart slots and a progress indicator. The latest dart is outlined.
 - **Last visits:** the scores of your last five visits, coloured like the training card's chart. Hover one for its darts.
-- **Practice game:** while a [practice game](entities.md#practice-game) runs, the remaining score, the checkout route and busts appear above the dart slots, and the board outlines the bed to aim at next.
+- **Practice game:** while a [practice game](entities.md#practice-game) runs, the remaining score, the checkout route and busts appear above the dart slots, and the board outlines the bed to aim at next. In a match, a scoreboard lists every player with the remaining score, legs, sets and average, and highlights the player at the board.
 - **Board:**
   - Hit beds blink in the highlight colour.
   - Numbered markers show where each dart landed.
@@ -35,6 +35,8 @@ Tap the board, or press Enter on it, to open the visit details.
 <img src="images/en/card-visit.webp" alt="Animation: three darts land, their beds blink and the score adds up; the takeout empties the board" width="620">
 
 <img src="images/en/card-practice.png" alt="Live card during a 501 practice leg: 81 remaining after a triple 20, the checkout route T15 D18 and the triple 15 outlined on the board" width="760">
+
+<img src="images/en/card-match.png" alt="Live card during a 501 match of Alex and Sam: Alex at the board with 81 left and the route T15 D18, Sam with 361 left" width="760">
 
 ### Options
 
@@ -170,7 +172,7 @@ For every board, the dashboard gets three views, which update themselves when yo
 
 | View | Contents |
 | --- | --- |
-| **Live** | The live card across the full width and the practice game controls |
+| **Live** | The live card across the full width, the practice game controls and the player names |
 | **Training** | The training card, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly) and the 3-dart average of the last 7 days |
 | **Board** | The board status card, the board settings and the Board Manager update |
 

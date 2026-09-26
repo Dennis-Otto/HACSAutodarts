@@ -42,6 +42,9 @@ async def async_get_config_entry_diagnostics(
             {
                 "game": local.practice.game or None,
                 "double_out": local.practice.double_out,
+                "players": len(local.practice.players),
+                "legs_to_win": local.practice.legs_to_win,
+                "sets_to_win": local.practice.sets_to_win,
                 "stored_legs": len(local.practice.legs),
             }
             if local

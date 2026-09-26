@@ -1,4 +1,4 @@
-"""How long a training session may pause before it ends by itself."""
+"""The pause that ends a training session, and the practice match format."""
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.const import EntityCategory, UnitOfTime
@@ -7,10 +7,18 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import AutodartsLocalEntity
 from .local_coordinator import AutodartsLocalCoordinator
+from .practice import MAX_LEGS, MAX_PLAYERS, MAX_SETS
 from .runtime import AutodartsConfigEntry
 from .training import IDLE_MINUTES_MAX
 
 PARALLEL_UPDATES = 0
+
+# Practice setting -> largest value. Every setting starts a new match.
+PRACTICE_NUMBERS = {
+    "practice_players": MAX_PLAYERS,
+    "practice_legs": MAX_LEGS,
+    "practice_sets": MAX_SETS,
+}
 
 
 async def async_setup_entry(
@@ -19,7 +27,15 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     if coordinator := entry.runtime_data.local:
-        async_add_entities([AutodartsIdleTimeout(coordinator)])
+        async_add_entities(
+            [
+                AutodartsIdleTimeout(coordinator),
+                *(
+                    AutodartsPracticeNumber(coordinator, key)
+                    for key in PRACTICE_NUMBERS
+                ),
+            ]
+        )
 
 
 class AutodartsIdleTimeout(AutodartsLocalEntity, NumberEntity):
@@ -46,3 +62,39 @@ class AutodartsIdleTimeout(AutodartsLocalEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_idle_minutes(int(value))
+
+
+class AutodartsPracticeNumber(AutodartsLocalEntity, NumberEntity):
+    """Players of a practice match, legs per set and sets to win."""
+
+    _attr_native_min_value = 1
+    _attr_native_step = 1
+    _attr_mode = NumberMode.BOX
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
+        super().__init__(coordinator, key)
+        self._key = key
+        self._attr_native_max_value = PRACTICE_NUMBERS[key]
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> int:
+        practice = self.coordinator.practice
+        if self._key == "practice_players":
+            return len(practice.players)
+        return (
+            practice.legs_to_win
+            if self._key == "practice_legs"
+            else practice.sets_to_win
+        )
+
+    async def async_set_native_value(self, value: float) -> None:
+        if self._key == "practice_players":
+            await self.coordinator.async_set_players(int(value))
+        elif self._key == "practice_legs":
+            await self.coordinator.async_set_match_format(legs=int(value))
+        else:
+            await self.coordinator.async_set_match_format(sets=int(value))

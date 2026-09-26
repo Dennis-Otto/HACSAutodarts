@@ -41,8 +41,10 @@ Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Ass
 | `status_changed` | Der Erkennungsstatus ändert sich | `status` |
 | `session_started` | Eine Trainingssession beginnt: mit dem Schalter *Trainingssession*, der Taste *Neue Trainingssession* oder mit dem ersten Dart, wenn *Sessions automatisch starten* an ist | `started` und `reason` (`manual`, `new_session` oder `first_dart`) |
 | `session_ended` | Eine Trainingssession endet: mit dem Schalter, der Taste oder nach der Pause aus *Session beenden nach einer Pause von* | `reason` (`manual`, `new_session` oder `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` und die übrigen Trainingssummen |
-| `bust` | Ein Dart im [Übungsspiel](#übungsspiel) geht unter null, lässt mit Double-Out 1 übrig oder erreicht 0 ohne Double | `game`, `remaining` (der Rest zu Beginn der Aufnahme, der bleibt) |
-| `leg_won` | Ein Dart beendet das Übungsleg | `game`, `darts` und `average` des Legs, `checkout` (der ausgecheckte Rest) |
+| `bust` | Ein Dart im [Übungsspiel](#übungsspiel) geht unter null, lässt mit Double-Out 1 übrig oder erreicht 0 ohne Double | `game`, `player`, `name`, `remaining` (der Rest zu Beginn der Aufnahme, der bleibt) |
+| `leg_won` | Ein Dart beendet das Übungsleg | `game`, `player`, `name`, `darts` und `average` des Legs, `checkout` (der ausgecheckte Rest), `legs` und `sets` des Gewinners danach |
+| `match_won` | Ein Dart entscheidet ein Übungsmatch mehrerer Spieler | `game`, `player`, `name`, `sets`, `average` des Matches |
+| `turn_changed` | Im Übungsmatch wurden die Darts gezogen und der nächste Spieler ist dran | `game`, `player`, `name`, `remaining` |
 
 Nach einem Neustart oder Verbindungsabbruch werden Ereignisse nie wiederholt. Beispiele stehen unter [Automationen](automationen.md).
 
@@ -87,14 +89,20 @@ Spiele X01 am lokalen Board ohne Autodarts-Spiel. Home Assistant zählt herunter
 - **Starten:** Wähle 301, 501 oder 701 in *Übungsspiel*. Darts, die schon im Board stecken, zählen nicht. *Neues Übungsleg* beginnt das Leg wieder beim vollen Rest.
 - **Aufnahmen:** Eine Aufnahme endet, wenn du die Darts ziehst. Nach dem Überwerfen bleibt der Rest vom Beginn der Aufnahme. Darts nach dem Überwerfen oder nach dem Checkout zählen nicht.
 - **Checkout:** der Weg für die restlichen Darts der Aufnahme, etwa `T20 T20 BULL` für 170. [So wird der Weg gewählt](funktionsweise.md#übungsspiel).
+- **Matches:** Stelle *Übungsspiel Spieler* auf 2, 3 oder 4. Nach einer Aufnahme wirft der nächste Spieler; auch beim Überwerfen ist der Nächste dran. Wer zuerst *Übungsspiel Legs pro Satz* Legs gewinnt, holt den Satz, und wer zuerst *Übungsspiel Sätze zum Sieg* Sätze holt, gewinnt das Match. Das Ergebnis bleibt in der Karte stehen, bis der nächste Dart ein neues Match beginnt. Mit einem Spieler werden Legs und Sätze nicht gezählt.
 - **Sessions:** Übungsspiel und [Trainingssessions](#trainingssession) sind unabhängig. Ein Dart zählt in beiden.
 
 | Entität | Typ | Beschreibung |
 | --- | --- | --- |
-| Übungsspiel | Auswahl | `off` (*Aus*), `301`, `501` oder `701`. Die Wahl eines Spiels startet ein neues Leg. |
-| Übungsspiel Restpunkte | Sensor | Restpunkte des Legs; ohne Spiel *unbekannt*. Attribute: `game`, `double_out`, `checkout`, `bust`, `won`, `visit` (die Felder der aktuellen Aufnahme), `darts` und `average` des Legs sowie `legs` mit den letzten 10 Legs (`game`, `darts`, `average`, `checkout`, `ended`). Der Recorder speichert weder `visit` noch `legs`. |
+| Übungsspiel | Auswahl | `off` (*Aus*), `301`, `501` oder `701`. Die Wahl eines Spiels startet ein neues Match. |
+| Übungsspiel Restpunkte | Sensor | Restpunkte des Spielers am Board; ohne Spiel *unbekannt*. Attribute: `game`, `double_out`, `player` und `name` des Spielers am Board, `checkout`, `bust`, `won`, `visit` (die Felder der aktuellen Aufnahme), `darts` und `average` des Legs, `players`, `legs_to_win`, `sets_to_win`, `winner` (der Matchgewinner bis zum nächsten Dart), `scores` mit `player`, `name`, `remaining`, `legs`, `sets` und dem Match-`average` jedes Spielers sowie `legs` mit den letzten 10 Legs (`game`, `player`, `name`, `darts`, `average`, `checkout`, `ended`). Der Recorder speichert weder `visit`, `scores` noch `legs`. |
 | Übungsspiel Checkout-Weg | Sensor | Der Checkout-Weg, etwa `T20 25 D18`; *unbekannt*, wenn es keinen gibt. |
-| Neues Übungsleg | Taste | Beginnt das Leg wieder beim vollen Rest. |
+| Neues Übungsleg | Taste | Beginnt das Leg wieder beim vollen Rest; Legs und Sätze bleiben. |
+| Neues Übungsmatch | Taste | Beginnt das Match wieder bei null Legs und Sätzen. |
+| Übungsspiel Spieler | Zahl | 1–4 Spieler. Eine Änderung startet ein neues Match. |
+| Übungsspiel Legs pro Satz | Zahl | 1–11 Legs gewinnen einen Satz. Eine Änderung startet ein neues Match. |
+| Übungsspiel Sätze zum Sieg | Zahl | 1–7 Sätze gewinnen das Match. Eine Änderung startet ein neues Match. |
+| Übungsspiel Spieler *N* | Text, *Konfiguration* | Name von Spieler 1–4, höchstens 20 Zeichen, für Anzeigetafel und Ereignisse. Ohne Namen zeigt die Karte *Spieler N*. |
 | Übungsspiel Double-Out | Schalter, *Konfiguration* | Checkout auf einem Double oder dem Bullseye. Standardmäßig an. |
 
 ## Steuerung

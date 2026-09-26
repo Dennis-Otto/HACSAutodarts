@@ -18,7 +18,7 @@ Zum Hinzufügen bearbeitest du ein Dashboard, wählst **Karte hinzufügen** und 
 
 - **Aufnahme:** Punkte, die drei Dart-Felder und der Fortschritt. Der jüngste Dart ist hervorgehoben.
 - **Vorige Aufnahmen:** die Punkte deiner letzten fünf Aufnahmen, eingefärbt wie im Diagramm der Trainingskarte. Mit dem Mauszeiger siehst du die Darts.
-- **Übungsspiel:** Läuft ein [Übungsspiel](entitaeten.md#übungsspiel), stehen Restpunkte, Checkout-Weg und Überwerfen über den Dart-Feldern, und die Scheibe umrandet das nächste Zielfeld.
+- **Übungsspiel:** Läuft ein [Übungsspiel](entitaeten.md#übungsspiel), stehen Restpunkte, Checkout-Weg und Überwerfen über den Dart-Feldern, und die Scheibe umrandet das nächste Zielfeld. Im Match listet eine Anzeigetafel alle Spieler mit Restpunkten, Legs, Sätzen und Average und hebt den Spieler am Board hervor.
 - **Scheibe:**
   - Getroffene Felder blinken in der Hervorhebungsfarbe.
   - Nummerierte Markierungen zeigen, wo jeder Dart steckt.
@@ -32,6 +32,8 @@ Ein Tipp auf die Scheibe, oder die Eingabetaste darauf, öffnet die Details der 
 <img src="../images/de/card-visit.webp" alt="Animation: drei Darts landen, ihre Felder blinken, die Punkte zählen mit; die Entnahme leert die Scheibe" width="620">
 
 <img src="../images/de/card-practice.png" alt="Live-Karte in einem 501-Übungsleg: 81 Rest nach einer Triple 20, der Checkout-Weg T15 D18 und die umrandete Triple 15 auf der Scheibe" width="760">
+
+<img src="../images/de/card-match.png" alt="Live-Karte in einem 501-Match von Alex und Sam: Alex am Board mit 81 Rest und dem Weg T15 D18, Sam mit 361 Rest" width="760">
 
 ### Optionen
 
@@ -156,7 +158,7 @@ Pro Board entstehen drei Ansichten. Sie aktualisieren sich selbst, wenn du ein B
 
 | Ansicht | Inhalt |
 | --- | --- |
-| **Live** | Die Live-Karte über die volle Breite und die Steuerung des Übungsspiels |
+| **Live** | Die Live-Karte über die volle Breite, die Steuerung des Übungsspiels und die Spielernamen |
 | **Training** | Die Trainingskarte, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet) und der 3-Dart-Average der letzten 7 Tage |
 | **Board** | Der Board-Status, die Board-Einstellungen und das Board-Manager-Update |
 

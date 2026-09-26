@@ -48,6 +48,18 @@ async ([domain, service, key, data]) => {
 }
 """
 
+# Names a practice player; the four name fields share one translation key.
+SET_NAME = """
+async ([index, name]) => {
+  const hass = document.querySelector('home-assistant').hass;
+  const ids = Object.values(hass.entities)
+    .filter((item) => item.platform === 'autodarts' && item.translation_key === 'practice_player')
+    .map((item) => item.entity_id)
+    .sort();
+  await hass.callService('text', 'set_value', { entity_id: ids[index], value: name });
+}
+"""
+
 FIND_CARDS = """
 () => {
   const cards = [];
@@ -203,6 +215,30 @@ def practice_card(page: Page) -> None:
     page.wait_for_timeout(800)
     peak(page)
     card_shot(page, "card-practice")
+
+    # A 501 match of two players, three legs to win.
+    takeout()
+    page.evaluate(SET_NAME, [0, "Alex"])
+    page.evaluate(SET_NAME, [1, "Sam"])
+    for key, value in (("practice_players", 2), ("practice_legs", 3)):
+        page.evaluate(CALL_SERVICE, ["number", "set_value", key, {"value": value}])
+    for visit in ([T20] * 3, [T20, S5, S5], [T20] * 3, [T20, S5, S5]):
+        for count in range(1, len(visit) + 1):
+            control({"event": "Throw detected", "throws": visit[:count]})
+            page.wait_for_timeout(300)
+        takeout()
+    control({"event": "Throw detected", "throws": [T20]})
+    page.wait_for_function(
+        f"() => ({FIND_CARDS})().some((c) => "
+        "c.shadowRoot.querySelector('.practice-remaining')?.textContent === '81')",
+        timeout=15000,
+    )
+    page.wait_for_timeout(800)
+    peak(page)
+    card_shot(page, "card-match")
+    page.evaluate(
+        CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
+    )
     service("off")
 
 

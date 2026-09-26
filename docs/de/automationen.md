@@ -226,7 +226,7 @@ mode: single
 
 ### Game shot im Übungsspiel ansagen
 
-Sagt ein gewonnenes Leg und ein Überwerfen im [Übungsspiel](entitaeten.md#übungsspiel) auf deinen Lautsprechern an.
+Sagt ein gewonnenes Leg und ein Überwerfen im [Übungsspiel](entitaeten.md#übungsspiel) mit dem Namen des Spielers auf deinen Lautsprechern an.
 
 ```yaml
 alias: Darts – Ansage im Übungsspiel
@@ -246,10 +246,11 @@ actions:
       media_player_entity_id: media_player.dartraum
       message: >-
         {% set event = trigger.to_state.attributes %}
+        {% set spieler = event.name or 'Spieler ' ~ event.player %}
         {% if event.event_type == 'leg_won' %}
-          Game shot, das Leg mit {{ event.darts }} Darts.
+          Game shot, das Leg für {{ spieler }} mit {{ event.darts }} Darts.
         {% else %}
-          Überworfen. Du brauchst weiter {{ event.remaining }}.
+          Überworfen. {{ spieler }}, du brauchst weiter {{ event.remaining }}.
         {% endif %}
 mode: queued
 ```
