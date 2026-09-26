@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import os
 import sys
 import urllib.request
@@ -38,6 +39,24 @@ BULL = {
 }
 
 # Calls a service for an Autodarts entity through the logged-in frontend.
+# The numbers clockwise from the top, to place darts in the middle of a bed.
+ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
+
+
+def at(name: str) -> dict:
+    """A detected dart in the middle of the named bed, like S17 or T19."""
+    number, multiplier = int(name[1:]), "SDT".index(name[0]) + 1
+    radius = {1: 0.79, 2: 0.976, 3: 0.606}[multiplier]
+    angle = math.radians(90 - ORDER.index(number) * 18)
+    return {
+        "segment": {"name": name, "number": number, "multiplier": multiplier},
+        "coords": {
+            "x": round(radius * math.cos(angle), 3),
+            "y": round(radius * math.sin(angle), 3),
+        },
+    }
+
+
 CALL_SERVICE = """
 async ([domain, service, key, data]) => {
   const hass = document.querySelector('home-assistant').hass;
@@ -236,6 +255,33 @@ def practice_card(page: Page) -> None:
     page.wait_for_timeout(800)
     peak(page)
     card_shot(page, "card-match")
+
+    # Cricket between the same two players, Alex aiming at the 19.
+    takeout()
+    service("cricket")
+    for names in (
+        ("T20", "T20", "S19"),
+        ("T19", "T19", "S18"),
+        ("T18", "S17", "D17"),
+        ("T20", "D16", "S18"),
+    ):
+        visit = [at(name) for name in names]
+        for count in range(1, 4):
+            control({"event": "Throw detected", "throws": visit[:count]})
+            page.wait_for_timeout(300)
+        takeout()
+    control({"event": "Throw detected", "throws": [at("T16")]})
+    page.wait_for_function(
+        f"() => ({FIND_CARDS})().some((c) => c.shadowRoot"
+        ".querySelectorAll('.cricket-grid tbody tr')[4]?.children[1]?.textContent === 'Ⓧ')",
+        timeout=15000,
+    )
+    # The chalkboard makes the card taller than the window; the header must not cover it.
+    page.set_viewport_size({"width": 1280, "height": 1100})
+    page.wait_for_timeout(800)
+    peak(page)
+    card_shot(page, "card-cricket")
+    page.set_viewport_size({"width": 1280, "height": 820})
     page.evaluate(
         CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
     )

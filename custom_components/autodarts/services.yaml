@@ -15,6 +15,7 @@ start_game:
             - "301"
             - "501"
             - "701"
+            - cricket
             - around_the_clock
             - doubles
             - checkout

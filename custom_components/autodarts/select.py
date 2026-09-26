@@ -51,7 +51,7 @@ class AutodartsStandbySelect(AutodartsLocalEntity, SelectEntity):
 class AutodartsPracticeGame(AutodartsLocalEntity, SelectEntity):
     """X01 or a training game on the local board; a choice starts it anew."""
 
-    _attr_options = ["off", *(str(game) for game in GAMES), *DRILLS]
+    _attr_options = ["off", *(str(game) for game in GAMES), "cricket", *DRILLS]
 
     def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
         super().__init__(coordinator, "practice_game")
@@ -66,6 +66,8 @@ class AutodartsPracticeGame(AutodartsLocalEntity, SelectEntity):
         practice = self.coordinator.practice
         if practice.drill:
             return practice.drill
+        if practice.cricket:
+            return "cricket"
         return str(practice.game) if practice.game else "off"
 
     async def async_select_option(self, option: str) -> None:

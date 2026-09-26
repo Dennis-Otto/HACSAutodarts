@@ -8,8 +8,8 @@ blueprint:
 
     The messages are templates. They can use `who` (the player's name, "Player
     2" in a match without names, empty when you play alone), `remaining`,
-    `checkout` (for example `T20 T20 BULL`), `darts` and `average`. An empty
-    message stays silent.
+    `checkout` (for example `T20 T20 BULL`), `darts`, `average` and, in
+    Cricket, `points`. An empty message stays silent.
   domain: automation
   author: Dennis Otto
   source_url: https://github.com/Dennis-Otto/ha-autodarts/blob/main/blueprints/automation/autodarts/practice_caller.yaml
@@ -112,6 +112,7 @@ variables:
   checkout: "{{ trigger.to_state.attributes.get('checkout') or '' }}"
   darts: "{{ trigger.to_state.attributes.get('darts') | int(0) }}"
   average: "{{ trigger.to_state.attributes.get('average') }}"
+  points: "{{ trigger.to_state.attributes.get('points') | int(0) }}"
   deciding: "{{ trigger.to_state.attributes.get('match', false) }}"
   checkout_text: !input checkout_message
   turn_text: !input turn_message

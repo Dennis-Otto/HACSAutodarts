@@ -220,6 +220,64 @@ async def test_training_games_show_their_target(hass, aioclient_mock, hass_stora
     assert saved["drills"]["bobs_27"]["results"][0]["score"] == -1
 
 
+async def test_cricket_shows_marks_points_and_the_next_target(
+    hass, aioclient_mock, hass_storage
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    events = record(hass, coordinator)
+    await select_game(hass, "cricket")
+    await set_number(hass, "practice_players", 2)
+    assert state(hass, "select", "practice_game") == "cricket"
+    assert state(hass, "sensor", "practice_target") == "T20"
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.state == "unknown" and remaining.attributes["game"] == "cricket"
+    assert remaining.attributes["numbers"] == [20, 19, 18, 17, 16, 15, 25]
+
+    await throw(hass, coordinator, T20, T20)
+    turns = [attributes for kind, attributes in events if kind == "turn_changed"]
+    assert turns[-1]["player"] == 2 and turns[-1]["points"] == 0
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    first = remaining.attributes["scores"][0]
+    assert first["marks"][0] == 3 and first["points"] == 60
+    # Player 2 still needs every number.
+    assert state(hass, "sensor", "practice_target") == "T20"
+    await select_game(hass, "off")
+    saved = hass_storage[f"autodarts.{entry.entry_id}.training"]["data"]["practice"]
+    assert saved["game"] == 0 and saved["players"][0]["marks"] == [0] * 7
+
+
+async def test_cricket_survives_a_restart(hass, aioclient_mock, hass_storage):
+    marks = [3, 3, 2, 0, 0, 0, 1]
+    hass_storage["autodarts.practice-entry.training"] = {
+        "version": 1,
+        "key": "autodarts.practice-entry.training",
+        "data": {
+            "practice": {
+                "game": "cricket",
+                "players": [{"marks": marks, "points": 38, "darts": 9}],
+                "legs": [{"game": "cricket", "darts": 24, "mpr": 2.5, "points": 0}],
+            }
+        },
+    }
+    mock_board(aioclient_mock, state=board())
+    entry = MockConfigEntry(
+        domain="autodarts",
+        version=2,
+        data=local_entry_data(),
+        entry_id="practice-entry",
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert state(hass, "select", "practice_game") == "cricket"
+    assert state(hass, "sensor", "practice_target") == "T18"
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.attributes["scores"][0]["marks"] == marks
+    assert remaining.attributes["points"] == 38 and remaining.attributes["mpr"] == 0.0
+    assert remaining.attributes["legs"][0]["mpr"] == 2.5
+
+
 async def test_practice_statistics_follow_the_legs(hass, aioclient_mock):
     entry = await setup_local(hass, aioclient_mock, state=board())
     coordinator = entry.runtime_data.local

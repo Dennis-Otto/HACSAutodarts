@@ -682,7 +682,7 @@ class AutodartsLastSessionSensor(AutodartsLocalEntity, SensorEntity):
 
 
 class AutodartsPracticeSensor(AutodartsLocalEntity, SensorEntity):
-    """Remaining score and checkout of X01, and the target of a training game."""
+    """Remaining score and checkout of X01, the target of Cricket or a training game."""
 
     # Darts, scores and results are for cards; the recorder keeps the state.
     _unrecorded_attributes = frozenset({"visit", "legs", "scores", "results"})
@@ -699,7 +699,7 @@ class AutodartsPracticeSensor(AutodartsLocalEntity, SensorEntity):
     def native_value(self) -> int | str | None:
         game = self.coordinator.practice.snapshot()
         if self._key == "target":
-            return (game["drill"] or {}).get("target")
+            return (game["drill"] or {}).get("target") or game.get("target")
         return game.get(self._key)
 
     @property

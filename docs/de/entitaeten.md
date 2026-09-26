@@ -42,9 +42,9 @@ Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Ass
 | `session_started` | Eine Trainingssession beginnt: mit dem Schalter *Trainingssession*, der Taste *Neue Trainingssession* oder mit dem ersten Dart, wenn *Sessions automatisch starten* an ist | `started` und `reason` (`manual`, `new_session` oder `first_dart`) |
 | `session_ended` | Eine Trainingssession endet: mit dem Schalter, der Taste oder nach der Pause aus *Session beenden nach einer Pause von* | `reason` (`manual`, `new_session` oder `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` und die übrigen Trainingssummen |
 | `bust` | Ein Dart im [Übungsspiel](#übungsspiel) geht unter null, lässt mit Double-Out 1 übrig oder erreicht 0 ohne Double | `game`, `player`, `name`, `players`, `remaining` (der Rest zu Beginn der Aufnahme, der bleibt) |
-| `leg_won` | Ein Dart beendet das Übungsleg | `game`, `player`, `name`, `players`, `darts` und `average` des Legs, `checkout` (der ausgecheckte Rest), `legs` und `sets` des Gewinners danach, `match` (`true`, wenn das Leg das Match entscheidet) |
-| `match_won` | Ein Dart entscheidet ein Übungsmatch mehrerer Spieler | `game`, `player`, `name`, `players`, `sets`, `average` des Matches |
-| `turn_changed` | Im X01-Übungsspiel wurden die Darts gezogen und die nächste Aufnahme ist dran: im Match der nächste Spieler, allein derselbe | `game`, `player`, `name`, `players`, `remaining`, `checkout` (der Weg für drei Darts oder keiner) |
+| `leg_won` | Ein Dart beendet das Übungsleg | `game`, `player`, `name`, `players`, `darts` und `average` des Legs, `checkout` (der ausgecheckte Rest), `legs` und `sets` des Gewinners danach, `match` (`true`, wenn das Leg das Match entscheidet); bei [Cricket](#cricket) `points` und `mpr` statt `average` und `checkout` |
+| `match_won` | Ein Dart entscheidet ein Übungsmatch mehrerer Spieler | `game`, `player`, `name`, `players`, `sets`, `average` des Matches; bei Cricket `mpr` |
+| `turn_changed` | Im X01- oder Cricket-Übungsspiel wurden die Darts gezogen und die nächste Aufnahme ist dran: im Match der nächste Spieler, allein derselbe | `game`, `player`, `name`, `players`, `remaining`, `checkout` (der Weg für drei Darts oder keiner); bei Cricket `points` des nächsten Spielers |
 | `drill_finished` | Ein [Trainingsspiel](#trainingsspiele) endet: Around the Clock oder Doppeltraining sind durch, oder Bob's 27 ist vorbei | `drill`, `darts`, `hits`, `hit_rate` (Prozent); Bob's 27 ergänzt `score` und `completed` |
 | `checkout_attempt` | Ein Versuch im Checkout-Training endet | `drill`, `target`, `success`, `darts`, `attempts`, `successes`, `rate` (Prozent) |
 
@@ -86,7 +86,7 @@ Die Summen nutzen die Zustandsklasse *total increasing*. Statistiken und Verlauf
 
 ## Übungsspiel
 
-Spiele X01 am lokalen Board ohne Autodarts-Spiel. Home Assistant zählt herunter, erkennt Überwerfen und zeigt den Checkout-Weg. Das Spiel braucht keine Cloud und übersteht Neustarts.
+Spiele X01 oder [Cricket](#cricket) am lokalen Board ohne Autodarts-Spiel. Home Assistant zählt herunter, erkennt Überwerfen und zeigt den Checkout-Weg. Das Spiel braucht keine Cloud und übersteht Neustarts.
 
 - **Starten:** Wähle 301, 501 oder 701 in *Übungsspiel*. Darts, die schon im Board stecken, zählen nicht. *Neues Übungsleg* beginnt das Leg wieder beim vollen Rest.
 - **Aufnahmen:** Eine Aufnahme endet, wenn du die Darts ziehst. Nach dem Überwerfen bleibt der Rest vom Beginn der Aufnahme. Darts nach dem Überwerfen oder nach dem Checkout zählen nicht.
@@ -97,10 +97,10 @@ Spiele X01 am lokalen Board ohne Autodarts-Spiel. Home Assistant zählt herunter
 
 | Entität | Typ | Beschreibung |
 | --- | --- | --- |
-| Übungsspiel | Auswahl | `off` (*Aus*), `301`, `501`, `701` oder ein Trainingsspiel: `around_the_clock`, `doubles` (*Doppeltraining*), `checkout` (*Checkout-Training*), `bobs_27`. Die Wahl startet ein neues Match oder Spiel. |
+| Übungsspiel | Auswahl | `off` (*Aus*), `301`, `501`, `701`, `cricket` oder ein Trainingsspiel: `around_the_clock`, `doubles` (*Doppeltraining*), `checkout` (*Checkout-Training*), `bobs_27`. Die Wahl startet ein neues Match oder Spiel. |
 | Übungsspiel Restpunkte | Sensor | Restpunkte des Spielers am Board; ohne Spiel *unbekannt*. Attribute: `game`, `double_out`, `player` und `name` des Spielers am Board, `checkout`, `bust`, `won`, `visit` (die Felder der aktuellen Aufnahme), `darts` und `average` des Legs, `players`, `legs_to_win`, `sets_to_win`, `winner` (der Matchgewinner bis zum nächsten Dart), `scores` mit `player`, `name`, `remaining`, `legs`, `sets` und dem Match-`average` jedes Spielers sowie `legs` mit den letzten 10 Legs (`game`, `player`, `name`, `darts`, `average`, `checkout`, `ended`). Der Recorder speichert weder `visit`, `scores` noch `legs`. |
 | Übungsspiel Checkout-Weg | Sensor | Der Checkout-Weg, etwa `T20 25 D18`; *unbekannt*, wenn es keinen gibt. |
-| Übungsspiel Ziel | Sensor | Das Ziel des [Trainingsspiels](#trainingsspiele), etwa `7`, `D16`, `BULL` oder der Checkout-Rest `81`; ohne Trainingsspiel und nach seinem Ende *unbekannt*. Attribute: `drill`, `finished`, `visit`, `progress` und `targets`, `darts`, `hits`, `hit_rate`, das beste Ergebnis als `best` und `results` mit den letzten 10 Ergebnissen, die der Recorder nicht speichert. Bob's 27 ergänzt `score`; das Checkout-Training ergänzt `remaining`, `checkout`, `bust`, `won`, `attempt_visit`, `attempt_visits`, `attempts`, `successes` und `rate`. |
+| Übungsspiel Ziel | Sensor | Das Ziel des [Trainingsspiels](#trainingsspiele), etwa `7`, `D16`, `BULL` oder der Checkout-Rest `81`, oder bei [Cricket](#cricket) die nächste offene Zahl, etwa `T19`; ohne Ziel *unbekannt*. Attribute: `drill`, `finished`, `visit`, `progress` und `targets`, `darts`, `hits`, `hit_rate`, das beste Ergebnis als `best` und `results` mit den letzten 10 Ergebnissen, die der Recorder nicht speichert. Bob's 27 ergänzt `score`; das Checkout-Training ergänzt `remaining`, `checkout`, `bust`, `won`, `attempt_visit`, `attempt_visits`, `attempts`, `successes` und `rate`. |
 | Neues Übungsleg | Taste | Beginnt das Leg wieder beim vollen Rest; Legs und Sätze bleiben. |
 | Neues Übungsmatch | Taste | Beginnt das Match wieder bei null Legs und Sätzen. |
 | Übungsspiel First-9-Average | Sensor, Punkte | 3-Dart-Average der ersten neun Darts jedes Legs, über die letzten 10 Legs aller Spieler am Board. |
@@ -112,6 +112,18 @@ Spiele X01 am lokalen Board ohne Autodarts-Spiel. Home Assistant zählt herunter
 | Übungsspiel Sätze zum Sieg | Zahl | 1–7 Sätze gewinnen das Match. Eine Änderung startet ein neues Match. |
 | Übungsspiel Spieler *N* | Text, *Konfiguration* | Name von Spieler 1–4, höchstens 20 Zeichen, für Anzeigetafel und Ereignisse. Ohne Namen zeigt die Karte *Spieler N*. |
 | Übungsspiel Double-Out | Schalter, *Konfiguration* | Checkout auf einem Double oder dem Bullseye. Standardmäßig an. |
+
+## Cricket
+
+Wähle `cricket` in *Übungsspiel*, allein oder als Match mit bis zu vier Spielern, Legs und Sätzen wie bei X01.
+
+- **Treffer:** Nur 20 bis 15 und das Bull zählen. Ein Single ist ein Treffer, ein Double zwei, ein Triple drei; das Single-Bull ist ein Treffer, das Bullseye zwei. Drei Treffer schließen eine Zahl.
+- **Punkte:** Treffer auf einer geschlossenen Zahl bringen ihren Wert (25 beim Bull), solange ein anderer Spieler sie noch offen hat.
+- **Sieg:** Schließe alle Zahlen und hab mindestens so viele Punkte wie alle anderen. Allein gewinnt das Schließen aller Zahlen das Leg.
+- **Ziel:** *Übungsspiel Ziel* zeigt die nächste offene Zahl von 20 abwärts bis zum Bull, etwa `T19` oder `BULL`, und die Karte umrandet sie auf der Scheibe.
+- **Treffer pro Runde (MPR):** gezählte Treffer pro drei Darts, die übliche Cricket-Statistik. Treffer auf einer Zahl, die niemand mehr braucht, zählen nicht.
+
+Die Karte zeigt eine Kreidetafel mit den Treffern aller Spieler (`/`, `X`, `Ⓧ`), den Punkten und der MPR. *Übungsspiel Restpunkte* bleibt bei Cricket *unbekannt*; seine Attribute tragen das Spiel: `game` ist `cricket`, dazu `points`, `mpr`, `target`, `numbers` (20 bis 15 und 25) und `scores` mit `marks`, `points`, `legs`, `sets` und `mpr` jedes Spielers. Cricket-Legs zählen nicht für die X01-Statistik.
 
 ## Trainingsspiele
 
@@ -216,7 +228,7 @@ Richtet ein Spiel mit einem Aufruf ein und startet es, für Automationen, Skript
 
 | Feld | Werte | Beschreibung |
 | --- | --- | --- |
-| `game` | `301`, `501`, `701`, `around_the_clock`, `doubles`, `checkout`, `bobs_27` | Das Spiel; Pflichtfeld |
+| `game` | `301`, `501`, `701`, `cricket`, `around_the_clock`, `doubles`, `checkout`, `bobs_27` | Das Spiel; Pflichtfeld |
 | `players` | 1–4 Namen | Spieler in Wurfreihenfolge; die Zahl der Namen legt die Spielerzahl fest |
 | `legs` | 1–11 | Legs, die einen Satz gewinnen |
 | `sets` | 1–7 | Sätze, die das Match gewinnen |

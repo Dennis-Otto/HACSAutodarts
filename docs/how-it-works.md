@@ -71,7 +71,8 @@ The practice game follows the darts of the current visit, including corrections,
 - **Checkout route:** the integration tries every combination for the darts left in the visit. It prefers fewer darts, setup darts that are not doubles, a double over the bullseye to finish, fewer trebles, then the finishing double in the order D20, D16, D8, D18, D12, D10, D4, D14, D6, D2 and the odd doubles, and finally the bigger dart first. The scores 159, 162, 163, 165, 166, 168, 169 and everything above 170 have no route with double out.
 - **Statistics:** each finished leg adds one record for everybody at the board: the points and darts of the first nine darts, the darts thrown at a double and the checkout. Bust visits score nothing, also in the first nine. The statistics sensors use the last 10 records, so their history shows how you improve.
 - **Matches:** with several players, the turn passes when the darts are pulled, also after a bust. The player who starts the leg changes every leg. Winning *legs per set* legs wins a set and resets everybody's legs; winning *sets to win* sets wins the match. Each player's average covers the whole match.
-- **Storage:** the game, the players with their scores, the match format and the last 10 legs are saved together with the training session.
+- **Cricket:** a dart adds its marks to its number until three close it; further marks score the number's value while another player has it open. The win is checked after every dart, so a closing dart wins at once when the points are enough, and later darts of the visit do not count. Marks per round count the marks that closed a number or scored, per three darts.
+- **Storage:** the game, the players with their scores and marks, the match format and the last 10 legs are saved together with the training session.
 
 ## Camera health
 

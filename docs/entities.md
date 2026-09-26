@@ -42,9 +42,9 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `session_started` | A training session starts: with the *Training session* switch, the *New training session* button, or the first dart when *Start sessions automatically* is on | `started` and `reason` (`manual`, `new_session` or `first_dart`) |
 | `session_ended` | A training session ends: with the switch, the button, or after the pause set in *End session after a pause of* | `reason` (`manual`, `new_session` or `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` and the other training totals |
 | `bust` | A dart of the [practice game](#practice-game) goes below zero, leaves 1 with double out, or reaches 0 without a double | `game`, `player`, `name`, `players`, `remaining` (the score at the start of the visit, which stays) |
-| `leg_won` | A dart finishes the practice leg | `game`, `player`, `name`, `players`, `darts` and `average` of the leg, `checkout` (the score checked out), `legs` and `sets` of the winner afterwards, `match` (`true` when the leg decides the match) |
-| `match_won` | A dart decides a practice match of several players | `game`, `player`, `name`, `players`, `sets`, `average` of the match |
-| `turn_changed` | In an X01 practice game, the darts were pulled and the next visit is up: the next player in a match, the same player when playing alone | `game`, `player`, `name`, `players`, `remaining`, `checkout` (the route for three darts, or none) |
+| `leg_won` | A dart finishes the practice leg | `game`, `player`, `name`, `players`, `darts` and `average` of the leg, `checkout` (the score checked out), `legs` and `sets` of the winner afterwards, `match` (`true` when the leg decides the match); in [Cricket](#cricket) `points` and `mpr` instead of `average` and `checkout` |
+| `match_won` | A dart decides a practice match of several players | `game`, `player`, `name`, `players`, `sets`, `average` of the match; `mpr` in Cricket |
+| `turn_changed` | In an X01 or Cricket practice game, the darts were pulled and the next visit is up: the next player in a match, the same player when playing alone | `game`, `player`, `name`, `players`, `remaining`, `checkout` (the route for three darts, or none); in Cricket `points` of the next player |
 | `drill_finished` | A [training game](#training-games) ends: Around the Clock or doubles training reach the end, or Bob's 27 ends | `drill`, `darts`, `hits`, `hit_rate` (percent); Bob's 27 adds `score` and `completed` |
 | `checkout_attempt` | An attempt of the checkout training ends | `drill`, `target`, `success`, `darts`, `attempts`, `successes`, `rate` (percent) |
 
@@ -86,7 +86,7 @@ Totals use the state class *total increasing*, so Home Assistant's statistics an
 
 ## Practice game
 
-Play X01 on the local board without an Autodarts game. Home Assistant counts down, recognises busts and shows the checkout route. The game needs no cloud and survives restarts.
+Play X01 or [Cricket](#cricket) on the local board without an Autodarts game. Home Assistant counts down, recognises busts and shows the checkout route. The game needs no cloud and survives restarts.
 
 - **Start:** choose 301, 501 or 701 in *Practice game*. Darts already on the board do not count. *New practice leg* starts the leg again from the full score.
 - **Visits:** a visit ends when you pull the darts. After a bust, the score of the visit start stays. Darts after a bust or after the winning dart do not count.
@@ -97,10 +97,10 @@ Play X01 on the local board without an Autodarts game. Home Assistant counts dow
 
 | Entity | Type | Description |
 | --- | --- | --- |
-| Practice game | Select | `off`, `301`, `501`, `701`, or a training game: `around_the_clock`, `doubles`, `checkout`, `bobs_27`. Choosing starts a new match or game. |
+| Practice game | Select | `off`, `301`, `501`, `701`, `cricket`, or a training game: `around_the_clock`, `doubles`, `checkout`, `bobs_27`. Choosing starts a new match or game. |
 | Practice remaining score | Sensor | Remaining score of the player at the board; *unknown* without a game. Attributes: `game`, `double_out`, `player` and `name` of the player at the board, `checkout`, `bust`, `won`, `visit` (the segments of the current visit), `darts` and `average` of the leg, `players`, `legs_to_win`, `sets_to_win`, `winner` (the player who won the match, until the next dart), `scores` with `player`, `name`, `remaining`, `legs`, `sets` and the match `average` of every player, and `legs` with the last 10 legs (`game`, `player`, `name`, `darts`, `average`, `checkout`, `ended`). The recorder stores neither `visit`, `scores` nor `legs`. |
 | Practice checkout | Sensor | The checkout route, for example `T20 25 D18`; *unknown* when no route exists. |
-| Practice target | Sensor | The target of the [training game](#training-games), for example `7`, `D16`, `BULL` or the checkout score `81`; *unknown* without a training game and after it ended. Attributes: `drill`, `finished`, `visit`, `progress` and `targets`, `darts`, `hits`, `hit_rate`, the best result as `best`, and `results` with the last 10 results, which the recorder does not store. Bob's 27 adds `score`; the checkout training adds `remaining`, `checkout`, `bust`, `won`, `attempt_visit`, `attempt_visits`, `attempts`, `successes` and `rate`. |
+| Practice target | Sensor | The target of the [training game](#training-games), for example `7`, `D16`, `BULL` or the checkout score `81`, or the next open number in [Cricket](#cricket), for example `T19`; *unknown* without a target. Attributes: `drill`, `finished`, `visit`, `progress` and `targets`, `darts`, `hits`, `hit_rate`, the best result as `best`, and `results` with the last 10 results, which the recorder does not store. Bob's 27 adds `score`; the checkout training adds `remaining`, `checkout`, `bust`, `won`, `attempt_visit`, `attempt_visits`, `attempts`, `successes` and `rate`. |
 | New practice leg | Button | Starts the leg again from the full score; legs and sets stay. |
 | New practice match | Button | Starts the match again from zero legs and sets. |
 | Practice first 9 average | Sensor, points | 3-dart average of the first nine darts of each leg, over the last 10 legs of everybody at the board. |
@@ -112,6 +112,18 @@ Play X01 on the local board without an Autodarts game. Home Assistant counts dow
 | Practice sets to win | Number | 1–7 sets win the match. A change starts a new match. |
 | Practice player *N* | Text, *Configuration* | Name of player 1–4, at most 20 characters, for the scoreboard and the events. Without a name, the card shows *Player N*. |
 | Practice double out | Switch, *Configuration* | Finish on a double or the bullseye. On by default. |
+
+## Cricket
+
+Choose `cricket` in *Practice game*, alone or as a match of up to four players with legs and sets, like X01.
+
+- **Marks:** only 20 to 15 and the bull count. A single is one mark, a double two, a treble three; the outer bull is one mark, the bullseye two. Three marks close a number.
+- **Points:** marks on a closed number score its value (25 for the bull) as long as another player still has it open.
+- **Win:** close every number with at least as many points as everybody else. Alone, closing every number wins the leg.
+- **Target:** *Practice target* shows the next open number from 20 down to the bull, for example `T19` or `BULL`, and the card outlines it on the board.
+- **Marks per round (MPR):** marks that counted per three darts, the usual Cricket statistic. Marks on a number nobody needs any more do not count.
+
+The card shows a chalkboard with the marks of every player (`/`, `X`, `Ⓧ`), the points and the MPR. *Practice remaining score* stays *unknown* in Cricket; its attributes carry the game: `game` is `cricket`, plus `points`, `mpr`, `target`, `numbers` (20 to 15 and 25) and `scores` with `marks`, `points`, `legs`, `sets` and `mpr` of every player. Cricket legs do not count for the X01 statistics.
 
 ## Training games
 
@@ -216,7 +228,7 @@ Sets up and starts a game in one call, for automations, scripts, dashboard butto
 
 | Field | Values | Description |
 | --- | --- | --- |
-| `game` | `301`, `501`, `701`, `around_the_clock`, `doubles`, `checkout`, `bobs_27` | The game; required |
+| `game` | `301`, `501`, `701`, `cricket`, `around_the_clock`, `doubles`, `checkout`, `bobs_27` | The game; required |
 | `players` | 1–4 names | Players in throwing order; the number of names sets the number of players |
 | `legs` | 1–11 | Legs that win a set |
 | `sets` | 1–7 | Sets that win the match |

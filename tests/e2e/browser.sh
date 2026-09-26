@@ -12,6 +12,8 @@ PROJECT_NAME="${E2E_PROJECT_NAME:-autodarts_browser}"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.63.0-noble@sha256:72bd171a9ffc2b4b59532aaa6210e21014d07093120dc25528870c0b840da1f0"
 
 export E2E_PROJECT_NAME="${PROJECT_NAME}"
+# The same default as demo.sh, so the checks expect the board the demo starts.
+export BOARD_MANAGER="${BOARD_MANAGER:-2}"
 export E2E_PORT="${E2E_PORT:-18125}"
 # Keep container paths unchanged and mount the Windows path when running from Git Bash.
 export MSYS_NO_PATHCONV=1

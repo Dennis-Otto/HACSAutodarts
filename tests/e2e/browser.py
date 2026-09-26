@@ -71,6 +71,9 @@ PRACTICE_STATE = f"""
       el.querySelector('.rest').textContent,
       el.classList.contains('active'),
     ]),
+    grid: [...root.querySelectorAll('.cricket-grid tr')].map((row) =>
+      [...row.children].map((cell) => cell.textContent)
+    ),
   }};
 }}
 """
@@ -330,6 +333,33 @@ def practice(browser: Browser) -> None:
     check(
         scores == [["Alex", "121", False], ["Sam", "301", True]],
         f"Scoreboard {scores}",
+    )
+
+    # Cricket: marks on the chalkboard, points while the other needs the 20.
+    page.evaluate(
+        CALL_SERVICE,
+        ["select", "select_option", "practice_game", {"option": "cricket"}],
+    )
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().title === 'Cricket'", timeout=15000
+    )
+    for count in range(1, 4):
+        control({"event": "Throw detected", "throws": [T20] * count})
+    control({"status": "Takeout in progress", "event": "Takeout started"})
+    control({"status": "Throw", "event": "Takeout finished", "throws": []})
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().meta === 'Sam to throw'", timeout=15000
+    )
+    state = page.evaluate(PRACTICE_STATE)
+    grid = state["grid"]
+    check(
+        grid[0][1:] == ["Alex", "Sam"]
+        and grid[1] == ["20", "Ⓧ", ""]
+        and ["Points", "120", "0"] in grid
+        and state["remaining"] == "0"
+        and state["route"] == ["T20"]
+        and state["aim"] == 1,
+        f"Cricket state {state}",
     )
     page.evaluate(
         CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
