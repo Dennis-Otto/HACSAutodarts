@@ -154,24 +154,10 @@ Prefer writing your own? The [automation guide](docs/automations.md) explains th
 
 ## How it works
 
-```mermaid
-flowchart LR
-  subgraph PC["Board PC"]
-    CAM["Cameras"] --> BM["Autodarts Board Manager<br/>port 3180"]
-  end
-  subgraph HA["Home Assistant"]
-    CO["Autodarts integration<br/>realtime + reconciliation"]
-    TR[("Training session<br/>stored locally")]
-    EN["Entities and board events"]
-    UI["Dashboard cards, automations"]
-  end
-  BM -- "WebSocket events" --> CO
-  CO -- "HTTP reads and actions" --> BM
-  BM -. "mDNS announcement" .-> HA
-  CO --> TR --> EN
-  CO --> EN --> UI
-  CL[("Autodarts cloud")] -. "optional match data" .-> EN
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/en/architecture-dark.png">
+  <img src="docs/images/en/architecture-light.png" alt="Architecture: the Board Manager on the board PC sends realtime events to the Autodarts integration in Home Assistant, which reads and controls the board over HTTP, keeps the training session locally and provides entities, board events, cards and automations; the Autodarts cloud optionally adds match data." width="560">
+</picture>
 
 - The integration listens to the Board Manager's realtime events and reconciles them with an HTTP read every 30 seconds. Without realtime events, it reads every 2 seconds instead.
 - Actions are sent once, and failures are reported instead of retried.

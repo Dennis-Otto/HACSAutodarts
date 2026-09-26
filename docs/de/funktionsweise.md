@@ -4,27 +4,10 @@
 
 ## Architektur
 
-```mermaid
-flowchart LR
-  subgraph PC["Board-PC"]
-    CAM["Kameras"] --> BM["Autodarts Board Manager<br/>HTTP und WebSocket, Port 3180"]
-  end
-  subgraph HA["Home Assistant"]
-    LC["Lokaler Koordinator"]
-    TS[("Trainingssession<br/>.storage")]
-    CC["Cloud-Koordinator<br/>(optional)"]
-    ENT["Entitäten, Board-Ereignisse<br/>Reparaturen, Diagnose"]
-    CARDS["Dashboard-Karten"]
-  end
-  BM -- "Echtzeitereignisse" --> LC
-  LC -- "Lesen und Aktionen" --> BM
-  LC --> TS
-  LC --> ENT
-  CC --> ENT
-  ENT --> CARDS
-  AD[("Autodarts-Cloud")] --> CC
-  BM -. "mDNS-Ankündigung" .-> HA
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/de/architecture-dark.png">
+  <img src="../images/de/architecture-light.png" alt="Architektur: Der Board Manager auf dem Board-PC sendet Echtzeitereignisse an die Autodarts-Integration in Home Assistant. Sie liest und steuert das Board per HTTP, speichert die Trainingssession lokal und stellt Entitäten, Board-Ereignisse, Karten und Automationen bereit; die Autodarts-Cloud liefert optional Spieldaten." width="560">
+</picture>
 
 Ein Board ist ein Integrationseintrag mit bis zu zwei unabhängigen Verbindungen:
 

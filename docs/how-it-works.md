@@ -4,27 +4,10 @@
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph PC["Board PC"]
-    CAM["Cameras"] --> BM["Autodarts Board Manager<br/>HTTP and WebSocket, port 3180"]
-  end
-  subgraph HA["Home Assistant"]
-    LC["Local coordinator"]
-    TS[("Training session<br/>.storage")]
-    CC["Cloud coordinator<br/>(optional)"]
-    ENT["Entities, board events<br/>repairs, diagnostics"]
-    CARDS["Dashboard cards"]
-  end
-  BM -- "realtime events" --> LC
-  LC -- "reads and actions" --> BM
-  LC --> TS
-  LC --> ENT
-  CC --> ENT
-  ENT --> CARDS
-  AD[("Autodarts cloud")] --> CC
-  BM -. "mDNS announcement" .-> HA
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/en/architecture-dark.png">
+  <img src="images/en/architecture-light.png" alt="Architecture: the Board Manager on the board PC sends realtime events to the Autodarts integration in Home Assistant, which reads and controls the board over HTTP, keeps the training session locally and provides entities, board events, cards and automations; the Autodarts cloud optionally adds match data." width="560">
+</picture>
 
 A board is one config entry with up to two independent connections:
 

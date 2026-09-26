@@ -70,6 +70,14 @@ BOARD_MANAGER=2 bash tests/e2e/run.sh   # includes discovery by mDNS
 
 `tests/e2e/screenshots.sh` regenerates every image in `docs/images/en` and `docs/images/de` from the demo, including the animated GIF. Every image shows the simulated board, so no personal data can appear. The tool never opens the network search, which would list real boards.
 
+## Diagrams
+
+The architecture diagram is written in Mermaid in `docs/diagrams/` and rendered as PNG images for light and dark themes, because the GitHub app and HACS do not render Mermaid. After changing a diagram, run:
+
+```sh
+bash scripts/render_diagrams.sh
+```
+
 ## Continuous integration
 
 Every pull request runs:
