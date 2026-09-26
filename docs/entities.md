@@ -39,7 +39,7 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `takeout_finished` | The board is clear again | none |
 | `visit_completed` | A visit ends: on takeout, when new darts follow a missed takeout, or when detection stops | `score`, `darts`, `segments` (for example `["T20", "T20", "S20"]`) |
 | `status_changed` | The detection status changes | `status` |
-| `session_started` | A training session starts: with the *Training session* switch, the *New training session* button, or the first dart when *Start sessions automatically* is on | `started` |
+| `session_started` | A training session starts: with the *Training session* switch, the *New training session* button, or the first dart when *Start sessions automatically* is on | `started` and `reason` (`manual`, `new_session` or `first_dart`) |
 | `session_ended` | A training session ends: with the switch, the button, or after the pause set in *End session after a pause of* | `reason` (`manual`, `new_session` or `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` and the other training totals |
 
 Events are never replayed after a restart or reconnection. See [automations](automations.md) for examples.

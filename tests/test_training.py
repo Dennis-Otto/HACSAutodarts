@@ -292,7 +292,10 @@ def test_darts_without_a_session_are_announced_but_not_counted():
     ]
     assert session.snapshot() == before
     assert session.recent_visits[0]["score"] == 80
-    assert session.start() == ("session_started", {"started": session.started})
+    assert session.start() == (
+        "session_started",
+        {"started": session.started, "reason": "manual"},
+    )
     assert session.start() is None
     assert all(session.snapshot()[key] == 0 for key in COUNTERS)
 
@@ -301,6 +304,7 @@ def test_the_first_dart_starts_a_session_automatically():
     session = ended_session(auto_start=True)
     events = session.observe(board(BULL))
     assert [kind for kind, _ in events] == ["session_started", "dart_detected"]
+    assert events[0][1]["reason"] == "first_dart"
     assert session.active and session.snapshot()["darts"] == 1
     assert session.snapshot()["bulls"] == 1
 
@@ -326,8 +330,9 @@ def test_darts_on_the_board_stay_with_the_ended_session():
     assert summary["visits"] == 1 and summary["highest_visit"] == 120
     session.observe(board())
     assert session.snapshot()["darts"] == 2
-    kinds = [kind for kind, _ in session.new_session()]
-    assert kinds == ["session_started"]
+    assert session.new_session() == [
+        ("session_started", {"started": session.started, "reason": "new_session"})
+    ]
     assert session.end("manual")[1]["darts"] == 0
     assert len(session.history) == 1
     assert session.end("manual") is None

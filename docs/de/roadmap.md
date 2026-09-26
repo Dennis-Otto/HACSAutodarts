@@ -18,7 +18,7 @@ Enthalten, alles ohne Autodarts-Cloud:
 
 | Thema | Was es bringt |
 | --- | --- |
-| **Trainingssessions** | Session ausdrücklich starten und beenden, nach einer Zeit ohne Darts automatisch beenden und eine Übersicht vergangener Sessions behalten |
+| **Trainingssessions** | Session ausdrücklich starten und beenden, nach einer Zeit ohne Darts automatisch beenden und eine Übersicht vergangener Sessions behalten. Ein Blueprint koppelt Licht, Erkennung und Kalibrierung an die Session |
 | **Lokale Übungsspiele** | Ein X01-Übungsmodus, der die Restpunkte führt, Überwerfen erkennt und Checkouts vorschlägt, alles vom lokalen Board |
 | **Live-Kamerabild** | Livestreams der Board-Kameras statt Standbildern, wo Board Manager 2 sie anbietet |
 | **Details zum Board-PC** | Betriebssystem, Hardware und Version der Bilderkennung auf der Geräteseite und in der Diagnose |

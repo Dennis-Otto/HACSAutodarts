@@ -18,7 +18,7 @@ Released features, all of them working without the Autodarts cloud:
 
 | Topic | What it brings |
 | --- | --- |
-| **Training sessions** | Start and end a session explicitly, end it automatically after a period without darts, and keep a summary of past sessions |
+| **Training sessions** | Start and end a session explicitly, end it automatically after a period without darts, and keep a summary of past sessions. A blueprint ties light, detection and calibration to a session |
 | **Local practice games** | An X01 practice mode that tracks the remaining score, recognises busts and suggests checkouts, all from the local board |
 | **Live camera view** | Live streams of the board cameras instead of snapshots, where Board Manager 2 offers them |
 | **Board PC details** | Operating system, hardware and vision software versions on the device page and in diagnostics |

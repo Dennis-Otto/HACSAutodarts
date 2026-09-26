@@ -322,7 +322,7 @@ class TrainingSession:
         self._rest(observed or [])
         self._removing = False
 
-    def _start(self) -> tuple[str, dict[str, Any]]:
+    def _start(self, reason: str) -> tuple[str, dict[str, Any]]:
         now = dt_util.utcnow().isoformat()
         self._committed = dict.fromkeys(COUNTERS, 0)
         self._highest_visit = 0
@@ -331,11 +331,11 @@ class TrainingSession:
         self._counting = [False] * len(self._active)
         self.started, self.ended, self.active = now, None, True
         self.last_activity = now
-        return "session_started", {"started": now}
+        return "session_started", {"started": now, "reason": reason}
 
     def start(self) -> tuple[str, dict[str, Any]] | None:
         """Start counting from zero, unless a session is already running."""
-        return None if self.active else self._start()
+        return None if self.active else self._start("manual")
 
     def end(
         self, reason: str, at: str | None = None
@@ -356,7 +356,7 @@ class TrainingSession:
     def new_session(self) -> list[tuple[str, dict[str, Any]]]:
         """Finish the running session, if any, and start the next one."""
         ended = self.end("new_session")
-        return [*([ended] if ended else []), self._start()]
+        return [*([ended] if ended else []), self._start("new_session")]
 
     def observe(self, state: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         """Return dart events, preceded by a visit that ended with this state."""
@@ -404,7 +404,7 @@ class TrainingSession:
             kind = None
             if index >= len(self._active):
                 if not self.active and self.auto_start:
-                    events.append(self._start())
+                    events.append(self._start("first_dart"))
                 self._active.append(dart)
                 self._tracked.append(True)
                 self._counting.append(self.active)
