@@ -276,6 +276,9 @@
       },
       "last_match": {
         "name": "Letztes Match"
+      },
+      "favourite_double": {
+        "name": "Lieblingsdouble"
       }
     },
     "button": {
@@ -349,6 +352,9 @@
       },
       "practice_bull_off": {
         "name": "Übungsspiel Ausbullen"
+      },
+      "practice_personal_routes": {
+        "name": "Übungsspiel persönliche Checkout-Wege"
       }
     },
     "select": {

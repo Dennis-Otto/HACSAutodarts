@@ -474,6 +474,32 @@ def killer_animation(page: Page) -> None:
     game(page, "off")
 
 
+def doubles_card(page: Page) -> None:
+    """The doubles card after a doubles training with a few misses per double."""
+    open_dashboard(page, "board")
+    pull_darts()
+    game(page, "doubles")
+    for number in range(1, 13):
+        misses = (number * 3) % 7
+        darts = [at(f"S{number}")] * misses + [at(f"D{number}")]
+        for start in range(0, len(darts), 3):
+            visit = darts[start : start + 3]
+            for count in range(1, len(visit) + 1):
+                control({"event": "Throw detected", "throws": visit[:count]})
+                page.wait_for_timeout(200)
+            pull_darts()
+            page.wait_for_timeout(300)
+    game(page, "off")
+    page.goto(f"{HA}/autodarts-auto/training")
+    page.wait_for_function(
+        f"() => ({find('autodarts-doubles-card')})().some((c) =>"
+        " c.shadowRoot.querySelectorAll('.double').length >= 10)",
+        timeout=60000,
+    )
+    page.wait_for_timeout(1200)
+    card_shot(page, "doubles-card", tag="autodarts-doubles-card")
+
+
 def players_card(page: Page) -> None:
     """The players card after the matches of the animations."""
     page.goto(f"{HA}/autodarts-auto/players")
@@ -758,6 +784,7 @@ def main() -> None:
             color_scheme="dark",
         )
         players_card(people.new_page())
+        doubles_card(people.new_page())
         people.close()
         browser.close()
 

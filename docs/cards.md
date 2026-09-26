@@ -2,7 +2,7 @@
 
 [← Documentation](README.md) · [Deutsch](de/karten.md)
 
-The integration includes five cards. Home Assistant loads them automatically, so no dashboard resource and no separate HACS download are needed. Each card:
+The integration includes six cards. Home Assistant loads them automatically, so no dashboard resource and no separate HACS download are needed. Each card:
 
 - has a visual editor and follows your theme (light or dark) and language (English or German);
 - adapts to its width, from a phone to a wall tablet;
@@ -202,6 +202,21 @@ type: custom:autodarts-scoreboard-card
 full_height: true
 ```
 
+## Doubles card
+
+`custom:autodarts-doubles-card` shows the [doubles analysis](entities.md#doubles-analysis): the double ring of the board coloured from red (rarely hit) to green (about every second dart), and every double thrown at, the best first, with hits, darts and hit rate. The favourite double is filled. With `player`, it shows the doubles of one named player instead of everybody's.
+
+<img src="images/en/doubles-card.png" alt="Doubles card: the double ring coloured by hit rate from red to green, and a list of the doubles with hits, darts and hit rate, the best first" width="760">
+
+### Options
+
+| Option | Values | Default | Description |
+| --- | --- | --- | --- |
+| `device_id` | device | first board | The board to show |
+| `title` | text | *Doubles* | Card title |
+| `player` | text | everybody | A player name, for that player's doubles |
+| `accent_color` | CSS colour | theme primary colour | Labels |
+
 ## Players card
 
 `custom:autodarts-players-card` shows the [player profiles](entities.md#player-profiles): a tile for every named player with legs and matches won, 3-dart average, first 9, checkout rate, marks per round, highest visit and checkout and the fewest darts per start score. Below, the head-to-head records with a balance bar and the recent matches with their winner.
@@ -231,7 +246,7 @@ For every board, the dashboard gets up to five views, which update themselves wh
 | --- | --- |
 | **Live** | The live card across the full width, the practice game controls and the player names |
 | **Scoreboard** | The [scoreboard card](#scoreboard-card) across the whole screen, for a tablet or TV at the board |
-| **Training** | The training card, the daily goal with darts today, the streak and the last personal best, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly), the 3-dart average of the last 7 days, practice legs per day, and the first 9 average and checkout rate of the practice game |
+| **Training** | The training card, the [doubles card](#doubles-card), the daily goal with darts today, the streak and the last personal best, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly), the 3-dart average of the last 7 days, practice legs per day, and the first 9 average and checkout rate of the practice game |
 | **Players** | The [players card](#players-card), once the first named player has a profile |
 | **Board** | The board status card, the board settings and the Board Manager update |
 

@@ -83,6 +83,8 @@ ENTITIES = {
     "practice_bull_off": "switch",
     "player_profiles": "sensor",
     "last_match": "sensor",
+    "favourite_double": "sensor",
+    "practice_personal_routes": "switch",
     "practice_legs_played": "sensor",
     "practice_first_9_average": "sensor",
     "practice_players": "number",
@@ -596,6 +598,7 @@ class Scenario:
             "autodarts-status-card",
             "autodarts-scoreboard-card",
             "autodarts-players-card",
+            "autodarts-doubles-card",
         ):
             check(f'"{element}"' in source, f"Card element {element} missing")
         async with self.session.get(f"{HA}/") as response:

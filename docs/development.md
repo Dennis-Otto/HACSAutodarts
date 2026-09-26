@@ -7,7 +7,7 @@
 | Path | Contents |
 | --- | --- |
 | `custom_components/autodarts/` | The integration |
-| `custom_components/autodarts/frontend/autodarts-card.js` | The five dashboard cards, served by the integration |
+| `custom_components/autodarts/frontend/autodarts-card.js` | The six dashboard cards, served by the integration |
 | `blueprints/automation/autodarts/` | Automation blueprints |
 | `tests/` | Unit and integration tests with `pytest-homeassistant-custom-component` |
 | `tests/frontend/` | Node tests of the card logic, including property-based tests with fast-check |

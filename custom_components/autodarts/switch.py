@@ -114,7 +114,7 @@ class AutodartsTrainingSwitch(AutodartsLocalEntity, SwitchEntity):
 
 
 # Rules of the practice game: finish on a double, start on a double, bull-off.
-PRACTICE_OPTIONS = ("double_out", "double_in", "bull_off")
+PRACTICE_OPTIONS = ("double_out", "double_in", "bull_off", "personal_routes")
 
 
 class AutodartsPracticeSwitch(AutodartsLocalEntity, SwitchEntity):

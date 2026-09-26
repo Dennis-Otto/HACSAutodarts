@@ -255,6 +255,9 @@
       },
       "last_match": {
         "default": "mdi:trophy-variant"
+      },
+      "favourite_double": {
+        "default": "mdi:target"
       }
     },
     "switch": {
@@ -296,6 +299,9 @@
       },
       "practice_bull_off": {
         "default": "mdi:bullseye"
+      },
+      "practice_personal_routes": {
+        "default": "mdi:routes"
       }
     },
     "text": {

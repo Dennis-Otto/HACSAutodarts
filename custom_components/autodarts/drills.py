@@ -13,6 +13,8 @@ from typing import Any
 from homeassistant.util import dt as dt_util
 
 from .checkout import checkout
+from .doubles import double_of
+from .doubles import hits as hits_double
 from .scoring import BULL, evaluate_visit, is_double
 from .training import hit_key
 
@@ -78,6 +80,10 @@ class Drill:
     def _announce(self) -> list[tuple[str, dict[str, Any]]]:
         return []
 
+    def double_attempts(self) -> list[tuple[str, bool]]:
+        """Darts of the visit thrown at a double, and whether they hit it."""
+        return []
+
     def finish_visit(self) -> list[tuple[str, dict[str, Any]]]:
         events = self._book() if not self.finished and self._thrown() else []
         self._visit, self._skip, self._announced = [], 0, False
@@ -133,6 +139,20 @@ class TargetDrill(Drill):
                 if index == len(TARGETS):
                     return index, count
         return index, len(self._thrown())
+
+    def double_attempts(self) -> list[tuple[str, bool]]:
+        if not self.doubles or self.finished:
+            return []
+        result: list[tuple[str, bool]] = []
+        index = self.index
+        for dart in self._thrown():
+            if index == len(TARGETS):
+                break
+            double = double_of(TARGETS[index])
+            hit = hits_double(dart, double)
+            result.append((double, hit))
+            index += int(hit)
+        return result
 
     def _summary(self, darts: int, hits: int) -> dict[str, Any]:
         return {
@@ -220,6 +240,12 @@ class BobsDrill(Drill):
         return sum(
             dart["number"] == target and is_double(dart) for dart in self._thrown()
         )
+
+    def double_attempts(self) -> list[tuple[str, bool]]:
+        if self.finished:
+            return []
+        double = double_of(TARGETS[self.index])
+        return [(double, hits_double(dart, double)) for dart in self._thrown()]
 
     def _book(self) -> list[tuple[str, dict[str, Any]]]:
         hits = self._visit_hits()

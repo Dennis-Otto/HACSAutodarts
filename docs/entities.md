@@ -168,6 +168,17 @@ Every named player of a practice game gets a profile with lifetime numbers. Name
 
 The [players card](cards.md#players-card) shows all of it. To remove a profile, for example after a typo in a name, use [`autodarts.delete_player`](#delete-a-player-profile-autodartsdelete_player).
 
+## Doubles analysis
+
+Home Assistant counts every dart thrown at a double and whether it hit: in X01 when one double could finish the remaining score (2 to 40 when even, or 50 for the bullseye), in the doubles training at the current double, and in Bob's 27 at the double of the round. It keeps the numbers for everybody and, in the [player profiles](#player-profiles), for every named player.
+
+| Entity | Type | Description |
+| --- | --- | --- |
+| Favourite double | Sensor | The double with the best hit rate among those with at least 10 darts, for example `D16`; *unknown* before. Attributes: `attempts`, `hits`, `rate` (percent) and `doubles` with `double`, `attempts`, `hits` and `rate` of every double thrown at. The recorder does not store the list. |
+| Practice personal checkout routes | Switch, *Configuration* | Checkout routes prefer the strongest doubles of the player at the board (their profile, otherwise everybody's darts). Among routes with the same number of darts and trebles, a double with a better hit rate comes first; only doubles with at least 10 darts count. Off by default. |
+
+The [doubles card](cards.md#doubles-card) draws the hit rate of every double on the board.
+
 ## Party games
 
 <img src="images/en/killer.webp" alt="Animation: Killer for Alex, Sam and Kim on the scoreboard. Everybody throws for a number, Alex becomes a killer and takes Sam's lives, Kim becomes a killer too, and Alex takes the last life to win" width="760">

@@ -63,6 +63,7 @@ CARDS = {
     ],
     "scoreboard": [{"type": "custom:autodarts-scoreboard-card"}],
     "players": [{"type": "custom:autodarts-players-card"}],
+    "doubles": [{"type": "custom:autodarts-doubles-card"}],
     "styles": [
         {
             "type": "custom:autodarts-card",
@@ -81,6 +82,7 @@ def dashboard() -> dict:
         "status": 2,
         "scoreboard": 2,
         "players": 2,
+        "doubles": 2,
         "styles": 1,
     }
     return {

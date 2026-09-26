@@ -31,10 +31,13 @@ HIGHEST = {True: 170, False: 180}
 
 
 @cache
-def _finishes(double_out: bool) -> dict[int, list[tuple[int, Bed]]]:
-    """Beds that end a leg, by score, with their rank."""
+def _finishes(
+    double_out: bool, preferred: tuple[str, ...] = ()
+) -> dict[int, list[tuple[int, Bed]]]:
+    """Beds that end a leg, by score, with their rank; preferred doubles first."""
     if double_out:
-        ranked = [(FINISH_ORDER.index(bed.name), bed) for bed in DOUBLES]
+        order = [*preferred, *(name for name in FINISH_ORDER if name not in preferred)]
+        ranked = [(order.index(bed.name), bed) for bed in DOUBLES]
     else:
         # Without double out, the biggest target wins: single before double.
         ranked = [(bed.multiplier, bed) for bed in BEDS]
@@ -46,17 +49,20 @@ def _finishes(double_out: bool) -> dict[int, list[tuple[int, Bed]]]:
 
 @cache
 def checkout(
-    remaining: int, darts: int = 3, double_out: bool = True
+    remaining: int,
+    darts: int = 3,
+    double_out: bool = True,
+    preferred: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
     """The preferred way to finish, or an empty tuple when none exists.
 
     Fewer darts come first, then setups without doubles, a double before the
     bull, as few trebles as possible, the preferred finishing bed and the big
-    dart first.
+    dart first. Preferred doubles, a player's strongest, rank before the rest.
     """
     if not 0 < remaining <= HIGHEST[double_out] or not 0 < darts <= 3:
         return ()
-    finishes = _finishes(double_out)
+    finishes = _finishes(double_out, preferred)
     for count in range(darts):
         best: tuple[tuple[int, ...], tuple[Bed, ...]] | None = None
         for setup in product(BEDS, repeat=count):
