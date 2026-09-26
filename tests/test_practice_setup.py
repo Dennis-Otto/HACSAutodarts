@@ -183,6 +183,20 @@ async def test_a_match_of_two_players_with_names_turns_and_a_winner(
     assert saved["names"][0] == "Dennis" and len(saved["players"]) == 2
 
 
+async def test_legs_and_sets_to_win_are_numbers(hass, aioclient_mock, hass_storage):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    await select_game(hass, "501")
+    await set_number(hass, "practice_players", 2)
+    await set_number(hass, "practice_legs", 3)
+    await set_number(hass, "practice_sets", 2)
+    assert state(hass, "number", "practice_legs") == "3"
+    assert state(hass, "number", "practice_sets") == "2"
+    practice = entry.runtime_data.local.practice
+    assert (practice.legs_to_win, practice.sets_to_win) == (3, 2)
+    saved = hass_storage[f"autodarts.{entry.entry_id}.training"]["data"]["practice"]
+    assert (saved["legs_to_win"], saved["sets_to_win"]) == (3, 2)
+
+
 async def test_training_games_show_their_target(hass, aioclient_mock, hass_storage):
     entry = await setup_local(hass, aioclient_mock, state=board())
     coordinator = entry.runtime_data.local

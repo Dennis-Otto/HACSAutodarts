@@ -8,6 +8,7 @@ who throws next, when a player wins at once, and who wins at the end.
 from __future__ import annotations
 
 import math
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -105,7 +106,7 @@ class Visit:
     hits: int = 0
 
 
-class PartyGame:
+class PartyGame(ABC):
     """The rules of one party game for the players at the board."""
 
     kind = ""
@@ -126,11 +127,13 @@ class PartyGame:
     def round(self) -> int:
         return self.turns // self.players + 1
 
+    @abstractmethod
     def target(self, player: int) -> str | None:
-        return None
+        """What the player aims at next, if the game names one."""
 
+    @abstractmethod
     def visit(self, player: int, darts: list[dict[str, Any]]) -> Visit:
-        raise NotImplementedError
+        """What the darts of the visit change, without booking them."""
 
     def book(self, player: int, darts: list[dict[str, Any]]) -> Visit:
         """Keep the visit; the winner when it decides the leg."""
@@ -313,13 +316,13 @@ class Killer(PartyGame):
         return Visit(list(self.points), won, lives, killers, numbers)
 
     def book(self, player: int, darts: list[dict[str, Any]]) -> Visit:
-        result = self.visit(player, darts)
+        # Only a dart decides a Killer leg, never the end of a round.
+        result = super().book(player, darts)
         self.numbers, self.lives, self.killers = (
             result.numbers,
             result.lives,
             result.killers,
         )
-        self.turns += 1
         return result
 
     def next(self, player: int) -> int:
@@ -382,5 +385,12 @@ class Killer(PartyGame):
             self.killers = [killer is True for killer in killers]
 
 
+GAME_RULES: dict[str, type[PartyGame]] = {
+    "shanghai": Shanghai,
+    "halve_it": HalveIt,
+    "killer": Killer,
+}
+
+
 def make_party(kind: str, players: int) -> PartyGame:
-    return {"shanghai": Shanghai, "halve_it": HalveIt, "killer": Killer}[kind](players)
+    return GAME_RULES[kind](players)

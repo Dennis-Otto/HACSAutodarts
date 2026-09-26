@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+import aiohttp
 import pytest
 from homeassistant.helpers import entity_registry as er
 
@@ -54,6 +55,23 @@ async def test_a_missing_stream_falls_back_to_snapshots(
     with pytest.raises(AutodartsConnectionError, match="No camera stream"):
         await client.open_camera_stream(1)
     camera = AutodartsCamera(entry.runtime_data.local, 1)
+    with patch(SNAPSHOTS, return_value=None) as snapshots:
+        assert await camera.handle_async_mjpeg_stream(object()) is None
+    snapshots.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "error", [aiohttp.ClientConnectionError("refused"), TimeoutError()]
+)
+async def test_an_unreachable_stream_falls_back_to_snapshots(
+    hass, aioclient_mock, error
+):
+    entry = await setup_v2(hass, aioclient_mock)
+    aioclient_mock.get(f"{BASE}/api/streams/cams/2", exc=error)
+    client = entry.runtime_data.local.client
+    with pytest.raises(AutodartsConnectionError, match="Unable to open"):
+        await client.open_camera_stream(2)
+    camera = AutodartsCamera(entry.runtime_data.local, 2)
     with patch(SNAPSHOTS, return_value=None) as snapshots:
         assert await camera.handle_async_mjpeg_stream(object()) is None
     snapshots.assert_called_once()

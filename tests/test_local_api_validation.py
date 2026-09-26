@@ -1,5 +1,7 @@
 """Reject malformed Board Manager answers instead of passing them to entities."""
 
+from copy import deepcopy
+
 import pytest
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -9,7 +11,7 @@ from custom_components.autodarts.local_api import (
     AutodartsLocalClient,
 )
 
-from .local_helpers import BASE, CONFIG, STATE
+from .local_helpers import BASE, CONFIG, STATE, SYSTEM
 
 
 @pytest.fixture
@@ -26,12 +28,33 @@ async def client(hass, aioclient_mock):
         ("/api/cams/stats", "get_camera_stats"),
         ("/api/state/motion", "get_motion_state"),
         ("/api/cams/state", "get_camera_state"),
+        ("/api/host", "get_host"),
     ],
 )
 async def test_non_object_answers_are_rejected(client, aioclient_mock, path, read):
     aioclient_mock.get(f"{BASE}{path}", json=["not", "an", "object"])
     with pytest.raises(AutodartsConnectionError):
         await getattr(client, read)()
+
+
+async def test_system_answer_with_malformed_parts_keeps_the_rest(
+    client, aioclient_mock
+):
+    system = {
+        **deepcopy(SYSTEM),
+        "camStats": {"fps": 30},
+        "stats": "busy",
+        "motion": None,
+        "version": 2,
+    }
+    aioclient_mock.get(f"{BASE}/api/system", json=system)
+    result = await client.get_system()
+    assert result["camera_stats"] == {"fps": []}
+    assert result["stats"] == {"fps": None}
+    assert result["motion"] == {}
+    assert result["version"] is None
+    assert result["config"]["board_id"] == "board-1"
+    assert result["system"]["cloud_link"] == "connected"
 
 
 @pytest.mark.parametrize("section", ["auth", "cam", "motion"])

@@ -212,13 +212,12 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._training_dirty = False
 
     async def _listen(self) -> None:
+        """Follow the push notifications until async_shutdown cancels this task."""
         delay = 1
-        while not self._shutdown_requested:
+        while True:
             connected_at = None
             try:
                 async for kind, payload in self.client.events():
-                    if self._shutdown_requested:
-                        return
                     if kind == "connected":
                         self.stream_connected = True
                         self.update_interval = STREAM_POLL_INTERVAL
@@ -484,10 +483,10 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.generation = generation
         self._report_generation()
         entry = self._entry
-        if entry.data.get(CONF_API_GENERATION) != generation:
-            self.hass.config_entries.async_update_entry(
-                entry, data={**entry.data, CONF_API_GENERATION: generation}
-            )
+        # Unchanged data leaves the entry as it is.
+        self.hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_API_GENERATION: generation}
+        )
         if self.setup_generation is not None and (
             (self.setup_generation >= 2) != self.board_manager_2
         ):

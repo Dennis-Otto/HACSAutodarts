@@ -233,12 +233,132 @@ async def test_repeated_401_requires_reauth(hass, aioclient_mock):
 
 
 @pytest.mark.parametrize(
-    "body", [{}, [], {**DEVICE, "interval": 0}, {**DEVICE, "expires_in": -1}]
+    "body",
+    [
+        {},
+        [],
+        {**DEVICE, "interval": 0},
+        {**DEVICE, "expires_in": -1},
+        {**DEVICE, "interval": True},
+        {**DEVICE, "expires_in": "600"},
+    ],
 )
 async def test_malformed_device_response(hass, aioclient_mock, body):
     aioclient_mock.post(DEVICE_CODE_URL, json=body)
     with pytest.raises(AutodartsConnectionError):
         await request_device_code(async_get_clientsession(hass), CLIENT_ID)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        {"exc": aiohttp.ClientConnectionError()},
+        {"exc": TimeoutError()},
+        {"text": "<html>maintenance</html>"},
+    ],
+)
+async def test_unreachable_or_garbled_auth_service(hass, aioclient_mock, answer):
+    aioclient_mock.post(DEVICE_CODE_URL, **answer)
+    with pytest.raises(AutodartsConnectionError, match="Could not contact"):
+        await request_device_code(async_get_clientsession(hass), CLIENT_ID)
+
+
+async def test_code_expiring_while_pending_stops_polling(hass):
+    with patch(
+        "custom_components.autodarts.api._auth_request",
+        side_effect=AutodartsAuthError("authorization_pending"),
+    ) as request:
+        with pytest.raises(AutodartsAuthError, match="expired_token"):
+            await wait_for_device_token(
+                async_get_clientsession(hass),
+                CLIENT_ID,
+                replace(grant(), expires_at=time.monotonic() + 0.05, interval=0.01),
+            )
+    assert request.call_count >= 1
+
+
+async def test_parallel_rejections_refresh_the_token_once(hass):
+    def response(headers):
+        result = Mock()
+        result.status = 401 if headers["Authorization"] == "Bearer old" else 200
+        result.json = AsyncMock(return_value={"id": "board-1"})
+
+        async def arrive():
+            # Both requests are on the way before either learns of the rejection.
+            await asyncio.sleep(0)
+            return result
+
+        context = AsyncMock()
+        context.__aenter__.side_effect = arrive
+        return context
+
+    session = Mock(spec=aiohttp.ClientSession)
+    session.get.side_effect = lambda url, headers: response(headers)
+    cloud = AutodartsCloudClient(
+        session,
+        {
+            "access_token": "old",
+            "refresh_token": "old-refresh",
+            "expires_at": time.time() + 900,
+        },
+        CLIENT_ID,
+    )
+    with patch(
+        "custom_components.autodarts.api._auth_request", return_value=TOKEN
+    ) as refresh:
+        assert await asyncio.gather(
+            cloud.get_board("board-1"), cloud.get_board("board-1")
+        ) == [{"id": "board-1"}, {"id": "board-1"}]
+    refresh.assert_awaited_once()
+    assert session.get.call_count == 4
+
+
+async def test_expired_token_without_refresh_token_requires_reauth(
+    hass, aioclient_mock
+):
+    cloud = AutodartsCloudClient(
+        async_get_clientsession(hass),
+        {"access_token": "old", "expires_at": 0},
+        CLIENT_ID,
+    )
+    with pytest.raises(AutodartsAuthError, match="invalid_grant"):
+        await cloud.get_board("board-1")
+    assert aioclient_mock.call_count == 0
+
+
+def fresh_client(hass) -> AutodartsCloudClient:
+    return AutodartsCloudClient(
+        async_get_clientsession(hass),
+        {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "expires_at": time.time() + 900,
+        },
+        CLIENT_ID,
+    )
+
+
+async def test_forbidden_board_is_not_retried(hass, aioclient_mock):
+    aioclient_mock.get(f"{API_BASE}/bs/v0/boards/board-1", status=403)
+    with pytest.raises(AutodartsAuthError, match="access_denied"):
+        await fresh_client(hass).get_board("board-1")
+    assert aioclient_mock.call_count == 1
+
+
+async def test_boards_of_the_account(hass, aioclient_mock):
+    boards = [{"id": "board-1", "name": "Living room"}, {"id": "board-2"}]
+    aioclient_mock.get(f"{API_BASE}/bs/v0/boards/", json=boards)
+    assert await fresh_client(hass).get_boards() == boards
+    assert aioclient_mock.mock_calls[0][3] == {"Authorization": "Bearer access"}
+
+
+@pytest.mark.parametrize(
+    "body", [{"id": "board-1"}, ["board-1"], [{"id": 1}], [{"name": "no id"}]]
+)
+async def test_malformed_board_list_is_rejected(hass, aioclient_mock, body):
+    aioclient_mock.get(f"{API_BASE}/bs/v0/boards/", json=body)
+    with pytest.raises(AutodartsConnectionError, match="Invalid boards response"):
+        await fresh_client(hass).get_boards()
 
 
 @pytest.mark.parametrize(
