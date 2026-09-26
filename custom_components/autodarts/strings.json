@@ -243,6 +243,9 @@
       },
       "practice_checkout": {
         "name": "Practice checkout"
+      },
+      "practice_target": {
+        "name": "Practice target"
       }
     },
     "button": {
@@ -322,7 +325,11 @@
           "off": "Off",
           "301": "301",
           "501": "501",
-          "701": "701"
+          "701": "701",
+          "around_the_clock": "Around the Clock",
+          "doubles": "Doubles training",
+          "checkout": "Checkout training",
+          "bobs_27": "Bob's 27"
         }
       }
     },
@@ -397,7 +404,9 @@
               "bust": "Bust",
               "leg_won": "Leg won",
               "match_won": "Match won",
-              "turn_changed": "Turn changed"
+              "turn_changed": "Turn changed",
+              "drill_finished": "Training game finished",
+              "checkout_attempt": "Checkout attempt"
             }
           }
         }

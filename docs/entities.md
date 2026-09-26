@@ -45,6 +45,8 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `leg_won` | A dart finishes the practice leg | `game`, `player`, `name`, `darts` and `average` of the leg, `checkout` (the score checked out), `legs` and `sets` of the winner afterwards |
 | `match_won` | A dart decides a practice match of several players | `game`, `player`, `name`, `sets`, `average` of the match |
 | `turn_changed` | In a practice match, the darts were pulled and the next player is up | `game`, `player`, `name`, `remaining` |
+| `drill_finished` | A [training game](#training-games) ends: Around the Clock or doubles training reach the end, or Bob's 27 ends | `drill`, `darts`, `hits`, `hit_rate` (percent); Bob's 27 adds `score` and `completed` |
+| `checkout_attempt` | An attempt of the checkout training ends | `drill`, `target`, `success`, `darts`, `attempts`, `successes`, `rate` (percent) |
 
 Events are never replayed after a restart or reconnection. See [automations](automations.md) for examples.
 
@@ -91,12 +93,14 @@ Play X01 on the local board without an Autodarts game. Home Assistant counts dow
 - **Checkout:** the route for the darts left in the visit, for example `T20 T20 BULL` for 170. [How the route is chosen](how-it-works.md#practice-game).
 - **Matches:** set *Practice players* to 2, 3 or 4. After a visit, the next player throws; a bust passes the turn too. The first player to win *Practice legs per set* legs wins the set, and the first to win *Practice sets to win* sets wins the match. The result stays on the card until the next dart, which starts a new match. With one player, legs and sets are not counted.
 - **Sessions:** the practice game and [training sessions](#training-session) are independent. A dart counts in both.
+- **Training games:** *Practice game* also offers four [training games](#training-games) instead of X01.
 
 | Entity | Type | Description |
 | --- | --- | --- |
-| Practice game | Select | `off`, `301`, `501` or `701`. Choosing a game starts a new match. |
+| Practice game | Select | `off`, `301`, `501`, `701`, or a training game: `around_the_clock`, `doubles`, `checkout`, `bobs_27`. Choosing starts a new match or game. |
 | Practice remaining score | Sensor | Remaining score of the player at the board; *unknown* without a game. Attributes: `game`, `double_out`, `player` and `name` of the player at the board, `checkout`, `bust`, `won`, `visit` (the segments of the current visit), `darts` and `average` of the leg, `players`, `legs_to_win`, `sets_to_win`, `winner` (the player who won the match, until the next dart), `scores` with `player`, `name`, `remaining`, `legs`, `sets` and the match `average` of every player, and `legs` with the last 10 legs (`game`, `player`, `name`, `darts`, `average`, `checkout`, `ended`). The recorder stores neither `visit`, `scores` nor `legs`. |
 | Practice checkout | Sensor | The checkout route, for example `T20 25 D18`; *unknown* when no route exists. |
+| Practice target | Sensor | The target of the [training game](#training-games), for example `7`, `D16`, `BULL` or the checkout score `81`; *unknown* without a training game and after it ended. Attributes: `drill`, `finished`, `visit`, `progress` and `targets`, `darts`, `hits`, `hit_rate`, the best result as `best`, and `results` with the last 10 results, which the recorder does not store. Bob's 27 adds `score`; the checkout training adds `remaining`, `checkout`, `bust`, `won`, `attempt_visit`, `attempt_visits`, `attempts`, `successes` and `rate`. |
 | New practice leg | Button | Starts the leg again from the full score; legs and sets stay. |
 | New practice match | Button | Starts the match again from zero legs and sets. |
 | Practice players | Number | 1–4 players. A change starts a new match. |
@@ -104,6 +108,19 @@ Play X01 on the local board without an Autodarts game. Home Assistant counts dow
 | Practice sets to win | Number | 1–7 sets win the match. A change starts a new match. |
 | Practice player *N* | Text, *Configuration* | Name of player 1–4, at most 20 characters, for the scoreboard and the events. Without a name, the card shows *Player N*. |
 | Practice double out | Switch, *Configuration* | Finish on a double or the bullseye. On by default. |
+
+## Training games
+
+Four classic drills, chosen in *Practice game*. Each follows the darts of the current visit and books the visit when you pull the darts. Darts already on the board when a game starts do not count. A finished game stays on the card until the next dart starts it again; *New practice leg* starts it again at once. Every game keeps its last 10 results.
+
+| Game | Goal |
+| --- | --- |
+| **Around the Clock** (`around_the_clock`) | Hit 1, 2, … 20 and then the bull, in order, with any bed of the number. Fewer darts are better. |
+| **Doubles training** (`doubles`) | The same with the doubles only: D1 to D20, then the bullseye. |
+| **Checkout training** (`checkout`) | A random score from 2 to 170 that three darts can finish, checked out on a double within three visits. A bust ends the attempt. The checkout rate counts successful attempts. |
+| **Bob's 27** (`bobs_27`) | Start with 27 points and throw one visit at each double from D1 to D20 and then at the bullseye. Every hit adds the value of the double; a visit without a hit subtracts it. The game ends when the score falls below zero, or after the bullseye. |
+
+Training games are for one player; *Practice players* applies to X01.
 
 ## Controls
 

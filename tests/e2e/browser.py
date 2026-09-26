@@ -334,6 +334,29 @@ def practice(browser: Browser) -> None:
     page.evaluate(
         CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
     )
+
+    # Around the Clock: the next number and all of its beds to aim at.
+    page.evaluate(
+        CALL_SERVICE,
+        ["select", "select_option", "practice_game", {"option": "around_the_clock"}],
+    )
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().title === 'Around the Clock'", timeout=15000
+    )
+    one = {
+        "segment": {"name": "S1", "number": 1, "multiplier": 1, "bed": "SingleOuter"},
+        "coords": {"x": 0.25, "y": 0.72},
+    }
+    control({"event": "Throw detected", "throws": [one]})
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().remaining === '2'", timeout=15000
+    )
+    state = page.evaluate(PRACTICE_STATE)
+    check(
+        state["aim"] == 4 and state["meta"].startswith("1 darts"),
+        f"Around the Clock state {state}",
+    )
+    control({"status": "Throw", "event": "Takeout finished", "throws": []})
     page.evaluate(
         CALL_SERVICE, ["select", "select_option", "practice_game", {"option": "off"}]
     )
@@ -529,7 +552,8 @@ def main() -> None:
         browser.close()
     print(
         "Browser check passed: card registration on every load, visit, highlights, "
-        "controls with confirmation, last visits, practice game and match, "
+        "controls with confirmation, last visits, practice game, match and "
+        "training games, "
         "training heatmap, "
         "history and "
         "sessions, board status, "

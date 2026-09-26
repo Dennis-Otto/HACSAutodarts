@@ -62,6 +62,8 @@ EVENT_TYPES = [
     "leg_won",
     "match_won",
     "turn_changed",
+    "drill_finished",
+    "checkout_attempt",
 ]
 
 
@@ -606,8 +608,8 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.training.idle_minutes = minutes
         await self._async_training([])
 
-    async def async_play(self, game: int) -> None:
-        """Start a practice game, or stop playing with 0."""
+    async def async_play(self, game: int | str) -> None:
+        """Start an X01 match or a training game, or stop playing with 0."""
         self.practice.play(game)
         await self._async_training([])
 

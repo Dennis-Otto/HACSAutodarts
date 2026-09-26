@@ -243,6 +243,9 @@
       },
       "practice_checkout": {
         "name": "Übungsspiel Checkout-Weg"
+      },
+      "practice_target": {
+        "name": "Übungsspiel Ziel"
       }
     },
     "button": {
@@ -322,7 +325,11 @@
           "off": "Aus",
           "301": "301",
           "501": "501",
-          "701": "701"
+          "701": "701",
+          "around_the_clock": "Around the Clock",
+          "doubles": "Doppeltraining",
+          "checkout": "Checkout-Training",
+          "bobs_27": "Bob's 27"
         }
       }
     },
@@ -397,7 +404,9 @@
               "bust": "Überworfen",
               "leg_won": "Leg gewonnen",
               "match_won": "Match gewonnen",
-              "turn_changed": "Spielerwechsel"
+              "turn_changed": "Spielerwechsel",
+              "drill_finished": "Trainingsspiel beendet",
+              "checkout_attempt": "Checkout-Versuch"
             }
           }
         }

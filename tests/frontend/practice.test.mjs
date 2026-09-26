@@ -98,3 +98,30 @@ test("the live view offers the practice controls and player names", () => {
     { type: "entities", title: "Spielernamen", entities: ["text.board_player_1", "text.board_player_2"] },
   ]);
 });
+
+test("training games show their target, progress and beds to aim at", async () => {
+  const { drillView, drillBeds } = await import("../../custom_components/autodarts/frontend/autodarts-card.js");
+  assert.equal(drillView(undefined), null);
+  assert.equal(drillView({ state: "7", attributes: { drill: "golf" } }), null);
+  const clock = drillView({
+    state: "7",
+    attributes: { drill: "around_the_clock", progress: 6, targets: 21, darts: 9, hit_rate: 66.7, finished: false },
+  });
+  assert.deepEqual([clock.target, clock.progress, clock.darts, clock.hitRate], ["7", 6, 9, 66.7]);
+  assert.deepEqual(drillBeds(clock), ["SI7", "SO7", "T7", "D7"]);
+  assert.deepEqual(drillBeds({ ...clock, target: "BULL" }), ["Bull", "25"]);
+  const doubles = drillView({ state: "D16", attributes: { drill: "doubles" } });
+  assert.deepEqual(drillBeds(doubles), ["D16"]);
+  const done = drillView({
+    state: "unknown",
+    attributes: { drill: "bobs_27", finished: true, score: 77, results: [{ completed: true }] },
+  });
+  assert.deepEqual([done.target, done.finished, done.completed, done.score], [null, true, true, 77]);
+  assert.deepEqual(drillBeds(done), []);
+  const checkout = drillView({
+    state: "81",
+    attributes: { drill: "checkout", remaining: 81, checkout: "T15 D18", attempt_visit: 2, attempts: 4, successes: 1, rate: 25 },
+  });
+  assert.deepEqual([checkout.remaining, checkout.visit, checkout.rate], [81, 2, 25]);
+  assert.deepEqual(drillBeds(checkout), ["T15"]);
+});

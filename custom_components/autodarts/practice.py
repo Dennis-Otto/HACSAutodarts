@@ -1,4 +1,4 @@
-"""X01 practice games on the local board: one player or a match of up to four."""
+"""Practice games on the local board: X01 for up to four players, and drills."""
 
 from __future__ import annotations
 
@@ -8,6 +8,9 @@ from typing import Any
 from homeassistant.util import dt as dt_util
 
 from .checkout import checkout
+from .drills import DRILLS, Drill, make_drill
+from .scoring import average as _average
+from .scoring import evaluate_visit
 from .training import hit_key
 
 GAMES = (301, 501, 701)
@@ -16,19 +19,6 @@ MAX_PLAYERS = 4
 MAX_LEGS = 11
 MAX_SETS = 7
 NAME_LENGTH = 20
-
-
-def _score(dart: dict[str, Any]) -> int:
-    return int(dart["number"] * dart["multiplier"])
-
-
-def _double(dart: dict[str, Any]) -> bool:
-    """Double rings and the bullseye end a leg with double out."""
-    return bool(dart["multiplier"] == 2 and dart["number"] != 0)
-
-
-def _average(points: int, darts: int) -> float | None:
-    return round(points * 3 / darts, 2) if darts else None
 
 
 def _count(value: object, low: int, high: int, default: int) -> int:
@@ -79,6 +69,9 @@ class PracticeGame:
         self.starter = 0
         self.winner: int | None = None
         self.legs: list[dict[str, Any]] = []
+        # The training game played instead of X01, if any.
+        self.drill: str | None = None
+        self.drills: dict[str, Drill] = {kind: make_drill(kind) for kind in DRILLS}
         self._visit: list[dict[str, Any]] = []
         # Darts of the current visit thrown before the leg began.
         self._skip = 0
@@ -121,6 +114,14 @@ class PracticeGame:
             # Only the winner of a finished match has nothing left to score.
             if self.game and not player.remaining and index != self.winner:
                 player.remaining, player.darts, player.points = self.game, 0, 0
+        drills = saved.get("drills")
+        for kind, drill in self.drills.items():
+            state = drills.get(kind) if isinstance(drills, dict) else None
+            if isinstance(state, dict):
+                drill.restore(state)
+        self.drill = saved["drill"] if saved.get("drill") in DRILLS else None
+        if self.drill:
+            self.game = 0
         legs = saved.get("legs")
         self.legs = [
             dict(leg)
@@ -143,13 +144,16 @@ class PracticeGame:
             "starter": self.starter,
             "winner": self.winner,
             "legs": [dict(leg) for leg in self.legs],
+            "drill": self.drill,
+            "drills": {kind: drill.stored() for kind, drill in self.drills.items()},
         }
 
     # -- settings --------------------------------------------------------------
 
-    def play(self, game: int) -> None:
-        """Start a new match of the game, or stop playing with 0."""
-        self.game = game if game in GAMES else 0
+    def play(self, game: int | str) -> None:
+        """Start an X01 match or a training game, or stop playing with 0."""
+        self.drill = game if isinstance(game, str) and game in DRILLS else None
+        self.game = game if not self.drill and game in GAMES else 0
         self.new_match()
 
     def set_players(self, count: int) -> None:
@@ -175,6 +179,8 @@ class PracticeGame:
 
     def new_leg(self) -> None:
         """Start the leg from the full score; darts already thrown do not count."""
+        if self.drill:
+            self.drills[self.drill].reset(len(self._visit))
         for player in self.players:
             player.remaining, player.darts, player.points = self.game, 0, 0
         self.current = self.starter
@@ -195,19 +201,7 @@ class PracticeGame:
     def _evaluate(self) -> tuple[int, str | None, int]:
         """Remaining score, outcome and counted darts of the current visit."""
         start = self.players[self.current].remaining
-        remaining = start
-        for index, dart in enumerate(self._thrown(), 1):
-            left = remaining - _score(dart)
-            if (
-                left < 0
-                or (self.double_out and left == 1)
-                or (left == 0 and self.double_out and not _double(dart))
-            ):
-                return start, "bust", index
-            if left == 0:
-                return 0, "won", index
-            remaining = left
-        return remaining, None, len(self._thrown())
+        return evaluate_visit(start, self._thrown(), self.double_out)
 
     def _result(self, index: int) -> tuple[int, int, bool]:
         """Legs, sets and the match decision after the player wins this leg."""
@@ -223,6 +217,8 @@ class PracticeGame:
         """Follow the darts of the current visit, announcing a bust or a win."""
         self._visit = list(visit)
         self._skip = min(self._skip, len(self._visit))
+        if self.drill:
+            return self.drills[self.drill].track(visit)
         if not self.game:
             return []
         if self.winner is not None and self._thrown():
@@ -274,7 +270,9 @@ class PracticeGame:
     def finish_visit(self) -> list[tuple[str, dict[str, Any]]]:
         """Book the visit whose darts were pulled; then the next player throws."""
         events: list[tuple[str, dict[str, Any]]] = []
-        if self.game and self.winner is None and self._thrown():
+        if self.drill:
+            events = self.drills[self.drill].finish_visit()
+        elif self.game and self.winner is None and self._thrown():
             remaining, outcome, darts = self._evaluate()
             player = self.players[self.current]
             scored = player.remaining - remaining
@@ -334,6 +332,7 @@ class PracticeGame:
             "legs_to_win": self.legs_to_win,
             "sets_to_win": self.sets_to_win,
             "legs": self.legs,
+            "drill": self.drills[self.drill].snapshot() if self.drill else None,
         }
         if not self.game:
             return {"game": None, **common}
