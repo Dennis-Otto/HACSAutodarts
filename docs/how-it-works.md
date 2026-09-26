@@ -44,17 +44,20 @@ The generation is detected on every read. When you update the board, the integra
 
 ## Training session
 
-The training session is computed in Home Assistant from what the board detects. It follows these rules:
+Training sessions are computed in Home Assistant from what the board detects. They follow these rules:
 
+- **Sessions decide what counts.** Only darts thrown while a session runs count. Darts already on the board when a session starts belong to no session; darts still on the board when it ends stay with the ended session.
+- **Events do not depend on sessions.** Dart, correction, takeout and visit events are announced with or without a running session.
+- **Pauses end sessions.** With a pause set, a session ends that many minutes after its last dart, and its end time is the time of that dart. An end that became due while Home Assistant was stopped is applied at the next start.
 - **Darts count once.** Repeated messages, camera jitter of the position and reconnects never count a dart twice.
 - **Corrections revise.** If the board corrects a dart in the current visit, the totals follow the correction, for example when a 180 turns into a 140.
 - **Takeouts end a visit.** Removing darts ends the visit; the removed darts keep their score. The same happens when new darts appear without an empty board in between (a missed takeout), and when the detection stops.
 - **Startup darts are ignored.** Darts that are already on the board when Home Assistant or the connection starts are not counted.
 - **Withdrawn detections.** If the board withdraws a detection outside a takeout, the dart is removed from the totals again.
 - **Visit buckets.** 100+ counts visits with 100–139 points, 140+ with 140–179, and 180 with exactly three triple 20s. Merged visits with more than three darts (after a missed takeout) are not bucketed.
-- **Storage.** The session is saved in Home Assistant's `.storage` folder at most every five seconds, and on shutdown. It is deleted together with the integration.
+- **Storage.** The session, its settings, the last 20 sessions and the last 10 visits are saved in Home Assistant's `.storage` folder at most every five seconds, at once when a session starts or ends, and on shutdown. They are deleted together with the integration.
 
-The session does not know players or games. It counts every detected dart, regardless of whether you play X01, Cricket or just practise.
+Sessions do not know players or games. A running session counts every detected dart, whether you play X01, Cricket or just practise.
 
 ## Camera health
 

@@ -37,6 +37,7 @@ PLATFORMS: Final = [
     "button",
     "switch",
     "select",
+    "number",
     "camera",
     "event",
     "update",

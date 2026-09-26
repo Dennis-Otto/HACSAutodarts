@@ -7,18 +7,20 @@ import logging
 import time
 from collections.abc import Callable, Coroutine
 from contextlib import suppress
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .camera_health import CameraHealth
 from .const import BOARD_MANAGER_2_URL, CONF_API_GENERATION, DOMAIN
@@ -49,6 +51,8 @@ EVENT_TYPES = [
     "takeout_finished",
     "status_changed",
     "visit_completed",
+    "session_started",
+    "session_ended",
 ]
 
 
@@ -83,6 +87,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass, 1, f"{DOMAIN}.{entry.entry_id}.training"
         )
         self._training_dirty = False
+        self._idle_unsub: CALLBACK_TYPE | None = None
         self._health = CameraHealth()
         self._settings: dict[str, Any] = {}
         self._version: str | None = None
@@ -108,10 +113,12 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _save_training(self) -> None:
         self._training_dirty = True
-        self._store.async_delay_save(self.training.snapshot, 5)
+        self._store.async_delay_save(self.training.stored, 5)
 
     @callback
     def async_start(self) -> None:
+        # Entities exist now, so an overdue idle end is announced, too.
+        self._schedule_idle_end()
         if self._stream_task is None:
             self._stream_task = self._entry.async_create_background_task(
                 self.hass, self._listen(), f"{DOMAIN} local events"
@@ -124,8 +131,11 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             with suppress(asyncio.CancelledError):
                 await self._stream_task
             self._stream_task = None
+        if self._idle_unsub:
+            self._idle_unsub()
+            self._idle_unsub = None
         if self._training_dirty:
-            await self._store.async_save(self.training.snapshot())
+            await self._store.async_save(self.training.stored())
             self._training_dirty = False
 
     async def _listen(self) -> None:
@@ -210,7 +220,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._emit("takeout_finished", {}, source)
 
     def _process(self, data: dict[str, Any], fields: set[str], source: str) -> None:
-        previous_training = self.training.snapshot()
+        previous_training = self.training.stored()
         state = data.get("local", {})
         if "local" in fields:
             previous = self._observed_state
@@ -257,8 +267,9 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._finish_takeout(source)
             self._observed_motion = motion
         data["training"] = self.training.snapshot()
-        if data["training"] != previous_training:
+        if self.training.stored() != previous_training:
             self._save_training()
+            self._schedule_idle_end()
         data["camera_problems"] = self._health.update(data, time.monotonic())
 
     @callback
@@ -508,13 +519,64 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if device and device.sw_version != self._version:
             registry.async_update_device(device.id, sw_version=self._version)
 
-    async def async_reset_training(self) -> None:
-        self.training.reset((self.data or {}).get("local", {}))
-        snapshot = self.training.snapshot()
-        await self._store.async_save(snapshot)
-        self._training_dirty = self.training.snapshot() != snapshot
+    async def _async_training(self, events: list[tuple[str, dict[str, Any]]]) -> None:
+        """Save a session change at once, then announce it."""
+        stored = self.training.stored()
+        await self._store.async_save(stored)
+        self._training_dirty = self.training.stored() != stored
+        for kind, attributes in events:
+            self._emit(kind, attributes, "training")
         self.data = {**(self.data or {}), "training": self.training.snapshot()}
+        self._schedule_idle_end()
         self.async_update_listeners()
+
+    async def async_start_session(self) -> None:
+        started = self.training.start()
+        await self._async_training([started] if started else [])
+
+    async def async_end_session(self) -> None:
+        ended = self.training.end("manual")
+        await self._async_training([ended] if ended else [])
+
+    async def async_new_session(self) -> None:
+        await self._async_training(self.training.new_session())
+
+    async def async_set_auto_start(self, enabled: bool) -> None:
+        self.training.auto_start = enabled
+        await self._async_training([])
+
+    async def async_set_idle_minutes(self, minutes: int) -> None:
+        self.training.idle_minutes = minutes
+        await self._async_training([])
+
+    def _idle_due(self) -> datetime | None:
+        """When a running session ends without darts, if the user wants that."""
+        training = self.training
+        last = dt_util.parse_datetime(training.last_activity or "")
+        if not training.active or not training.idle_minutes or last is None:
+            return None
+        return last + timedelta(minutes=training.idle_minutes)
+
+    @callback
+    def _schedule_idle_end(self) -> None:
+        if self._idle_unsub:
+            self._idle_unsub()
+            self._idle_unsub = None
+        if (due := self._idle_due()) is not None:
+            self._idle_unsub = async_track_point_in_utc_time(
+                self.hass, self._async_end_idle, max(due, dt_util.utcnow())
+            )
+
+    async def _async_end_idle(self, _now: datetime) -> None:
+        self._idle_unsub = None
+        due = self._idle_due()
+        if due is None or due > dt_util.utcnow():
+            # A dart arrived in the meantime and rescheduled the end.
+            self._schedule_idle_end()
+            return
+        # The session ended with its last dart, not when the pause ran out.
+        ended = self.training.end("idle", at=self.training.last_activity)
+        await self._async_training([ended] if ended else [])
 
     async def async_action(
         self, action: Callable[[], Coroutine[Any, Any, None]]

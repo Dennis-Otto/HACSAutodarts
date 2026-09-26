@@ -67,12 +67,17 @@
         "default": "mdi:video-off"
       },
       "reset_training": {
-        "default": "mdi:counter"
+        "default": "mdi:restart"
       }
     },
     "event": {
       "board_events": {
         "default": "mdi:bullseye-arrow"
+      }
+    },
+    "number": {
+      "training_idle_timeout": {
+        "default": "mdi:timer-sand"
       }
     },
     "select": {
@@ -178,6 +183,9 @@
       },
       "training_highest_visit": {
         "default": "mdi:trophy"
+      },
+      "training_last_session": {
+        "default": "mdi:chart-timeline-variant"
       }
     },
     "switch": {
@@ -201,6 +209,15 @@
       },
       "auto_distortion": {
         "default": "mdi:auto-fix"
+      },
+      "training_session": {
+        "default": "mdi:target-account",
+        "state": {
+          "off": "mdi:target"
+        }
+      },
+      "training_auto_start": {
+        "default": "mdi:play-circle-outline"
       }
     }
   }

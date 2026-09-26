@@ -22,14 +22,14 @@ Jedes Board ist ein Gerät mit den folgenden Entitäten. Ihre Namen folgen der S
 | Letzter Dart | Sensor | Feld des letzten Darts, zum Beispiel `T20`, `D16`, `S5`, `25`, `Bull`. |
 | Punkte letzter Dart | Sensor, Punkte | Punkte des letzten Darts. |
 | Darts in der Aufnahme | Sensor, Darts | Darts, die gerade im Board erkannt sind (0–3). |
-| Erkannte Aufnahmepunkte | Sensor, Punkte | Summe der erkannten Darts. Das Attribut `throws` listet jeden Dart mit `segment`, `number`, `multiplier`, `score`, `bed` und der normierten Position `x`/`y`. Der Recorder speichert `throws` nicht. |
+| Erkannte Aufnahmepunkte | Sensor, Punkte | Summe der erkannten Darts. Das Attribut `throws` listet jeden Dart mit `segment`, `number`, `multiplier`, `score`, `bed` und der normierten Position `x`/`y`. Das Attribut `recent_visits` listet die letzten zehn abgeschlossenen Aufnahmen, die neueste zuerst, mit `time`, `score`, `darts` und `segments`. Der Recorder speichert beide Attribute nicht. |
 | Letztes Board-Ereignis | Sensor | Der letzte Ereignistext des Board Managers, etwa `Throw detected` oder `Takeout started`. |
 
 Die Aufnahmepunkte sind die reine Summe der Darts, ohne Spielregeln wie Überwerfen.
 
 ## Board-Ereignisse
 
-Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Assistant-Ereignisse aus. Das Attribut `event_type` sagt, was passiert ist; weitere Attribute enthalten die Details. Jedes Ereignis hat zusätzlich `source`: `websocket` für Echtzeit, `poll` beim Abgleich per HTTP.
+Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Assistant-Ereignisse aus. Das Attribut `event_type` sagt, was passiert ist; weitere Attribute enthalten die Details. Jedes Ereignis hat zusätzlich `source`: `websocket` für Echtzeit, `poll` beim Abgleich per HTTP und `training` für Session-Ereignisse.
 
 | `event_type` | Wann | Attribute |
 | --- | --- | --- |
@@ -39,12 +39,21 @@ Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Ass
 | `takeout_finished` | Das Board ist wieder frei | keine |
 | `visit_completed` | Eine Aufnahme endet: bei der Entnahme, wenn nach einer verpassten Entnahme neue Darts folgen, oder wenn die Erkennung stoppt | `score`, `darts`, `segments` (etwa `["T20", "T20", "S20"]`) |
 | `status_changed` | Der Erkennungsstatus ändert sich | `status` |
+| `session_started` | Eine Trainingssession beginnt: mit dem Schalter *Trainingssession*, der Taste *Neue Trainingssession* oder mit dem ersten Dart, wenn *Sessions automatisch starten* an ist | `started` |
+| `session_ended` | Eine Trainingssession endet: mit dem Schalter, der Taste oder nach der Pause aus *Session beenden nach einer Pause von* | `reason` (`manual`, `new_session` oder `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` und die übrigen Trainingssummen |
 
 Nach einem Neustart oder Verbindungsabbruch werden Ereignisse nie wiederholt. Beispiele stehen unter [Automationen](automationen.md).
 
 ## Trainingssession
 
-Die Integration führt in Home Assistant eine Trainingssession über alle Darts, die das Board erkennt, unabhängig von Autodarts-Spielen. Sie übersteht Neustarts und läuft, bis du sie mit **Trainingsstatistik zurücksetzen** oder mit *Neue Session* auf der [Trainingskarte](karten.md#trainingskarte) neu startest.
+Die Integration zählt deine Darts in Trainingssessions, in Home Assistant und unabhängig von Autodarts-Spielen. Sessions überstehen Neustarts.
+
+- **Starten und beenden:** Der Schalter *Trainingssession* startet eine Session bei null und beendet sie. *Neue Trainingssession* beendet die laufende Session und startet die nächste.
+- **Automatisch:** Ist *Sessions automatisch starten* an, startet der erste Dart eine Session, wenn keine läuft. *Session beenden nach einer Pause von* beendet eine Session so viele Minuten nach ihrem letzten Dart; `0` lässt sie weiterlaufen.
+- **Ohne Session** werden Darts und Aufnahmen weiter als [Board-Ereignisse](#board-ereignisse) gemeldet, etwa für eine 180-Feier im Online-Spiel, aber nicht gezählt.
+- **Historie:** Eine beendete Session behält ihre Summen, bis die nächste beginnt. *Schnitt der letzten Session* hält den 3-Dart-Average jeder beendeten Session mit Darts fest; sein Verlauf zeigt deine Entwicklung.
+
+Mit den Standardwerten, automatischer Start an und keine Pausengrenze, zählt jeder Dart wie in Version 1.0.
 
 | Entität | Typ | Beschreibung |
 | --- | --- | --- |
@@ -61,7 +70,11 @@ Die Integration führt in Home Assistant eine Trainingssession über alle Darts,
 | Training: Bull-Treffer | Sensor, Summe | Darts im Bull oder Single Bull. |
 | Training: Fehlwürfe | Sensor, Summe | Darts außerhalb der Wertungsfelder. |
 | Trainingsbeginn | Sensor, Zeitstempel | Wann die Session begonnen hat. |
-| Trainingsstatistik zurücksetzen | Taste | Startet eine neue Session; das Board selbst bleibt unberührt. |
+| Trainingssession | Schalter | An, solange eine Session läuft. Einschalten startet eine Session bei null, Ausschalten beendet sie. |
+| Neue Trainingssession | Taste | Beendet die laufende Session und startet die nächste; das Board selbst bleibt unberührt. |
+| Sessions automatisch starten | Schalter, *Konfiguration* | Der erste Dart startet eine Session, wenn keine läuft. Standardmäßig an. |
+| Session beenden nach einer Pause von | Zahl, *Konfiguration* | Minuten ohne Darts, 0–240, nach denen eine Session von selbst endet. `0`, der Standard, lässt sie weiterlaufen. |
+| Schnitt der letzten Session | Sensor, Punkte | 3-Dart-Average der letzten beendeten Session. Attribute: `started`, `ended`, `duration_minutes`, die Summen und `sessions` mit den letzten 20 Sessions, die der Recorder nicht speichert. |
 
 Die Summen nutzen die Zustandsklasse *total increasing*. Statistiken und Verlaufsdiagramme von Home Assistant behandeln einen Neustart der Session daher korrekt. [So wird gezählt](funktionsweise.md#trainingssession).
 

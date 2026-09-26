@@ -8,6 +8,11 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
+# Finished sessions and completed visits kept for the cards.
+HISTORY_SIZE = 20
+RECENT_VISITS = 10
+IDLE_MINUTES_MAX = 240
+
 # Totals that only grow during a session.
 COUNTERS = (
     "darts",
@@ -100,31 +105,92 @@ def _contains(darts: list[dict[str, Any]], subset: list[dict[str, Any]]) -> bool
     return True
 
 
+def _timestamp(value: object) -> str | None:
+    """A stored ISO timestamp with a time zone; anything else is dropped."""
+    if isinstance(value, str):
+        parsed: datetime | None = dt_util.parse_datetime(value)
+        if parsed and parsed.tzinfo:
+            return value
+    return None
+
+
+def _count(value: object) -> int:
+    return value if type(value) is int and value >= 0 else 0
+
+
+def _summarize(started: str, ended: str, totals: dict[str, Any]) -> dict[str, Any]:
+    """Counts, 3-dart average and duration of a finished session."""
+    counts = {key: _count(totals.get(key)) for key in (*COUNTERS, "highest_visit")}
+    begin, end = dt_util.parse_datetime(started), dt_util.parse_datetime(ended)
+    seconds = (end - begin).total_seconds() if begin and end else 0
+    darts = counts["darts"]
+    return {
+        "started": started,
+        "ended": ended,
+        "duration_minutes": round(max(seconds, 0) / 60, 1),
+        **counts,
+        "average": round(counts["points"] / darts * 3, 2) if darts else None,
+    }
+
+
+def _restored_summary(saved: object) -> dict[str, Any] | None:
+    if not isinstance(saved, dict):
+        return None
+    started, ended = _timestamp(saved.get("started")), _timestamp(saved.get("ended"))
+    if not started or not ended:
+        return None
+    return _summarize(started, ended, saved)
+
+
+def _restored_visit(saved: object) -> dict[str, Any] | None:
+    if not isinstance(saved, dict):
+        return None
+    time, names = _timestamp(saved.get("time")), saved.get("segments")
+    if not time or not isinstance(names, list):
+        return None
+    if not all(isinstance(name, str) for name in names):
+        return None
+    return {
+        "time": time,
+        "score": _count(saved.get("score")),
+        "darts": _count(saved.get("darts")),
+        "segments": list(names),
+    }
+
+
 class TrainingSession:
-    """A persistent session of observed darts, with one revisable active visit."""
+    """Training sessions of observed darts, with one revisable active visit.
+
+    Dart and visit events are announced whether or not a session runs, so
+    automations work in every game; only darts thrown during a session count.
+    """
 
     def __init__(self) -> None:
         self.started = dt_util.utcnow().isoformat()
+        self.ended: str | None = None
+        # Version 1.0 counted every dart; without an explicit start, it still does.
+        self.active = True
+        self.auto_start = True
+        self.idle_minutes = 0
+        self.last_activity: str | None = None
+        self.history: list[dict[str, Any]] = []
+        self.recent_visits: list[dict[str, Any]] = []
         self._committed = dict.fromkeys(COUNTERS, 0)
         self._highest_visit = 0
         self._hits: Counter[str] = Counter()
         self._completed: list[tuple[str, dict[str, Any]]] = []
         self._active: list[dict[str, Any]] = []
+        # Throws since the baseline are announced; throws during a session count.
         self._tracked: list[bool] = []
+        self._counting: list[bool] = []
         self._initialized = False
         self._removing = False
 
     def restore(self, saved: dict[str, Any] | None) -> None:
         if not isinstance(saved, dict):
             return
-        self._committed = {
-            key: saved.get(key, 0)
-            if type(saved.get(key)) is int and saved[key] >= 0
-            else 0
-            for key in COUNTERS
-        }
-        highest = saved.get("highest_visit")
-        self._highest_visit = highest if type(highest) is int and highest >= 0 else 0
+        self._committed = {key: _count(saved.get(key)) for key in COUNTERS}
+        self._highest_visit = _count(saved.get("highest_visit"))
         hits = saved.get("hits")
         self._hits = Counter(
             {
@@ -133,17 +199,42 @@ class TrainingSession:
                 if isinstance(key, str) and type(count) is int and count > 0
             }
         )
-        started = saved.get("started")
-        if isinstance(started, str):
-            parsed: datetime | None = dt_util.parse_datetime(started)
-            if parsed and parsed.tzinfo:
-                self.started = started
+        if started := _timestamp(saved.get("started")):
+            self.started = started
+        # Data stored by version 1.0 has no session state: it was always counting.
+        for key in ("active", "auto_start"):
+            if isinstance(saved.get(key), bool):
+                setattr(self, key, saved[key])
+        idle = saved.get("idle_minutes")
+        if type(idle) is int and 0 <= idle <= IDLE_MINUTES_MAX:
+            self.idle_minutes = idle
+        self.ended = None if self.active else _timestamp(saved.get("ended"))
+        self.last_activity = _timestamp(saved.get("last_activity"))
+        history, visits = saved.get("history"), saved.get("recent_visits")
+        summaries = map(_restored_summary, history if isinstance(history, list) else [])
+        self.history = [summary for summary in summaries if summary][:HISTORY_SIZE]
+        restored = map(_restored_visit, visits if isinstance(visits, list) else [])
+        self.recent_visits = [visit for visit in restored if visit][:RECENT_VISITS]
+
+    def stored(self) -> dict[str, Any]:
+        """Everything that survives a restart, including settings and history."""
+        return {
+            **self.snapshot(),
+            "auto_start": self.auto_start,
+            "idle_minutes": self.idle_minutes,
+            "last_activity": self.last_activity,
+            "history": [dict(summary) for summary in self.history],
+            "recent_visits": [
+                {**visit, "segments": list(visit["segments"])}
+                for visit in self.recent_visits
+            ],
+        }
 
     def _counted(self) -> list[dict[str, Any]]:
         return [
             dart
-            for dart, tracked in zip(self._active, self._tracked, strict=True)
-            if tracked
+            for dart, counting in zip(self._active, self._counting, strict=True)
+            if counting
         ]
 
     def _contribution(self) -> dict[str, int]:
@@ -170,63 +261,111 @@ class TrainingSession:
         hits = self._hits + Counter(map(hit_key, self._counted()))
         return {
             "started": self.started,
+            "ended": self.ended,
+            "active": self.active,
             **{key: self._committed[key] + current[key] for key in COUNTERS},
             "highest_visit": max(self._highest_visit, current["points"]),
             "hits": dict(sorted(hits.items())),
         }
 
-    def _commit(self, announce: bool = False) -> None:
-        darts = self._counted()
+    def _fold(self) -> None:
+        """Add the counted darts of the active visit to the session totals."""
         current = self._contribution()
         for key in COUNTERS:
             self._committed[key] += current[key]
         self._highest_visit = max(self._highest_visit, current["points"])
-        self._hits.update(map(hit_key, darts))
-        if announce and darts:
-            self._completed.append(
-                (
-                    "visit_completed",
-                    {
-                        "score": current["points"],
-                        "darts": len(darts),
-                        "segments": [d["name"] or hit_key(d) for d in darts],
-                    },
-                )
+        self._hits.update(map(hit_key, self._counted()))
+        self._counting = [False] * len(self._active)
+
+    def _commit(self, announce: bool = False) -> None:
+        announced = [
+            dart
+            for dart, tracked in zip(self._active, self._tracked, strict=True)
+            if tracked
+        ]
+        self._fold()
+        if announce and announced:
+            visit = {
+                "score": sum(d["number"] * d["multiplier"] for d in announced),
+                "darts": len(announced),
+                "segments": [d["name"] or hit_key(d) for d in announced],
+            }
+            self._completed.append(("visit_completed", visit))
+            self.recent_visits.insert(
+                0, {"time": dt_util.utcnow().isoformat(), **visit}
             )
-        self._active = []
-        self._tracked = []
+            del self.recent_visits[RECENT_VISITS:]
+        self._rest([])
+
+    def _rest(self, observed: list[dict[str, Any]]) -> None:
+        """Darts on the board that are neither announced nor counted again."""
+        self._active = list(observed)
+        self._tracked = [False] * len(observed)
+        self._counting = [False] * len(observed)
 
     def _withdraw(self, observed: list[dict[str, Any]]) -> None:
-        """Drop darts the board no longer reports, keeping the others' tracking."""
-        remaining = list(zip(self._active, self._tracked, strict=True))
-        tracked = []
+        """Drop darts the board no longer reports, keeping the others' flags."""
+        remaining = list(zip(self._active, self._tracked, self._counting, strict=True))
+        flags = []
         for dart in observed:
-            index = next(i for i, (old, _) in enumerate(remaining) if old == dart)
-            tracked.append(remaining.pop(index)[1])
-        self._active, self._tracked = list(observed), tracked
+            index = next(i for i, (old, _, _) in enumerate(remaining) if old == dart)
+            flags.append(remaining.pop(index)[1:])
+        self._active = list(observed)
+        self._tracked = [tracked for tracked, _ in flags]
+        self._counting = [counting for _, counting in flags]
 
     def baseline(self, state: dict[str, Any], announce: bool = False) -> None:
         """Keep accumulated counts; never count darts already present on startup."""
         self._commit(announce)
         observed = segments(state)
         self._initialized = observed is not None
-        self._active = observed or []
-        self._tracked = [False] * len(self._active)
+        self._rest(observed or [])
         self._removing = False
 
-    def reset(self, state: dict[str, Any]) -> None:
+    def _start(self) -> tuple[str, dict[str, Any]]:
+        now = dt_util.utcnow().isoformat()
         self._committed = dict.fromkeys(COUNTERS, 0)
         self._highest_visit = 0
         self._hits = Counter()
-        self._active, self._tracked = [], []
-        self.started = dt_util.utcnow().isoformat()
-        self.baseline(state)
+        # Darts already on the board belong to no session.
+        self._counting = [False] * len(self._active)
+        self.started, self.ended, self.active = now, None, True
+        self.last_activity = now
+        return "session_started", {"started": now}
+
+    def start(self) -> tuple[str, dict[str, Any]] | None:
+        """Start counting from zero, unless a session is already running."""
+        return None if self.active else self._start()
+
+    def end(
+        self, reason: str, at: str | None = None
+    ) -> tuple[str, dict[str, Any]] | None:
+        """Finish the running session and keep its summary."""
+        if not self.active:
+            return None
+        # Darts still on the board belong to this session, not to the next one.
+        self._fold()
+        self.active = False
+        self.ended = at or dt_util.utcnow().isoformat()
+        summary = _summarize(self.started, self.ended, self.snapshot())
+        if summary["darts"]:
+            self.history.insert(0, summary)
+            del self.history[HISTORY_SIZE:]
+        return "session_ended", {**summary, "reason": reason}
+
+    def new_session(self) -> list[tuple[str, dict[str, Any]]]:
+        """Finish the running session, if any, and start the next one."""
+        ended = self.end("new_session")
+        return [*([ended] if ended else []), self._start()]
 
     def observe(self, state: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         """Return dart events, preceded by a visit that ended with this state."""
         self._completed = []
         events = self._observe(state)
-        return [*self._completed, *events]
+        result = [*self._completed, *events]
+        if result:
+            self.last_activity = dt_util.utcnow().isoformat()
+        return result
 
     def _observe(self, state: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         observed = segments(state)
@@ -244,7 +383,7 @@ class TrainingSession:
             if not observed or _takeout(state):
                 # Removing darts preserves their score, unlike a segment correction.
                 self._commit(announce=True)
-                self._active, self._tracked = observed, [False] * len(observed)
+                self._rest(observed)
                 self._removing = bool(observed)
                 return []
             if _contains(self._active, observed):
@@ -253,19 +392,22 @@ class TrainingSession:
                 return []
             # New darts without an empty board in between: a missed takeout.
             self._commit(announce=True)
-            self._active, self._tracked, self._removing = [], [], False
+            self._removing = False
         if self._removing:
             if len(observed) <= len(self._active):
-                self._active, self._tracked = observed, [False] * len(observed)
+                self._rest(observed)
                 return []
             # Darts beyond the ones still being removed are new throws.
             self._removing = False
-        events = []
+        events: list[tuple[str, dict[str, Any]]] = []
         for index, dart in enumerate(observed):
             kind = None
             if index >= len(self._active):
+                if not self.active and self.auto_start:
+                    events.append(self._start())
                 self._active.append(dart)
                 self._tracked.append(True)
+                self._counting.append(self.active)
                 kind = "dart_detected"
             elif dart != self._active[index]:
                 self._active[index] = dart

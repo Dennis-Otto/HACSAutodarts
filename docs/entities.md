@@ -22,14 +22,14 @@ Every board is one device with the entities below. Their names follow your Home 
 | Last dart | Sensor | Segment of the last dart, for example `T20`, `D16`, `S5`, `25`, `Bull`. |
 | Last dart score | Sensor, points | Score of the last dart. |
 | Darts in visit | Sensor, darts | Darts currently detected on the board (0–3). |
-| Detected visit score | Sensor, points | Sum of the detected darts. The `throws` attribute lists each dart with `segment`, `number`, `multiplier`, `score`, `bed` and the normalised position `x`/`y`. The recorder does not store `throws`. |
+| Detected visit score | Sensor, points | Sum of the detected darts. The `throws` attribute lists each dart with `segment`, `number`, `multiplier`, `score`, `bed` and the normalised position `x`/`y`. The `recent_visits` attribute lists the last ten completed visits, newest first, with `time`, `score`, `darts` and `segments`. The recorder stores neither attribute. |
 | Last board event | Sensor | The Board Manager's latest event text, such as `Throw detected` or `Takeout started`. |
 
 The visit score is the plain sum of the darts, without game rules such as busts.
 
 ## Board events
 
-The **Board events** entity (`event.*_board_events`) fires native Home Assistant events. Its `event_type` attribute tells what happened, and further attributes carry the details. Every event also has `source`: `websocket` for realtime events, or `poll` when it was noticed during a reconciliation read.
+The **Board events** entity (`event.*_board_events`) fires native Home Assistant events. Its `event_type` attribute tells what happened, and further attributes carry the details. Every event also has `source`: `websocket` for realtime events, `poll` when it was noticed during a reconciliation read, or `training` for session events.
 
 | `event_type` | When | Attributes |
 | --- | --- | --- |
@@ -39,12 +39,21 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `takeout_finished` | The board is clear again | none |
 | `visit_completed` | A visit ends: on takeout, when new darts follow a missed takeout, or when detection stops | `score`, `darts`, `segments` (for example `["T20", "T20", "S20"]`) |
 | `status_changed` | The detection status changes | `status` |
+| `session_started` | A training session starts: with the *Training session* switch, the *New training session* button, or the first dart when *Start sessions automatically* is on | `started` |
+| `session_ended` | A training session ends: with the switch, the button, or after the pause set in *End session after a pause of* | `reason` (`manual`, `new_session` or `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` and the other training totals |
 
 Events are never replayed after a restart or reconnection. See [automations](automations.md) for examples.
 
 ## Training session
 
-The integration keeps a training session of all darts the board detects, in Home Assistant, independent of Autodarts games. It survives restarts and runs until you reset it with **Reset training statistics** or the *New session* button of the [training card](cards.md#training-card).
+The integration counts your darts in training sessions, in Home Assistant and independent of Autodarts games. Sessions survive restarts.
+
+- **Start and end:** the *Training session* switch starts a session from zero and ends it. *New training session* ends the running session and starts the next one.
+- **Automatically:** with *Start sessions automatically* on, the first dart starts a session when none runs. *End session after a pause of* ends a session that many minutes after its last dart; `0` keeps it running.
+- **Without a session,** darts and visits are still announced as [board events](#board-events), for example for a 180 celebration during an online game, but they are not counted.
+- **History:** a finished session keeps its totals until the next one starts. *Last session average* keeps the 3-dart average of every finished session with darts, so its history shows your progress.
+
+The defaults, automatic start on and no pause limit, count every dart as version 1.0 did.
 
 | Entity | Type | Description |
 | --- | --- | --- |
@@ -61,7 +70,11 @@ The integration keeps a training session of all darts the board detects, in Home
 | Training bull hits | Sensor, total | Darts in the bull or outer bull. |
 | Training misses | Sensor, total | Darts outside the scoring area. |
 | Training session start | Sensor, timestamp | When the session started. |
-| Reset training statistics | Button | Starts a new session. The board itself is not touched. |
+| Training session | Switch | On while a session runs. Turning it on starts a session from zero; turning it off ends it. |
+| New training session | Button | Ends the running session and starts the next one. The board itself is not touched. |
+| Start sessions automatically | Switch, *Configuration* | The first dart starts a session when none runs. On by default. |
+| End session after a pause of | Number, *Configuration* | Minutes without darts, 0–240, after which a session ends by itself. `0`, the default, keeps it running. |
+| Last session average | Sensor, points | 3-dart average of the last finished session. Attributes: `started`, `ended`, `duration_minutes`, the totals, and `sessions` with the last 20 sessions, which the recorder does not store. |
 
 Totals use the state class *total increasing*, so Home Assistant's statistics and energy-style graphs handle resets correctly. [How the counting works](how-it-works.md#training-session).
 

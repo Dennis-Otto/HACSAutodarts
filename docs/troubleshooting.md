@@ -50,7 +50,7 @@ Home Assistant shows these notices under **Settings → Repairs**:
 - If a takeout is not detected and new darts follow, the previous visit is closed and the new darts are counted.
 - The training session counts what the board detects. If the board detects a wrong segment and you correct it in Autodarts, the session follows the correction only if the board reports it.
 
-To start over, press **Reset training statistics** or *New session* on the training card.
+To start over, press **New training session** or *New session* on the training card. To stop counting, turn off the **Training session** switch and *Start sessions automatically*.
 
 ### A camera is reported as a problem
 
