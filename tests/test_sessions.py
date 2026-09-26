@@ -78,6 +78,7 @@ async def test_switch_ends_and_starts_sessions_with_events_and_history(
 
     await switch(hass, "training_session", True)
     assert events[-1][0] == "session_started"
+    assert events[-1][1]["reason"] == "manual"
     assert state(hass, "switch", "training_session") == "on"
     assert state(hass, "sensor", "training_darts") == "0"
     await switch(hass, "training_auto_start", True)
@@ -95,6 +96,7 @@ async def test_the_first_dart_starts_a_session_and_the_button_starts_anew(
     coordinator.async_receive("state", board(BULL))
     await hass.async_block_till_done()
     assert [kind for kind, _ in events[-2:]] == ["session_started", "dart_detected"]
+    assert events[-2][1]["reason"] == "first_dart"
     assert state(hass, "sensor", "training_bulls") == "1"
 
     await hass.services.async_call(
@@ -106,6 +108,7 @@ async def test_the_first_dart_starts_a_session_and_the_button_starts_anew(
     await hass.async_block_till_done()
     assert [kind for kind, _ in events[-2:]] == ["session_ended", "session_started"]
     assert events[-2][1]["reason"] == "new_session"
+    assert events[-1][1]["reason"] == "new_session"
     assert state(hass, "sensor", "training_darts") == "0"
 
 

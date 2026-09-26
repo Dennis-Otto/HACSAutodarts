@@ -35,7 +35,9 @@ blueprint:
       name: Calibration button
       description: >-
         Optional. The "Start automatic calibration" button of the board. It is
-        pressed after the detection has started. Remove the darts first.
+        pressed after the detection has started. Remove the darts first. When
+        the first dart started the session, it stays in the board, so the
+        calibration is skipped.
       default: []
       selector:
         entity:
@@ -111,7 +113,7 @@ actions:
                   entity_id: !input detection
           - if:
               - condition: template
-                value_template: "{{ calibration | length > 0 }}"
+                value_template: "{{ calibration | length > 0 and reason != 'first_dart' }}"
             then:
               - delay:
                   seconds: !input calibration_delay

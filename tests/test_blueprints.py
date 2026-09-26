@@ -325,7 +325,7 @@ async def test_training_session_prepares_and_tidies_up_the_board(hass, freezer):
             ],
         },
     )
-    fire(hass, "session_started", started="2026-09-26T18:00:00+00:00")
+    fire(hass, "session_started", started="2026-09-26T18:00:00+00:00", reason="manual")
     # The cameras get time to open before the calibration.
     await until_waiting(hass, 5)
     assert len(light) == 1
@@ -370,3 +370,29 @@ async def test_training_session_without_board_controls_only_runs_actions(hass):
     await hass.async_block_till_done()
     assert len(light) == 1
     assert not turn_on and not press
+
+
+async def test_training_session_started_by_a_dart_skips_the_calibration(hass):
+    turn_on = async_mock_service(hass, "switch", "turn_on")
+    press = async_mock_service(hass, "button", "press")
+    hass.states.async_set(EVENTS, "unknown")
+    await automate(
+        hass,
+        "training_session",
+        {
+            "board_events": EVENTS,
+            "detection": "switch.autodarts_board_detection",
+            "calibration": "button.autodarts_board_calibrate",
+            "calibration_delay": 0,
+        },
+    )
+    fire(
+        hass,
+        "session_started",
+        started="2026-09-26T18:00:00+00:00",
+        reason="first_dart",
+    )
+    await hass.async_block_till_done()
+    assert turn_on[0].data["entity_id"] == ["switch.autodarts_board_detection"]
+    # The dart that started the session is still in the board.
+    assert not press
