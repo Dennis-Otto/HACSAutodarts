@@ -154,6 +154,7 @@ Every release produced by **Release integration** carries two assets:
 | --- | --- |
 | `autodarts.zip` | The folder `custom_components/autodarts` of the released commit, built reproducibly with `git archive` |
 | `autodarts.zip.sigstore.json` | A Sigstore bundle with the signed SLSA build provenance of the archive |
+| `autodarts.zip.intoto.jsonl` | The same signed SLSA provenance as an in-toto envelope, for SLSA tools |
 
 The provenance proves that GitHub Actions built the archive from this repository
 and commit. HACS keeps installing from the tagged source; the archive is for manual

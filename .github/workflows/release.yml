@@ -160,5 +160,8 @@ jobs:
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
         run: |
           cp "$BUNDLE_PATH" "$RUNNER_TEMP/autodarts.zip.sigstore.json"
+          # The signed SLSA statement also as an in-toto file, as SLSA tooling expects it.
+          jq -c '.dsseEnvelope' "$BUNDLE_PATH" > "$RUNNER_TEMP/autodarts.zip.intoto.jsonl"
           gh release upload "$RELEASE_TAG" --clobber \
-            "$RUNNER_TEMP/autodarts.zip" "$RUNNER_TEMP/autodarts.zip.sigstore.json"
+            "$RUNNER_TEMP/autodarts.zip" "$RUNNER_TEMP/autodarts.zip.sigstore.json" \
+            "$RUNNER_TEMP/autodarts.zip.intoto.jsonl"
