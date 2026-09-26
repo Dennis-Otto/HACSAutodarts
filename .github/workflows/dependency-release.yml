@@ -7,7 +7,7 @@ on:
   # GitHub suppresses events caused by GITHUB_TOKEN. Reconcile automatically
   # merged PRs too, without storing a personal access token or bypassing main.
   schedule:
-    - cron: "13,43 * * * *"
+    - cron: "13 5 * * *"
   workflow_dispatch:
 
 permissions:

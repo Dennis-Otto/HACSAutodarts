@@ -17,6 +17,8 @@ BOARD = "http://board-mock:3180"
 LOADS = 5
 # Board Manager generation of the demo board, passed on by browser.sh.
 GENERATION = int(os.environ.get("BOARD_MANAGER", "1"))
+# Writable folder for screenshots of a failed step, mounted by browser.sh.
+ARTIFACTS = os.environ.get("BROWSER_ARTIFACTS", "")
 
 
 def find(tag: str) -> str:
@@ -694,6 +696,20 @@ def light_theme(browser: Browser) -> None:
     page.close()
 
 
+def keep_screenshots(browser: Browser, step: str) -> None:
+    """Save every page still open after a failed step for the CI artifact."""
+    if not ARTIFACTS or not os.path.isdir(ARTIFACTS):
+        return
+    slug = "".join(char if char.isalnum() else "-" for char in step)
+    pages = [page for context in browser.contexts for page in context.pages]
+    for number, page in enumerate(pages, start=1):
+        path = os.path.join(ARTIFACTS, f"{slug}-{number}.png")
+        try:
+            page.screenshot(path=path, full_page=True)
+        except Exception as error:  # A screenshot must never hide the real failure.
+            print(f"No screenshot of {step}: {error}", flush=True)
+
+
 def main() -> None:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
@@ -768,7 +784,11 @@ def main() -> None:
         for name, step in steps:
             # A failure then names the step, not only a timeout deep in Playwright.
             print(f"Browser step: {name}", flush=True)
-            step()
+            try:
+                step()
+            except Exception:
+                keep_screenshots(browser, name)
+                raise
         browser.close()
     print(
         "Browser check passed: card registration on every load, visit, highlights, "

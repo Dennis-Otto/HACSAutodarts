@@ -1,5 +1,7 @@
 # Releases and update notes
 
+[← Documentation](README.md)
+
 HACS uses GitHub releases and exposes their release notes in the Home Assistant
 update dialog. Release notes contain an optional introduction followed by an
 automatically generated list of merged pull requests and a full changelog link.
@@ -17,7 +19,7 @@ qualifying update follows this release process:
 1. **Release dependency updates** finds merged Dependabot PRs that are not included
    in the latest published release.
 2. It creates a version-only PR, increasing the integration's patch version
-   (for example, `0.4.2` → `0.4.3`). A library's major version change does not by
+   (for example, `1.6.0` → `1.6.1`). A library's major version change does not by
    itself imply a major integration version change.
 3. The existing tests, Ruff, HACS, hassfest, workflow linting, CodeQL, dependency
    review, secret scan and the Docker end-to-end test of both Board Manager
@@ -29,13 +31,17 @@ qualifying update follows this release process:
    exact commit being published. Missing, failed, cancelled or skipped checks
    prevent publication. It then publishes the generated changelog.
 
-CI runs independently for every commit and caller. A new commit or release does
-not cancel an earlier commit's tests, validation or security checks. Publication
-remains serialized to prevent competing release writes.
+CI runs independently for every commit on `main` and for every caller. A new
+commit or release never cancels the tests, validation or security checks of an
+earlier `main` commit; only within one pull request does a newer commit replace
+the still running checks of the older one. Publication remains serialized to
+prevent competing release writes.
 
-The workflow starts after a Dependabot merge. A scheduled reconciliation runs at
-minutes 13 and 43 of each hour to catch merges whose events GitHub suppresses for
-`GITHUB_TOKEN`; GitHub may delay scheduled jobs. Already released changes do not
+The workflow starts after a Dependabot merge. A scheduled reconciliation runs once
+a day at 05:13 UTC to catch merges whose events GitHub suppresses for
+`GITHUB_TOKEN`; GitHub may delay scheduled jobs. Because Dependabot currently
+watches no dependency that ships to users, this reconciliation usually finds
+nothing to publish. Already released changes do not
 produce another release. Several pending updates can share one release. Other
 changes already merged into `main` are included in the release and its changelog.
 
@@ -48,12 +54,11 @@ remain visible in Actions, including checks that do not produce a release.
 
 Version-only release PRs carry the `release` label and are omitted from the changelog.
 
-Automatic releases inherit the latest published release's channel: while that is
-a WIP prerelease, automatic maintenance releases remain WIP prereleases. After a
-maintainer publishes a stable release, subsequent automatic maintenance releases
-are stable as well. HACS users must enable the repository's
-[prerelease switch](https://www.hacs.xyz/docs/use/entities/switch/) to receive WIP
-updates. HACS offers releases when it refreshes repository data; publishing does
+Automatic releases inherit the latest published release's channel: after a
+prerelease, automatic maintenance releases are prereleases too; after a stable
+release, they are stable. HACS users must enable the repository's
+[prerelease switch](https://www.hacs.xyz/docs/use/entities/switch/) to receive
+prereleases. HACS offers releases when it refreshes repository data; publishing does
 not automatically install an update or restart Home Assistant.
 
 A GitHub App creates and updates the release branch and PR. Unlike
@@ -113,12 +118,16 @@ from the Autodarts cloud application's Client ID.
 2. Open **Actions → Release integration → Run workflow** on `main`.
 3. Enter the same version, without a `v` prefix, and optionally add your own
    introduction. Markdown is supported, including important migration notes.
-4. Choose whether this is a prerelease and whether to save a draft. Both default
-   to enabled while this integration is work in progress.
+4. Choose whether this is a prerelease and whether to keep it as a draft. A
+   prerelease is off by default; a version with a suffix such as `1.6.0-rc.1` is
+   always a prerelease. The draft is on by default, so a release is reviewed
+   before users see it.
 5. Run the workflow. It reruns the integration tests and HACS/hassfest checks,
-   validates the version, generates the notes, and creates the release. With
-   **draft** disabled, the release is published directly. Otherwise, review the
-   draft under **Releases** and publish it when ready.
+   validates the version, refuses a tag that already exists, generates the notes
+   and creates the release as a draft. It then builds and signs the package and
+   attaches it. With **draft** disabled, it publishes the release only after every
+   asset is attached, so HACS never offers a release without its signed package.
+   Otherwise, review the draft under **Releases** and publish it when ready.
 
 Your introduction appears first. Leaving it empty produces only the generated
 notes, with no placeholder text. You can edit the introduction in a release draft
@@ -126,17 +135,20 @@ before publishing. The complete notes also appear in the workflow run summary.
 
 ## Keep generated notes useful
 
-Use descriptive pull request titles that explain the user-visible change.
-The configuration in `.github/release.yml` groups merged pull requests by label:
+Use descriptive pull request titles that explain the user-visible change, in the
+form of [Conventional Commits](https://www.conventionalcommits.org/). The
+**Pull request labels** workflow reads the type of the title and sets the label;
+the configuration in `.github/release.yml` then groups merged pull requests by label:
 
-| Label | Release-note section |
-| --- | --- |
-| `breaking-change` | Breaking changes and migration |
-| `enhancement` | New features |
-| `bug` | Bug fixes |
-| `documentation` | Documentation |
-| `dependencies`, `maintenance` | Dependencies and maintenance |
-| Other or no label | Other changes |
+| Label | Set for titles such as | Release-note section |
+| --- | --- | --- |
+| `breaking-change` | `feat!: …`, any type with `!` | Breaking changes and migration |
+| `enhancement` | `feat: …` | New features |
+| `bug` | `fix: …`, `perf: …` | Bug fixes |
+| `documentation` | `docs: …` | Documentation |
+| `dependencies`, `maintenance` | `chore(deps): …`; `ci`, `build`, `test`, `refactor`, `chore` | Dependencies and maintenance |
+| `release` | the version-only release PR | left out |
+| Other or no label | — | Other changes |
 
 Dependabot changes are included in the maintenance section. GitHub generates
 these notes from merged pull requests; it does not explain individual code changes
@@ -148,7 +160,7 @@ maintenance introduction followed by the same generated changelog.
 
 ## Signed release packages
 
-Every release produced by **Release integration** carries two assets:
+Every release produced by **Release integration** carries three assets:
 
 | Asset | Contents |
 | --- | --- |
