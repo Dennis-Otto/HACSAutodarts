@@ -2,30 +2,85 @@ name: Docker E2E
 
 on:
   push:
+    branches: [main]
   pull_request:
+  schedule:
+    # Weekly, also as an early warning against the next Home Assistant release.
+    - cron: "23 5 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   e2e:
-    name: e2e (Board Manager ${{ matrix.board_manager }})
+    name: e2e (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # 1: classic Board Manager app, 2: headless board with /api/system and mDNS.
-        board_manager: [1, 2]
+        include:
+          # 1: classic Board Manager app, 2: headless board with /api/system and mDNS.
+          - name: Board Manager 1
+            board_manager: 1
+          - name: Board Manager 2
+            board_manager: 2
+            browser: true
+          # The oldest release hacs.json and the blueprints promise to support.
+          - name: Home Assistant 2026.8.0
+            board_manager: 2
+            image: ghcr.io/home-assistant/home-assistant:2026.8.0@sha256:a21689ef0510df9760ee11bab4d6b2fef3ed5c1a29ed9c3224271597a23729eb
     env:
       BOARD_MANAGER: ${{ matrix.board_manager }}
+      HOME_ASSISTANT_IMAGE: ${{ matrix.image }}
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Run Home Assistant end-to-end tests
         run: bash tests/e2e/run.sh
-      - name: Check the dashboard card in a real browser
-        if: matrix.board_manager == 2
+      - name: Check the dashboard cards in a real browser
+        if: matrix.browser
         run: bash tests/e2e/browser.sh
+      - name: Keep logs and screenshots of a failed run
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-${{ matrix.board_manager }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+          path: e2e-artifacts
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Not required: warns a week or two before a Home Assistant release breaks anything.
+  beta:
+    name: e2e (Home Assistant beta)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BOARD_MANAGER: 2
+      # The moving beta tag on purpose: this job tests what users get next.
+      HOME_ASSISTANT_IMAGE: ghcr.io/home-assistant/home-assistant:beta
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run Home Assistant end-to-end tests
+        run: bash tests/e2e/run.sh
+      - name: Check the dashboard cards in a real browser
+        run: bash tests/e2e/browser.sh
+      - name: Keep logs and screenshots of a failed run
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-beta-${{ github.run_attempt }}
+          path: e2e-artifacts
+          if-no-files-found: ignore
+          retention-days: 14

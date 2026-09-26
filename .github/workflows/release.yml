@@ -12,8 +12,8 @@ on:
         required: false
         type: string
       prerelease:
-        description: "Mark as prerelease (HACS offers it only with its beta switch on)"
-        default: true
+        description: "Mark as prerelease (HACS offers it only with its beta switch on); a version such as 1.6.0-rc.1 always is one"
+        default: false
         type: boolean
       draft:
         description: "Save as a draft to review before publishing"
@@ -69,8 +69,8 @@ jobs:
       # Sign the build provenance of the release package with Sigstore.
       id-token: write
       attestations: write
+    # The write token goes only to the steps that call the GitHub API.
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_INTRODUCTION: ${{ inputs.introduction }}
@@ -99,8 +99,21 @@ jobs:
               output.write(f"is_prerelease={'true' if '-' in version else 'false'}\n")
           PY
 
+      - name: Refuse an existing tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # GitHub would silently bind the release to an existing tag, while the
+          # package and its provenance below always come from this commit.
+          if gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --silent 2>/dev/null; then
+            echo "::error::Tag $RELEASE_TAG already exists; a release is never rebuilt."
+            exit 1
+          fi
+
       - name: Generate changelog from merged pull requests
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           gh api --method POST "repos/$GH_REPO/releases/generate-notes" \
@@ -127,18 +140,18 @@ jobs:
               summary.write(notes)
           PY
 
-      - name: Create release with changelog for HACS
+      - name: Create a draft release with changelog for HACS
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
           RELEASE_PRERELEASE: ${{ inputs.prerelease || steps.version.outputs.is_prerelease == 'true' }}
-          RELEASE_DRAFT: ${{ inputs.draft }}
         run: |
           title="Autodarts $RELEASE_TAG"
-          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then title+=" — WIP"; fi
-          args=("$RELEASE_TAG" --target "$GITHUB_SHA" --title "$title"
+          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then title+=" (pre-release)"; fi
+          # Always a draft first: HACS must never offer a release without its signed package.
+          args=("$RELEASE_TAG" --target "$GITHUB_SHA" --title "$title" --draft
                 --notes-file "$RUNNER_TEMP/release-notes.md" --fail-on-no-commits)
           if [[ "$RELEASE_PRERELEASE" == "true" ]]; then args+=(--prerelease); fi
-          if [[ "$RELEASE_DRAFT" == "true" ]]; then args+=(--draft); fi
           gh release create "${args[@]}"
 
       - name: Package the integration reproducibly
@@ -156,12 +169,24 @@ jobs:
 
       - name: Attach the package and its signed provenance
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
         run: |
           cp "$BUNDLE_PATH" "$RUNNER_TEMP/autodarts.zip.sigstore.json"
           # The signed SLSA statement also as an in-toto file, as SLSA tooling expects it.
           jq -c '.dsseEnvelope' "$BUNDLE_PATH" > "$RUNNER_TEMP/autodarts.zip.intoto.jsonl"
-          gh release upload "$RELEASE_TAG" --clobber \
+          gh release upload "$RELEASE_TAG" \
             "$RUNNER_TEMP/autodarts.zip" "$RUNNER_TEMP/autodarts.zip.sigstore.json" \
             "$RUNNER_TEMP/autodarts.zip.intoto.jsonl"
+
+      - name: Publish the release
+        if: ${{ !inputs.draft }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # Publishing creates the tag on this commit, now that every asset is attached.
+          gh release edit "$RELEASE_TAG" --draft=false
+          gh release view "$RELEASE_TAG" --json tagName,isDraft,assets \
+            --jq '"Published \(.tagName) with \(.assets | length) assets"' | tee -a "$GITHUB_STEP_SUMMARY"

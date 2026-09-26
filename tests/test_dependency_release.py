@@ -569,6 +569,8 @@ def test_ci_runs_cannot_cancel_other_commits_or_release_callers():
                     "github.workflow": caller,
                     "github.ref": "refs/heads/main",
                     "github.run_id": str(run_id),
+                    # Pushes and release calls carry no pull request number.
+                    "github.event.pull_request.number || github.run_id": str(run_id),
                 }
                 groups.append(
                     re.sub(
@@ -579,6 +581,15 @@ def test_ci_runs_cannot_cancel_other_commits_or_release_callers():
                 )
             assert len(set(groups)) == len(groups), (
                 f"{filename}: overlapping CI runs share {groups}"
+            )
+            # Only a newer commit of the same pull request may cancel a run.
+            cancel = (
+                policy.get("cancel-in-progress", False)
+                if isinstance(policy, dict)
+                else False
+            )
+            assert cancel in (False, "${{ github.event_name == 'pull_request' }}"), (
+                f"{filename}: runs outside pull requests could be cancelled"
             )
 
 

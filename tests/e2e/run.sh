@@ -19,6 +19,13 @@ cleanup() {
 		"${COMPOSE[@]}" ps || true
 		"${COMPOSE[@]}" logs --no-color --tail 300 || true
 		"${COMPOSE[@]}" exec -T homeassistant tail -n 300 /config/home-assistant.log || true
+		# CI keeps the complete logs of a failed run as an artifact.
+		if [[ -n "${E2E_ARTIFACTS:-}" ]]; then
+			mkdir -p "${E2E_ARTIFACTS}"
+			"${COMPOSE[@]}" exec -T homeassistant cat /config/home-assistant.log \
+				>"${E2E_ARTIFACTS}/home-assistant-run.log" 2>/dev/null || true
+			"${COMPOSE[@]}" logs --no-color board-mock >"${E2E_ARTIFACTS}/board-mock-run.log" 2>/dev/null || true
+		fi
 	fi
 	if [[ "${KEEP_E2E:-0}" != "1" ]]; then
 		"${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
