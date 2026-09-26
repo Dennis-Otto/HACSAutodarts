@@ -61,7 +61,7 @@ CARDS = {
     "status": [
         {"type": "custom:autodarts-status-card", "grid_options": {"columns": "full"}}
     ],
-    "scoreboard": [{"type": "custom:autodarts-scoreboard-card"}],
+    "scoreboard": [{"type": "custom:autodarts-scoreboard-card", "caller": True}],
     "players": [{"type": "custom:autodarts-players-card"}],
     "doubles": [{"type": "custom:autodarts-doubles-card"}],
     "styles": [

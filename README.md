@@ -31,7 +31,7 @@
   - a live dartboard with blinking hit beds and dart positions;
   - a training card with a hit heatmap and visit history;
   - a board status card for detection, connections and cameras;
-  - a scoreboard for a tablet or TV at the board, readable from the oche;
+  - a scoreboard for a tablet or TV at the board, readable from the oche, with an optional caller that announces the game;
   - a players card with profiles, head-to-head records and recent matches;
   - a doubles card with the hit rate of every double on the board;
   - plus an automatic dashboard that arranges everything for every board in one click.

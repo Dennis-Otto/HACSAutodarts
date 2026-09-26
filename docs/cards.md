@@ -180,6 +180,7 @@ show_system: false
 - **Between games:** the score of the current visit together with darts, 3-dart average, highest visit and 180s of the training session, the training streak and today's darts towards the daily goal.
 - **Winner:** a banner names the winner of the match until the next dart.
 - **Visit:** the three darts of the current visit and its score along the bottom.
+- **Caller:** with `caller: true`, the screen at the board calls the game itself, in the language of Home Assistant: the score of every visit, "you require 81" when a checkout is possible, "No score" after a bust, the game shot of a leg and the match, and a fanfare for a 180. It uses the speech output of the browser, so nothing needs to be set up in Home Assistant. Browsers play sound only after a tap: tap *Caller* on the scoreboard once to switch it on, and again to mute it.
 
 <img src="images/en/killer.webp" alt="Animation: Killer for Alex, Sam and Kim on the scoreboard. Everybody throws for a number, Alex becomes a killer and takes Sam's lives, Kim becomes a killer too, and Alex takes the last life to win" width="760">
 
@@ -195,6 +196,11 @@ The [automatic dashboard](#automatic-dashboard) has a *Scoreboard* view that sho
 | `full_height` | boolean | `false` | Fill the height of the screen, for a view in panel mode |
 | `show_visit` | boolean | `true` | Show the darts of the current visit |
 | `show_status` | boolean | `true` | Show the board status |
+| `caller` | boolean | `false` | Switch the caller on: the screen announces visits, what a player requires, busts and game shots |
+| `call_scores` | boolean | `true` | Call the score of every visit |
+| `call_checkouts` | boolean | `true` | Call what the next player requires when a checkout is possible |
+| `call_results` | boolean | `true` | Call busts and game shots |
+| `call_sounds` | boolean | `true` | Play a fanfare for a 180 |
 | `accent_color` | CSS colour | theme primary colour | The player at the board, routes and the visit score |
 
 ```yaml

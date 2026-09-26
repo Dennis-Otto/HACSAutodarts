@@ -618,6 +618,25 @@ def scoreboard(browser: Browser) -> None:
     page.close()
 
 
+def caller(browser: Browser) -> None:
+    """The caller stays silent until a tap switches it on."""
+    page, problems = open_view(
+        browser, "scoreboard", SCOREBOARD_CARDS, ".caller-toggle"
+    )
+    toggle = f"({SCOREBOARD_CARDS})()[0].shadowRoot.querySelector('.caller-toggle')"
+    state = page.evaluate(f"() => {toggle}.getAttribute('aria-pressed')")
+    check(state == "false", f"Caller before the tap: {state}")
+    page.evaluate(f"() => {toggle}.click()")
+    page.wait_for_function(
+        f"() => {toggle}.getAttribute('aria-pressed') === 'true'", timeout=5000
+    )
+    text = page.evaluate(f"() => {toggle}.textContent")
+    check(text == "Caller on", f"Caller after the tap: {text}")
+    errors = page_errors(page, problems)
+    check(not errors, f"Console problems: {errors}")
+    page.close()
+
+
 def strategy(browser: Browser) -> None:
     """The generated dashboard shows each card in its view."""
     page = browser.new_page(locale="en-US", viewport={"width": 1280, "height": 900})
@@ -686,6 +705,7 @@ def main() -> None:
             ("practice game", lambda: practice(browser)),
             ("status card", lambda: status(browser)),
             ("scoreboard", lambda: scoreboard(browser)),
+            ("scoreboard caller", lambda: caller(browser)),
             ("automatic dashboard", lambda: strategy(browser)),
             ("live card editor", lambda: editor(browser)),
             (
@@ -740,7 +760,7 @@ def main() -> None:
                     SCOREBOARD_CARDS,
                     ".main",
                     "autodarts-scoreboard-card-editor",
-                    3,
+                    4,
                 ),
             ),
             ("light theme", lambda: light_theme(browser)),
@@ -756,7 +776,7 @@ def main() -> None:
         "training games, "
         "training heatmap, "
         "history and "
-        "sessions, board status, the scoreboard, "
+        "sessions, board status, the scoreboard and its caller, "
         "the generated dashboard, all six editors and light theme."
     )
 

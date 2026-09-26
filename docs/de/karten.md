@@ -166,6 +166,7 @@ show_reset: false
 - **Zwischen den Spielen:** die Punkte der aktuellen Aufnahme zusammen mit Darts, 3-Dart-Average, bester Aufnahme und 180ern der Trainingssession, der Trainingsserie und den Darts von heute zum Tagesziel.
 - **Sieger:** Ein Banner nennt den Matchgewinner bis zum nächsten Dart.
 - **Aufnahme:** Unten stehen die drei Darts der aktuellen Aufnahme und ihre Punkte.
+- **Caller:** Mit `caller: true` sagt der Bildschirm am Board das Spiel selbst an, in der Sprache von Home Assistant: die Punkte jeder Aufnahme, „du brauchst 81“, wenn ein Checkout möglich ist, „Überworfen“, das Game shot von Leg und Match und eine Fanfare bei einer 180. Er nutzt die Sprachausgabe des Browsers, in Home Assistant muss nichts eingerichtet werden. Browser spielen Ton erst nach einem Tippen: Tippe einmal auf *Caller* auf der Anzeigetafel, um ihn einzuschalten, und noch einmal zum Stummschalten.
 
 <img src="../images/de/killer.webp" alt="Animation: Killer für Alex, Sam und Kim auf der Anzeigetafel. Alle werfen für eine Zahl, Alex wird Killer und nimmt Sam die Leben, Kim wird ebenfalls Killer, und Alex nimmt das letzte Leben zum Sieg" width="760">
 
@@ -181,6 +182,11 @@ Das [automatische Dashboard](#automatisches-dashboard) hat eine Ansicht *Anzeige
 | `full_height` | Wahrheitswert | `false` | Die Höhe des Bildschirms füllen, für eine Ansicht im Panel-Modus |
 | `show_visit` | Wahrheitswert | `true` | Die Darts der aktuellen Aufnahme anzeigen |
 | `show_status` | Wahrheitswert | `true` | Den Board-Status anzeigen |
+| `caller` | Wahrheitswert | `false` | Den Caller einschalten: Der Bildschirm sagt Aufnahmen, den Rest eines Spielers, Überwerfen und Game shot an |
+| `call_scores` | Wahrheitswert | `true` | Die Punkte jeder Aufnahme ansagen |
+| `call_checkouts` | Wahrheitswert | `true` | Ansagen, was der nächste Spieler braucht, wenn ein Checkout möglich ist |
+| `call_results` | Wahrheitswert | `true` | Überwerfen und Game shot ansagen |
+| `call_sounds` | Wahrheitswert | `true` | Eine Fanfare bei einer 180 spielen |
 | `accent_color` | CSS-Farbe | Primärfarbe des Designs | Spieler am Board, Wege und Aufnahmepunkte |
 
 ```yaml

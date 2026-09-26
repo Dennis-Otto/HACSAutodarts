@@ -20,7 +20,7 @@
   - Live-Dartscheibe mit blinkenden Treffern und Dart-Positionen;
   - Trainingskarte mit Trefferbild und Aufnahmeverlauf;
   - Board-Status mit Erkennung, Verbindungen und Kameras;
-  - Anzeigetafel für ein Tablet oder einen Fernseher am Board, lesbar vom Abwurf aus;
+  - Anzeigetafel für ein Tablet oder einen Fernseher am Board, lesbar vom Abwurf aus, mit einem Caller, der das Spiel auf Wunsch ansagt;
   - Spielerkarte mit Profilen, direkten Vergleichen und letzten Matches;
   - Doppelkarte mit der Quote jedes Doubles auf der Scheibe;
   - dazu ein automatisches Dashboard, das alles pro Board mit einem Klick anordnet.
