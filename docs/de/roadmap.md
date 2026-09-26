@@ -50,6 +50,16 @@ Enthalten, alles ohne Autodarts-Cloud:
 - Eine Doppelanalyse mit der Quote jedes Doubles, eine Doppelkarte und persönliche Checkout-Wege.
 - Ein Caller in der Anzeigetafel, der das Spiel über den Browser ansagt, standardmäßig aus.
 
+## Als Nächstes: 1.6
+
+| Thema | Was es bringt |
+| --- | --- |
+| **Turniermodus** | Jeder gegen jeden oder K.-o. für drei bis acht benannte Spieler an einem Board: Tabelle oder Turnierbaum auf der Anzeigetafel, das nächste Match startet von selbst, und die Ergebnisse fließen in die Spielerprofile |
+| **Erfolge** | Meilensteine pro Spieler, etwa die erste 180, ein Checkout über 100, ein Neun-Darter oder eine Serie von zehn Tagen, jeweils mit einem Ereignis und auf einer Abzeichen-Karte |
+| **Trends und Trefferbilder pro Spieler** | Average, Checkout-Quote und Doppelquote pro Woche als Verlauf und das eigene Trefferbild jedes Spielers in der Spielerkarte |
+| **Trefferbild der Dart-Positionen** | Ein Trefferbild, das zeigt, wo jeder Dart gelandet ist, aus den Positionen, die das Board meldet; die Karte wechselt zwischen Feldern, Zahlen und Positionen |
+| **Handicap-Start** | Unterschiedliche X01-Startwerte pro Spieler im selben Match, etwa 501 gegen 301 |
+
 ## Später
 
 | Thema | Voraussetzung |
