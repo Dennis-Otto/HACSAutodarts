@@ -172,6 +172,7 @@ async def test_disconnect_and_recovery_updates_entities(hass, aioclient_mock):
     assert state(hass, "switch", "detection") == "off"
 
 
+@pytest.mark.usefixtures("cloud_link")
 @pytest.mark.parametrize("failure", ["expired", "unavailable", "legacy"])
 async def test_local_controls_survive_cloud_setup_failure(
     hass, aioclient_mock, failure
@@ -309,4 +310,24 @@ async def test_discovered_host_saved_and_later_cloud_auth_failure_is_isolated(
     assert any(
         flow["step_id"] == "reauth_confirm"
         for flow in hass.config_entries.flow.async_progress()
+    )
+
+
+async def test_entry_without_client_id_runs_locally_without_a_login(
+    hass, aioclient_mock
+):
+    """An old cloud entry is not asked for a login that cannot be completed."""
+    mock_board(aioclient_mock)
+    data = {**entry_data(), **local_entry_data(), "local_only": False}
+    data.pop("client_id")
+    entry = MockConfigEntry(domain="autodarts", version=2, data=data)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state == ConfigEntryState.LOADED
+    assert entry.runtime_data.cloud is None
+    assert state(hass, "binary_sensor", "local_connected") == "on"
+    assert not hass.config_entries.flow.async_progress()
+    assert not any(
+        str(call[1]).startswith(API_BASE) for call in aioclient_mock.mock_calls
     )

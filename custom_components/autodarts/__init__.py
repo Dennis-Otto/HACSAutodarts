@@ -8,7 +8,11 @@ from urllib.parse import urlparse
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryError,
+    ConfigEntryNotReady,
+)
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -17,6 +21,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
+from . import const
 from .api import AutodartsCloudClient
 from .card import async_register_card
 from .const import (
@@ -110,7 +115,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
             # Entities stay and recover when the board answers again.
             local_error = err
 
-    if not entry.data.get(CONF_LOCAL_ONLY, False):
+    # Without an obtainable client ID, a relink could never be completed.
+    if not entry.data.get(CONF_LOCAL_ONLY, False) and (
+        const.CLOUD_LINK_AVAILABLE or entry.data.get(CONF_CLIENT_ID)
+    ):
 
         def persist_token(token: dict[str, Any]) -> None:
             hass.config_entries.async_update_entry(
@@ -151,7 +159,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: AutodartsConfigEntry) ->
             if await discover_local(runtime.cloud.data.get("board", {}).get("ip")):
                 local_error = None
     elif runtime.local is None:
-        raise ConfigEntryNotReady(
+        # Retrying cannot help: the user has to enter the address first.
+        raise ConfigEntryError(
             translation_domain=DOMAIN, translation_key="no_local_address"
         )
     elif local_error is not None:

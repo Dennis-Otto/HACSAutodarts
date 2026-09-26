@@ -6,6 +6,7 @@ import {
   bedPath,
   beds,
   boardSvg,
+  cssColor,
   escapeHtml,
   kind,
   label,
@@ -102,4 +103,17 @@ test("the board has 80 bed segments, both bulls and 20 numbers", () => {
 test("text inserted into the card is escaped", () => {
   assert.equal(escapeHtml(`<img src=x onerror="a">&'`), "&#60;img src=x onerror=&#34;a&#34;&#62;&#38;&#39;");
   assert.equal(escapeHtml(null), "");
+});
+
+test("colour options reach the style only as valid colours", (t) => {
+  // Without a CSS object model nothing is trusted.
+  assert.equal(cssColor("red", "fallback"), "fallback");
+  // Node has none; mimic the browser for a few known values.
+  const valid = new Set(["#ff0000", "red", "rgb(1, 2, 3)", "var(--primary-color)"]);
+  globalThis.CSS = { supports: (property, value) => property === "color" && valid.has(value) };
+  t.after(() => delete globalThis.CSS);
+  for (const value of valid) assert.equal(cssColor(value, "fallback"), value);
+  for (const value of ["url(https://example.com/x.png)", "red; background: blue", "", 42, null, undefined]) {
+    assert.equal(cssColor(value, "fallback"), "fallback");
+  }
 });

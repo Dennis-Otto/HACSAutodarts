@@ -202,6 +202,6 @@ Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains the check
 
 ## Credits and license
 
-This integration started as a fork of [Trkal/HACSAutodarts](https://github.com/Trkal/HACSAutodarts). Thanks to Trkal for the original work and to the Autodarts team for their open local API.
+This integration started as a fork of [Trkal/HACSAutodarts](https://github.com/Trkal/HACSAutodarts), a cloud-based prototype from April 2026. Since September 2026 it has been rewritten and is maintained independently by [@Dennis-Otto](https://github.com/Dennis-Otto): local realtime control for both Board Manager generations, training analytics, dashboard cards, blueprints, tests and documentation. Both use the `autodarts` domain; the [installation guide](docs/installation.md#update-from-the-original-integration) explains how to switch. Thanks to Trkal for the original work and to the Autodarts team for their open local API.
 
 Licensed under the [MIT license](LICENSE). Autodarts and Winmau names and brand artwork belong to their respective owners. The bundled brand assets identify the supported product and are not covered by the MIT license. This is an unofficial community integration and is not affiliated with Autodarts.

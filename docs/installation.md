@@ -38,7 +38,7 @@ HACS shows new versions as an update in **Settings → Updates**. The update dia
 
 There are three ways to add a board. All of them end with the same, fully local board.
 
-<img src="images/en/setup-menu.png" alt="The Autodarts setup menu: search for boards, enter a board address or link a cloud account" width="520">
+<img src="images/en/setup-menu.png" alt="The Autodarts setup menu: search for boards on this network or enter a board address" width="520">
 
 ### 1. Automatic discovery (Board Manager 2)
 
@@ -70,14 +70,13 @@ Home Assistant creates one device, named after your board, with all [entities](e
 
 Linking your Autodarts account adds cloud match data: game mode, match state, round, visit score and darts thrown. Local control does not depend on it and keeps working if the cloud is unreachable or the login expires.
 
-> **Status:** linking needs a public OAuth client ID with device authorization that Autodarts issues for this integration. It has been requested and is not bundled yet. Until then, the cloud link cannot be completed. Everything local works without it.
+> **Status:** linking needs a public OAuth client ID with device authorization that Autodarts issues for this integration. It has been requested and is not bundled yet. Until then, setup and **Reconfigure** do not offer the cloud link. Everything local works without it.
 
-How it works once you have a client ID:
+How it will work once the client ID is available:
 
 1. Choose **Link cloud account** during setup, or **Reconfigure → Link cloud account** on an existing board.
-2. Enter the client ID. Optionally, enter the board's local address as well.
-3. Home Assistant shows a code such as `ABCD-EFGH` and a link. Open the link on any device, sign in to Autodarts and approve the code.
-4. Home Assistant continues on its own. If your account has several boards, choose one.
+2. Home Assistant shows a code such as `ABCD-EFGH` and a link. Open the link on any device, sign in to Autodarts and approve the code.
+3. Home Assistant continues on its own. If your account has several boards, choose one.
 
 Home Assistant never sees your password. Tokens refresh automatically. If a login expires or is revoked, Home Assistant asks you to **re-authenticate**, and local control keeps working meanwhile.
 
@@ -86,7 +85,7 @@ Home Assistant never sees your password. Tokens refresh automatically. If a logi
 Open **Settings → Devices & services → Autodarts**, select the board's menu (⋮) → **Reconfigure**. You can:
 
 - search for the board again or enter a new address, for example after a network change;
-- add or renew the cloud link.
+- add or renew the cloud link, once it is available.
 
 The board, its entities, their history and your dashboards stay as they are. The integration refuses an address or account that belongs to a different board.
 
@@ -107,7 +106,7 @@ This integration uses the same `autodarts` domain as [Trkal/HACSAutodarts](https
 1. In HACS, remove the original repository and add this one, as described under [Install](#with-hacs-recommended). Alternatively, replace `config/custom_components/autodarts` manually.
 2. Restart Home Assistant and keep the existing entry in **Devices & services**.
 
-Entries of the first version, which stored an address or an account password, are migrated automatically, and the password is deleted. If the board is switched off during the update, the migration is retried at the next start. Entries that used the retired Autodarts login ask you to re-authenticate. Local control keeps working in the meantime.
+Entries of the first version, which stored an address or an account password, are migrated automatically, and the password is deleted. If the board is switched off during the update, the migration is retried at the next start. Entries that used the retired Autodarts login keep working locally. If such an entry has no board address, Home Assistant asks you to enter it with **Reconfigure**.
 
 ## Remove
 

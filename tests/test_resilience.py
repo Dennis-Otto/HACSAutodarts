@@ -28,6 +28,7 @@ def reauth_started(hass) -> bool:
     )
 
 
+@pytest.mark.usefixtures("cloud_link")
 @pytest.mark.parametrize("failure", ["expired", "legacy"])
 async def test_offline_board_and_failed_cloud_login_recover_locally(
     hass, aioclient_mock, failure
@@ -134,6 +135,7 @@ async def test_version_1_entries_are_migrated_without_passwords(
     assert entry.state == ConfigEntryState.LOADED
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_version_1_cloud_entry_without_board_address_asks_for_login(hass):
     old = {"email": "player@example.com", "password": "secret", "board_id": "board-1"}
     entry = MockConfigEntry(domain="autodarts", version=1, data=old)
@@ -239,3 +241,16 @@ async def test_board_manager_update_shows_on_the_device(hass, aioclient_mock):
     with patch.object(coordinator.client, "get_version", return_value="2.0.0"):
         await coordinator.async_refresh()
     assert registry.async_get(device.id).sw_version == "2.0.0"
+
+
+async def test_version_1_cloud_entry_without_board_address_asks_for_the_address(hass):
+    """Without a client ID only the local address helps, so no login is started."""
+    old = {"email": "player@example.com", "password": "secret", "board_id": "board-1"}
+    entry = MockConfigEntry(domain="autodarts", version=1, data=old)
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert dict(entry.data) == {"board_id": "board-1"}
+    assert entry.state == ConfigEntryState.SETUP_ERROR
+    assert entry.error_reason_translation_key == "no_local_address"
+    assert not reauth_started(hass)

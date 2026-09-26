@@ -420,6 +420,12 @@ const translate = (hass, key) => TEXT[language(hass)][key] ?? TEXT.en[key] ?? ke
 const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 
+// Card options reach the style only as real colours, never as url() or broken values.
+const cssColor = (value, fallback) =>
+  typeof value === "string" && !/url\(/i.test(value) && globalThis.CSS?.supports?.("color", value)
+    ? value
+    : fallback;
+
 const usable = (state) => state && !["unknown", "unavailable"].includes(state.state);
 
 // Entity lookup ------------------------------------------------------------
@@ -1391,8 +1397,8 @@ function createElements(Base) {
 
       const [status, statusText] = this._status();
       this.style.setProperty("--ad-status", STATUS_COLORS[status]);
-      this.style.setProperty("--ad-accent", c.accent_color || "var(--primary-color)");
-      this.style.setProperty("--ad-highlight", c.highlight_color || "#ffd60a");
+      this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
+      this.style.setProperty("--ad-highlight", cssColor(c.highlight_color, "#ffd60a"));
       el.pill.textContent = t(statusText);
 
       const darts = this._darts();
@@ -1719,7 +1725,7 @@ function createElements(Base) {
     _update() {
       const c = this._config;
       const el = this._el;
-      this.style.setProperty("--ad-accent", c.accent_color || "var(--primary-color)");
+      this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
       el.title.textContent = c.title || `${this._t("training")} · ${this._deviceName()}`;
       el.since.textContent = this._since();
 
@@ -2056,7 +2062,7 @@ function createElements(Base) {
       el.title.textContent = c.title || this._deviceName();
       const [status, statusText] = boardStatus((name) => this._state(name));
       this.style.setProperty("--ad-status", STATUS_COLORS[status]);
-      this.style.setProperty("--ad-accent", c.accent_color || "var(--primary-color)");
+      this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
       el.pill.textContent = t(statusText);
 
       const running = this._state("detection")?.state === "on";
@@ -2376,6 +2382,7 @@ export {
   boardSvg,
   cameraEntities,
   dashboardStrategy,
+  cssColor,
   entityIndex,
   escapeHtml,
   heatColor,

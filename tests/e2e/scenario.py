@@ -259,8 +259,7 @@ class Scenario:
     async def local_flow(self, host: str, port: int) -> dict:
         menu = await self.flow()
         check(
-            menu["type"] == "menu"
-            and menu["menu_options"] == ["discover", "local", "cloud"],
+            menu["type"] == "menu" and menu["menu_options"] == ["discover", "local"],
             f"Unexpected setup menu: {menu}",
         )
         form = await self.flow(menu["flow_id"], next_step_id="local")

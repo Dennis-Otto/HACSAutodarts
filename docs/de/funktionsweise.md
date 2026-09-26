@@ -23,7 +23,7 @@ Ein Board ist ein Integrationseintrag mit bis zu zwei unabhängigen Verbindungen
 | Ersatz ohne Echtzeitereignisse | HTTP-Lesen | Alle 2 Sekunden |
 | Board Manager 2 | Ein gemeinsamer Aufruf von `/api/system` pro Intervall | Wie oben |
 | Einstellungen und Version bei Board Manager 1 | HTTP-Lesen | Alle 30 Sekunden und nach jeder Aktion |
-| Cloud-Spieldaten | Autodarts-API | Alle 5 Sekunden |
+| Cloud-Spieldaten | Autodarts-API | Während eines Matches alle 5 Sekunden, sonst jede Minute |
 
 Weitere Details:
 

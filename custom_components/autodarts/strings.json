@@ -41,9 +41,12 @@
           "port": "Board Manager API port, normally 3180."
         }
       },
+      "auth": {
+        "title": "Link Autodarts account"
+      },
       "user": {
         "title": "Set up Autodarts",
-        "description": "Search your network for Autodarts boards, enter a board address, or link your Autodarts account for match data.",
+        "description": "Search your network for Autodarts boards or enter a board address.",
         "menu_options": {
           "discover": "Search for boards on this network",
           "local": "Enter board address",
@@ -52,7 +55,7 @@
       },
       "reconfigure": {
         "title": "Reconfigure Autodarts",
-        "description": "Change the local board address or add cloud login. Your existing board and entities are retained.",
+        "description": "Search for the board again or change its local address. Your existing board and entities are retained.",
         "menu_options": {
           "discover": "Search for boards on this network",
           "local": "Enter board address",
@@ -355,7 +358,7 @@
       "message": "The configured address belongs to a different board."
     },
     "no_local_address": {
-      "message": "Configure the local Board Manager address."
+      "message": "Enter the local Board Manager address: open the menu of this entry and select Reconfigure."
     },
     "relink_required": {
       "message": "Link your Autodarts account again with a registered client ID."
