@@ -2,7 +2,12 @@ name: Feature request
 description: Suggest an idea for the integration, a card or an automation.
 labels:
   - enhancement
+  - needs-triage
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [roadmap](https://github.com/Dennis-Otto/ha-autodarts/blob/main/docs/roadmap.md) first. For a loose idea, [Discussions](https://github.com/Dennis-Otto/ha-autodarts/discussions/categories/ideas) are a good place to start.
   - type: textarea
     id: need
     attributes:
