@@ -60,6 +60,8 @@ EVENT_TYPES = [
     "session_ended",
     "bust",
     "leg_won",
+    "match_won",
+    "turn_changed",
 ]
 
 
@@ -248,9 +250,10 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if "local" in fields:
             previous = self._observed_state
             for kind, attributes in self.training.observe(state):
-                if kind == "visit_completed":
-                    self.practice.finish_visit()
                 self._emit(kind, attributes, source)
+                if kind == "visit_completed":
+                    for turn, details in self.practice.finish_visit():
+                        self._emit(turn, details, source)
             for kind, attributes in self.practice.track(self.training.visit()):
                 self._emit(kind, attributes, source)
             if previous is not None:
@@ -614,6 +617,25 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_double_out(self, enabled: bool) -> None:
         self.practice.double_out = enabled
+        await self._async_training([])
+
+    async def async_new_match(self) -> None:
+        self.practice.new_match()
+        await self._async_training([])
+
+    async def async_set_players(self, count: int) -> None:
+        """A different number of players starts a new match."""
+        self.practice.set_players(count)
+        await self._async_training([])
+
+    async def async_set_match_format(
+        self, legs: int | None = None, sets: int | None = None
+    ) -> None:
+        self.practice.set_format(legs, sets)
+        await self._async_training([])
+
+    async def async_set_player_name(self, index: int, name: str) -> None:
+        self.practice.set_name(index, name)
         await self._async_training([])
 
     def _idle_due(self) -> datetime | None:

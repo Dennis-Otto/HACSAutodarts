@@ -65,6 +65,12 @@ PRACTICE_STATE = f"""
     remaining: root.querySelector('.practice-remaining').textContent,
     route: [...root.querySelectorAll('.route-bed')].map((el) => el.textContent),
     aim: root.querySelectorAll('.aim path').length,
+    meta: root.querySelector('.practice-meta').textContent,
+    scores: [...root.querySelectorAll('.player-score')].map((el) => [
+      el.querySelector('.who').textContent,
+      el.querySelector('.rest').textContent,
+      el.classList.contains('active'),
+    ]),
   }};
 }}
 """
@@ -80,6 +86,17 @@ async ([domain, service, key, data]) => {
     (item) => item.platform === 'autodarts' && item.translation_key === key
   );
   await hass.callService(domain, service, { entity_id: entity.entity_id, ...data });
+}
+"""
+# Names a practice player; the four name fields share one translation key.
+SET_NAME = """
+async ([index, name]) => {
+  const hass = document.querySelector('home-assistant').hass;
+  const ids = Object.values(hass.entities)
+    .filter((item) => item.platform === 'autodarts' && item.translation_key === 'practice_player')
+    .map((item) => item.entity_id)
+    .sort();
+  await hass.callService('text', 'set_value', { entity_id: ids[index], value: name });
 }
 """
 TRAINING_STATE = f"""
@@ -288,7 +305,35 @@ def practice(browser: Browser) -> None:
         "route": ["T20", "25", "D18"],
         "aim": 1,
     }
-    check(state == expected, f"Practice state {state} != {expected}")
+    check(
+        {key: state[key] for key in expected} == expected and not state["scores"],
+        f"Practice state {state} != {expected}",
+    )
+
+    # Two players: the scoreboard follows the turn after the darts are pulled.
+    page.evaluate(SET_NAME, [0, "Alex"])
+    page.evaluate(SET_NAME, [1, "Sam"])
+    page.evaluate(
+        CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 2}]
+    )
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().scores.length === 2", timeout=15000
+    )
+    for count in range(1, 4):
+        control({"event": "Throw detected", "throws": [T20] * count})
+    control({"status": "Takeout in progress", "event": "Takeout started"})
+    control({"status": "Throw", "event": "Takeout finished", "throws": []})
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().meta === 'Sam to throw'", timeout=15000
+    )
+    scores = page.evaluate(PRACTICE_STATE)["scores"]
+    check(
+        scores == [["Alex", "121", False], ["Sam", "301", True]],
+        f"Scoreboard {scores}",
+    )
+    page.evaluate(
+        CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
+    )
     page.evaluate(
         CALL_SERVICE, ["select", "select_option", "practice_game", {"option": "off"}]
     )
@@ -484,7 +529,8 @@ def main() -> None:
         browser.close()
     print(
         "Browser check passed: card registration on every load, visit, highlights, "
-        "controls with confirmation, last visits, practice game, training heatmap, "
+        "controls with confirmation, last visits, practice game and match, "
+        "training heatmap, "
         "history and "
         "sessions, board status, "
         "the generated dashboard, all three editors and light theme."

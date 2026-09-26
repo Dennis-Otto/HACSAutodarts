@@ -41,8 +41,10 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `status_changed` | The detection status changes | `status` |
 | `session_started` | A training session starts: with the *Training session* switch, the *New training session* button, or the first dart when *Start sessions automatically* is on | `started` and `reason` (`manual`, `new_session` or `first_dart`) |
 | `session_ended` | A training session ends: with the switch, the button, or after the pause set in *End session after a pause of* | `reason` (`manual`, `new_session` or `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` and the other training totals |
-| `bust` | A dart of the [practice game](#practice-game) goes below zero, leaves 1 with double out, or reaches 0 without a double | `game`, `remaining` (the score at the start of the visit, which stays) |
-| `leg_won` | A dart finishes the practice leg | `game`, `darts` and `average` of the leg, `checkout` (the score checked out) |
+| `bust` | A dart of the [practice game](#practice-game) goes below zero, leaves 1 with double out, or reaches 0 without a double | `game`, `player`, `name`, `remaining` (the score at the start of the visit, which stays) |
+| `leg_won` | A dart finishes the practice leg | `game`, `player`, `name`, `darts` and `average` of the leg, `checkout` (the score checked out), `legs` and `sets` of the winner afterwards |
+| `match_won` | A dart decides a practice match of several players | `game`, `player`, `name`, `sets`, `average` of the match |
+| `turn_changed` | In a practice match, the darts were pulled and the next player is up | `game`, `player`, `name`, `remaining` |
 
 Events are never replayed after a restart or reconnection. See [automations](automations.md) for examples.
 
@@ -87,14 +89,20 @@ Play X01 on the local board without an Autodarts game. Home Assistant counts dow
 - **Start:** choose 301, 501 or 701 in *Practice game*. Darts already on the board do not count. *New practice leg* starts the leg again from the full score.
 - **Visits:** a visit ends when you pull the darts. After a bust, the score of the visit start stays. Darts after a bust or after the winning dart do not count.
 - **Checkout:** the route for the darts left in the visit, for example `T20 T20 BULL` for 170. [How the route is chosen](how-it-works.md#practice-game).
+- **Matches:** set *Practice players* to 2, 3 or 4. After a visit, the next player throws; a bust passes the turn too. The first player to win *Practice legs per set* legs wins the set, and the first to win *Practice sets to win* sets wins the match. The result stays on the card until the next dart, which starts a new match. With one player, legs and sets are not counted.
 - **Sessions:** the practice game and [training sessions](#training-session) are independent. A dart counts in both.
 
 | Entity | Type | Description |
 | --- | --- | --- |
-| Practice game | Select | `off`, `301`, `501` or `701`. Choosing a game starts a new leg. |
-| Practice remaining score | Sensor | Remaining score of the leg; *unknown* without a game. Attributes: `game`, `double_out`, `checkout`, `bust`, `won`, `visit` (the segments of the current visit), `darts` and `average` of the leg, and `legs` with the last 10 legs (`game`, `darts`, `average`, `checkout`, `ended`). The recorder stores neither `visit` nor `legs`. |
+| Practice game | Select | `off`, `301`, `501` or `701`. Choosing a game starts a new match. |
+| Practice remaining score | Sensor | Remaining score of the player at the board; *unknown* without a game. Attributes: `game`, `double_out`, `player` and `name` of the player at the board, `checkout`, `bust`, `won`, `visit` (the segments of the current visit), `darts` and `average` of the leg, `players`, `legs_to_win`, `sets_to_win`, `winner` (the player who won the match, until the next dart), `scores` with `player`, `name`, `remaining`, `legs`, `sets` and the match `average` of every player, and `legs` with the last 10 legs (`game`, `player`, `name`, `darts`, `average`, `checkout`, `ended`). The recorder stores neither `visit`, `scores` nor `legs`. |
 | Practice checkout | Sensor | The checkout route, for example `T20 25 D18`; *unknown* when no route exists. |
-| New practice leg | Button | Starts the leg again from the full score. |
+| New practice leg | Button | Starts the leg again from the full score; legs and sets stay. |
+| New practice match | Button | Starts the match again from zero legs and sets. |
+| Practice players | Number | 1–4 players. A change starts a new match. |
+| Practice legs per set | Number | 1–11 legs win a set. A change starts a new match. |
+| Practice sets to win | Number | 1–7 sets win the match. A change starts a new match. |
+| Practice player *N* | Text, *Configuration* | Name of player 1–4, at most 20 characters, for the scoreboard and the events. Without a name, the card shows *Player N*. |
 | Practice double out | Switch, *Configuration* | Finish on a double or the bullseye. On by default. |
 
 ## Controls

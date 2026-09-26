@@ -41,7 +41,11 @@ async def async_setup_entry(
                 for key in BUTTONS
                 if key not in unsupported
             ]
-            + [AutodartsTrainingReset(coordinator), AutodartsNewLeg(coordinator)]
+            + [
+                AutodartsTrainingReset(coordinator),
+                AutodartsNewLeg(coordinator),
+                AutodartsNewMatch(coordinator),
+            ]
         )
         known: set[int] = set()
 
@@ -124,3 +128,17 @@ class AutodartsNewLeg(AutodartsLocalEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_new_leg()
+
+
+class AutodartsNewMatch(AutodartsLocalEntity, ButtonEntity):
+    """Start the practice match again from zero legs and sets."""
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "practice_new_match")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_new_match()

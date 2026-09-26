@@ -158,6 +158,12 @@ const TEXT = {
     game_shot: "Game shot!",
     no_checkout: "No checkout possible",
     show_practice: "Show practice game",
+    score_player: "Player",
+    score_turn: "to throw",
+    score_winner: "wins the match!",
+    score_legs: "Legs",
+    score_sets: "Sets",
+    practice_names: "Player names",
     // Training card
     training: "Training",
     average_long: "3-dart average",
@@ -290,6 +296,12 @@ const TEXT = {
     game_shot: "Game shot!",
     no_checkout: "Kein Checkout möglich",
     show_practice: "Übungsspiel anzeigen",
+    score_player: "Spieler",
+    score_turn: "ist dran",
+    score_winner: "gewinnt das Match!",
+    score_legs: "Legs",
+    score_sets: "Sätze",
+    practice_names: "Spielernamen",
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
@@ -792,6 +804,17 @@ function practiceView(state) {
   const attributes = state.attributes || {};
   const number = (value) => (Number.isFinite(value) ? value : null);
   const route = typeof attributes.checkout === "string" ? attributes.checkout.split(/\s+/) : [];
+  const name = (value) => (typeof value === "string" && value ? value : null);
+  const scores = (Array.isArray(attributes.scores) ? attributes.scores : [])
+    .filter((score) => score && Number.isInteger(score.player) && Number.isInteger(score.remaining))
+    .map((score) => ({
+      player: score.player,
+      name: name(score.name),
+      remaining: score.remaining,
+      legs: number(score.legs) ?? 0,
+      sets: number(score.sets) ?? 0,
+      average: number(score.average),
+    }));
   return {
     game: number(attributes.game),
     remaining,
@@ -800,6 +823,12 @@ function practiceView(state) {
     won: attributes.won === true,
     darts: number(attributes.darts) ?? 0,
     average: number(attributes.average),
+    player: number(attributes.player) ?? 1,
+    name: name(attributes.name),
+    winner: number(attributes.winner),
+    legsToWin: number(attributes.legs_to_win) ?? 1,
+    setsToWin: number(attributes.sets_to_win) ?? 1,
+    scores,
   };
 }
 
@@ -852,9 +881,18 @@ function dashboardStrategy(hass, config = {}) {
     const board = { device_id: deviceId };
     const full = { grid_options: { columns: "full" } };
 
-    const practice = ["select.practice_game", "button.practice_new_leg", "switch.practice_double_out"]
+    const practice = [
+      "select.practice_game",
+      "number.practice_players",
+      "number.practice_legs",
+      "number.practice_sets",
+      "switch.practice_double_out",
+      "button.practice_new_leg",
+      "button.practice_new_match",
+    ]
       .map(id)
       .filter(Boolean);
+    const names = index["text.practice_player"] ?? [];
     views.push({
       title: `${t("view_live")}${suffix}`,
       path: `live${slug}`,
@@ -868,7 +906,11 @@ function dashboardStrategy(hass, config = {}) {
               {
                 type: "grid",
                 column_span: 2,
-                cards: [{ type: "heading", heading: t("practice") }, { type: "entities", entities: practice }],
+                cards: [
+                  { type: "heading", heading: t("practice") },
+                  { type: "entities", entities: practice },
+                  ...(names.length ? [{ type: "entities", title: t("practice_names"), entities: names }] : []),
+                ],
               },
             ]
           : []),
@@ -1047,6 +1089,16 @@ const CSS = `${BASE_CSS}
   }
   .route-bed:first-child { color: var(--text-primary-color, #fff); background: var(--ad-accent); }
   .practice-note { font-size: 13px; font-weight: 700; }
+  .scoreboard { display: grid; gap: 4px; }
+  .scoreboard[hidden] { display: none; }
+  .player-score {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline;
+    gap: 12px; padding: 4px 8px; border-radius: 8px;
+  }
+  .player-score.active { background: color-mix(in srgb, var(--ad-accent) 18%, transparent); }
+  .player-score.winner { background: color-mix(in srgb, ${STATUS_COLORS.ready} 20%, transparent); }
+  .player-score .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player-score .rest { font-weight: 800; font-variant-numeric: tabular-nums; }
   .practice-note.bust { color: ${STATUS_COLORS.problem}; }
   .practice-note.won { color: ${STATUS_COLORS.ready}; }
   .aim path {
@@ -1468,6 +1520,7 @@ function createElements(Base) {
                           <span class="practice-remaining">–</span>
                           <div class="practice-route"></div>
                         </div>
+                        <div class="scoreboard" hidden></div>
                       </div>`
                     : ""
                 }
@@ -1551,6 +1604,7 @@ function createElements(Base) {
         practiceMeta: root.querySelector(".practice-meta"),
         practiceRemaining: root.querySelector(".practice-remaining"),
         practiceRoute: root.querySelector(".practice-route"),
+        scoreboard: root.querySelector(".scoreboard"),
         aim: root.querySelector(".aim"),
         slots: [...root.querySelectorAll(".slot")],
         since: root.querySelector(".since"),
@@ -1660,17 +1714,57 @@ function createElements(Base) {
       el.practice.hidden = !practice;
       if (!practice) return;
       const t = (key) => this._t(key);
+      const who = (number, name) => name || `${t("score_player")} ${number}`;
+      const match = practice.scores.length > 1;
       el.practiceTitle.textContent = `${t("practice")} ${practice.game ?? ""}`.trim();
-      el.practiceMeta.textContent = practice.darts
-        ? `${practice.darts} ${t("leg_darts")}` +
-          (practice.average === null ? "" : ` · ${t("average")} ${this._format(practice.average, 1)}`)
-        : "";
+      if (match) {
+        el.practiceMeta.textContent =
+          practice.winner === null ? `${who(practice.player, practice.name)} ${t("score_turn")}` : "";
+      } else {
+        el.practiceMeta.textContent = practice.darts
+          ? `${practice.darts} ${t("leg_darts")}` +
+            (practice.average === null ? "" : ` · ${t("average")} ${this._format(practice.average, 1)}`)
+          : "";
+      }
+      if (el.scoreboard) {
+        el.scoreboard.hidden = !match;
+        this._setHtml(
+          el.scoreboard,
+          match
+            ? practice.scores
+                .map((score) => {
+                  const details = [
+                    practice.legsToWin > 1 ? `${t("score_legs")} ${score.legs}` : "",
+                    practice.setsToWin > 1 ? `${t("score_sets")} ${score.sets}` : "",
+                    score.average === null ? "" : `Ø ${this._format(score.average, 1)}`,
+                  ].filter(Boolean);
+                  const state =
+                    practice.winner === score.player
+                      ? " winner"
+                      : practice.winner === null && practice.player === score.player
+                        ? " active"
+                        : "";
+                  return (
+                    `<div class="player-score${state}"><span class="who">${escapeHtml(who(score.player, score.name))}</span>` +
+                    `<span class="muted">${escapeHtml(details.join(" · "))}</span>` +
+                    `<span class="rest">${score.remaining}</span></div>`
+                  );
+                })
+                .join("")
+            : ""
+        );
+      }
       el.practiceRemaining.textContent = practice.remaining;
       const route = practice.route
         .map((bed) => `<span class="route-bed">${escapeHtml(hitLabel(this._hass, bed))}</span>`)
         .join("");
       let html = route;
-      if (practice.won) html = `<span class="practice-note won">${escapeHtml(t("game_shot"))}</span>`;
+      if (practice.winner !== null) {
+        const winner = practice.scores.find((score) => score.player === practice.winner);
+        html = `<span class="practice-note won">${escapeHtml(
+          `${who(practice.winner, winner?.name ?? null)} ${t("score_winner")}`
+        )}</span>`;
+      } else if (practice.won) html = `<span class="practice-note won">${escapeHtml(t("game_shot"))}</span>`;
       else if (practice.bust) html = `<span class="practice-note bust">${escapeHtml(t("bust"))}</span>${route}`;
       else if (!route && practice.remaining <= 170) {
         html = `<span class="muted">${escapeHtml(t("no_checkout"))}</span>`;
@@ -1698,7 +1792,7 @@ function createElements(Base) {
           .join("")
       );
       // The next bed of the checkout route, where the player aims now.
-      const aim = practice && !practice.won ? hitBeds(practice.route[0] ?? "") : [];
+      const aim = practice && !practice.won && practice.winner === null ? hitBeds(practice.route[0] ?? "") : [];
       this._setHtml(
         this._el.aim,
         aim

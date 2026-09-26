@@ -73,6 +73,12 @@ ENTITIES = {
     "practice_new_leg": "button",
     "practice_remaining": "sensor",
     "practice_checkout": "sensor",
+    "practice_players": "number",
+    "practice_legs": "number",
+    "practice_sets": "number",
+    "practice_new_match": "button",
+    "practice_player_1": "text",
+    "practice_player_4": "text",
 }
 if GENERATION >= 2:
     # Board Manager 2 reports its cloud link, load and updates, and has no toggle.

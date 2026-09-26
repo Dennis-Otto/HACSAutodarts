@@ -281,6 +281,9 @@
       },
       "practice_new_leg": {
         "name": "New practice leg"
+      },
+      "practice_new_match": {
+        "name": "New practice match"
       }
     },
     "switch": {
@@ -326,6 +329,15 @@
     "number": {
       "training_idle_timeout": {
         "name": "End session after a pause of"
+      },
+      "practice_players": {
+        "name": "Practice players"
+      },
+      "practice_legs": {
+        "name": "Practice legs per set"
+      },
+      "practice_sets": {
+        "name": "Practice sets to win"
       }
     },
     "binary_sensor": {
@@ -383,7 +395,9 @@
               "session_started": "Session started",
               "session_ended": "Session ended",
               "bust": "Bust",
-              "leg_won": "Leg won"
+              "leg_won": "Leg won",
+              "match_won": "Match won",
+              "turn_changed": "Turn changed"
             }
           }
         }
@@ -392,6 +406,11 @@
     "update": {
       "board_software": {
         "name": "Board software"
+      }
+    },
+    "text": {
+      "practice_player": {
+        "name": "Practice player {number}"
       }
     }
   },

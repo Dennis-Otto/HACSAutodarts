@@ -679,8 +679,8 @@ class AutodartsLastSessionSensor(AutodartsLocalEntity, SensorEntity):
 class AutodartsPracticeSensor(AutodartsLocalEntity, SensorEntity):
     """The remaining score and the checkout route of the practice leg."""
 
-    # Darts and past legs are for cards; the recorder keeps the score.
-    _unrecorded_attributes = frozenset({"visit", "legs"})
+    # Darts, scores and past legs are for cards; the recorder keeps the score.
+    _unrecorded_attributes = frozenset({"visit", "legs", "scores"})
 
     def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
         super().__init__(coordinator, f"practice_{key}")

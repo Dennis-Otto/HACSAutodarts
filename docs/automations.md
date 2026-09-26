@@ -226,7 +226,7 @@ mode: single
 
 ### Call the game shot in a practice game
 
-Announce a won leg and a bust of the [practice game](entities.md#practice-game) on your speakers.
+Announce a won leg and a bust of the [practice game](entities.md#practice-game) on your speakers, with the name of the player.
 
 ```yaml
 alias: Darts - practice caller
@@ -246,10 +246,11 @@ actions:
       media_player_entity_id: media_player.darts_room
       message: >-
         {% set event = trigger.to_state.attributes %}
+        {% set player = event.name or 'Player ' ~ event.player %}
         {% if event.event_type == 'leg_won' %}
-          Game shot, and the leg, in {{ event.darts }} darts.
+          Game shot, and the leg, {{ player }}, in {{ event.darts }} darts.
         {% else %}
-          Bust. You still need {{ event.remaining }}.
+          Bust. {{ player }}, you still need {{ event.remaining }}.
         {% endif %}
 mode: queued
 ```

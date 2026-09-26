@@ -281,6 +281,9 @@
       },
       "practice_new_leg": {
         "name": "Neues Übungsleg"
+      },
+      "practice_new_match": {
+        "name": "Neues Übungsmatch"
       }
     },
     "switch": {
@@ -326,6 +329,15 @@
     "number": {
       "training_idle_timeout": {
         "name": "Session beenden nach einer Pause von"
+      },
+      "practice_players": {
+        "name": "Übungsspiel Spieler"
+      },
+      "practice_legs": {
+        "name": "Übungsspiel Legs pro Satz"
+      },
+      "practice_sets": {
+        "name": "Übungsspiel Sätze zum Sieg"
       }
     },
     "binary_sensor": {
@@ -383,7 +395,9 @@
               "session_started": "Session gestartet",
               "session_ended": "Session beendet",
               "bust": "Überworfen",
-              "leg_won": "Leg gewonnen"
+              "leg_won": "Leg gewonnen",
+              "match_won": "Match gewonnen",
+              "turn_changed": "Spielerwechsel"
             }
           }
         }
@@ -392,6 +406,11 @@
     "update": {
       "board_software": {
         "name": "Board-Software"
+      }
+    },
+    "text": {
+      "practice_player": {
+        "name": "Übungsspiel Spieler {number}"
       }
     }
   },

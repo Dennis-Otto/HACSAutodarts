@@ -71,6 +71,9 @@
       },
       "practice_new_leg": {
         "default": "mdi:restart"
+      },
+      "practice_new_match": {
+        "default": "mdi:restart-alert"
       }
     },
     "event": {
@@ -81,6 +84,15 @@
     "number": {
       "training_idle_timeout": {
         "default": "mdi:timer-sand"
+      },
+      "practice_players": {
+        "default": "mdi:account-group"
+      },
+      "practice_legs": {
+        "default": "mdi:numeric"
+      },
+      "practice_sets": {
+        "default": "mdi:trophy-outline"
       }
     },
     "select": {
@@ -242,6 +254,11 @@
       },
       "practice_double_out": {
         "default": "mdi:numeric-2-box-outline"
+      }
+    },
+    "text": {
+      "practice_player": {
+        "default": "mdi:account"
       }
     }
   }
