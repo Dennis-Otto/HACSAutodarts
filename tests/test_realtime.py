@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from copy import deepcopy
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -34,7 +35,10 @@ class Socket:
 
     async def __aiter__(self):
         for frame in self.frames:
-            yield aiohttp.WSMessage(aiohttp.WSMsgType.TEXT, frame, None)
+            if isinstance(frame, aiohttp.WSMessage):
+                yield frame
+            else:
+                yield aiohttp.WSMessage(aiohttp.WSMsgType.TEXT, frame, None)
 
 
 async def test_socket_frames_are_filtered_and_closed(hass):
@@ -61,6 +65,59 @@ async def test_socket_frames_are_filtered_and_closed(hass):
     ]
     assert socket.closed
     assert connect.call_args.args == (BASE + "/api/events",)
+
+
+async def test_socket_skips_binary_frames_and_reports_errors(hass):
+    session = async_get_clientsession(hass)
+    client = AutodartsLocalClient("192.0.2.10", 3180, session)
+    socket = Socket(
+        [
+            aiohttp.WSMessage(aiohttp.WSMsgType.BINARY, b"\x00\x01", None),
+            json.dumps({"type": "state", "data": STATE}),
+            aiohttp.WSMessage(aiohttp.WSMsgType.ERROR, RuntimeError("reset"), None),
+            json.dumps({"type": "stats", "data": {"fps": 30}}),
+        ]
+    )
+    frames = []
+    with patch.object(session, "ws_connect", new=AsyncMock(return_value=socket)):
+        with pytest.raises(AutodartsConnectionError, match="event connection failed"):
+            async for frame in REAL_EVENTS(client):
+                frames.append(frame)
+    assert frames == [("connected", {}), ("state", STATE)]
+    assert socket.closed
+
+
+async def test_malformed_and_unknown_push_messages_change_nothing(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    before = deepcopy(coordinator.data)
+    for kind, payload in (
+        ("state", {**STATE, "running": "yes"}),
+        ("cam_stats", {"id": 3, "fps": 30}),
+        ("cam_stats", {"id": -1, "fps": 30}),
+        ("cam_stats", {"id": True, "fps": 30}),
+        ("cam_stats", {"id": 0, "fps": "30"}),
+        ("auth", {"token": "private"}),
+    ):
+        coordinator.async_receive(kind, payload)
+    assert coordinator.data == before
+    assert "private" not in str(coordinator.data)
+
+
+async def test_detection_rate_pushes_do_not_update_entities_each_time(
+    hass, aioclient_mock
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    updates = []
+    unsubscribe = coordinator.async_add_listener(lambda: updates.append(True))
+    coordinator.async_receive("stats", {"fps": 25.0})
+    assert coordinator.data["stats"] == {"fps": 25.0}
+    # High-rate telemetry is published by the poll, not per message.
+    assert updates == []
+    coordinator.async_receive("state", board(T20))
+    assert updates == [True]
+    unsubscribe()
 
 
 async def test_socket_handshake_failure_is_recoverable(hass):

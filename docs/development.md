@@ -21,7 +21,7 @@ Python 3.14 and Node.js 24:
 ```sh
 python3.14 -m venv .venv
 .venv/bin/pip install --require-hashes -r requirements-test.txt
-.venv/bin/pytest --cov          # fails below 95 % coverage
+.venv/bin/pytest --cov          # fails below 100 % line and branch coverage
 .venv/bin/ruff check custom_components tests .github/scripts
 .venv/bin/ruff format --check custom_components tests .github/scripts
 .venv/bin/mypy                  # strict typing of the integration

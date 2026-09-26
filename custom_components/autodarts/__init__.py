@@ -208,8 +208,7 @@ def _remove_other_generation(
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Upgrade version 1 entries, which stored a board address or a password."""
-    if entry.version > 2:
-        return False
+    # Home Assistant itself refuses entries of a newer major version.
     if entry.version == 2:
         return True
     data = dict(entry.data)

@@ -27,7 +27,7 @@ from .party import (
 )
 from .profiles import Profiles
 from .scoring import average as _average
-from .scoring import evaluate_visit, finishable, is_double, rate, score
+from .scoring import evaluate_visit, is_double, rate, score
 from .training import hit_key
 
 GAMES = (101, 301, 501, 701, 901, 1001)
@@ -552,11 +552,11 @@ class PracticeGame:
         running = player.remaining
         for index, dart in enumerate(self._thrown()[:darts]):
             points = score(dart) if index >= opening else 0
-            if self.double_out and finishable(running) and index >= opening:
+            # A dart is thrown at a double when that double alone finishes.
+            double = aimed_at(running) if self.double_out and index >= opening else None
+            if double:
                 player.at_double += 1
-                double = aimed_at(running)
-                if double:
-                    attempts.append((double, hits(dart, double)))
+                attempts.append((double, hits(dart, double)))
             if player.first9_darts < 9:
                 player.first9_darts += 1
                 # A bust visit scores nothing, not even its early darts.

@@ -199,28 +199,34 @@ class AutodartsCloudClient:
             if self._on_token_update is not None:
                 self._on_token_update(self.token)
 
+    async def _fetch(self, path: str, access_token: str) -> tuple[bool, Any]:
+        """Read once: whether the access token was rejected, otherwise the answer."""
+        try:
+            async with asyncio.timeout(DEFAULT_TIMEOUT):
+                async with self._session.get(
+                    f"{API_BASE}{path}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                ) as response:
+                    if response.status == 401:
+                        return True, None
+                    if response.status == 403:
+                        raise AutodartsAuthError("access_denied")
+                    response.raise_for_status()
+                    return False, await response.json()
+        except (TimeoutError, aiohttp.ClientError, ValueError) as err:
+            raise AutodartsConnectionError(f"Could not fetch {path}") from err
+
     async def _get(self, path: str) -> Any:
         await self._ensure_token()
-        for attempt in range(2):
-            access_token = self._token["access_token"]
-            try:
-                async with asyncio.timeout(DEFAULT_TIMEOUT):
-                    async with self._session.get(
-                        f"{API_BASE}{path}",
-                        headers={"Authorization": f"Bearer {access_token}"},
-                    ) as response:
-                        if response.status == 401:
-                            if attempt:
-                                raise AutodartsAuthError("invalid_token")
-                        elif response.status == 403:
-                            raise AutodartsAuthError("access_denied")
-                        else:
-                            response.raise_for_status()
-                            return await response.json()
-            except (TimeoutError, aiohttp.ClientError, ValueError) as err:
-                raise AutodartsConnectionError(f"Could not fetch {path}") from err
+        access_token = self._token["access_token"]
+        rejected, answer = await self._fetch(path, access_token)
+        if rejected:
+            # A token can be revoked before it expires: refresh once, then retry.
             await self._ensure_token(rejected_token=access_token)
-        raise AutodartsAuthError("invalid_token")
+            rejected, answer = await self._fetch(path, self._token["access_token"])
+            if rejected:
+                raise AutodartsAuthError("invalid_token")
+        return answer
 
     async def get_boards(self) -> list[dict[str, Any]]:
         """List boards belonging to the authenticated user."""

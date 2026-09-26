@@ -60,6 +60,18 @@ def test_a_correction_marks_the_dart_of_its_visit():
     assert quality.snapshot()["corrected"] == 1
 
 
+def test_a_correction_of_a_dart_beyond_the_last_hundred_is_ignored():
+    quality = DetectionQuality()
+    quality.record("dart_detected", {"dart_index": 1})
+    # Without pulled darts, the first dart leaves the window of the last hundred.
+    for _ in range(QUALITY_DARTS):
+        quality.record("dart_detected", {"dart_index": 2})
+    quality.record("dart_corrected", {"dart_index": 1})
+    assert quality.snapshot() == {"rate": 0.0, "darts": QUALITY_DARTS, "corrected": 0}
+    quality.record("dart_corrected", {"dart_index": 2})
+    assert quality.snapshot()["corrected"] == 1
+
+
 async def test_start_game_sets_up_a_match_in_one_call(hass, aioclient_mock):
     entry = await setup_local(hass, aioclient_mock, state=board())
     await hass.services.async_call(
@@ -202,6 +214,25 @@ async def test_many_corrections_suggest_a_calibration_that_the_repair_runs(
     )
     assert registry.async_get_issue(DOMAIN, issue_id) is None
     assert coordinator.quality.rate is None
+
+
+async def test_a_rejected_calibration_keeps_the_repair_open(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    issue_id = f"calibration_{entry.entry_id}"
+    darts(coordinator.quality, QUALITY_MINIMUM, corrected_every=2)
+    coordinator.async_receive("state", board())
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, issue_id)
+    assert issue is not None
+
+    aioclient_mock.post(f"{BASE}/api/config/calibration/auto", status=409)
+    flow = await async_create_fix_flow(hass, issue_id, issue.data)
+    flow.hass = hass
+    flow.issue_id = issue_id
+    result = await flow.async_step_confirm({})
+    assert result["type"] == "abort" and result["reason"] == "calibration_failed"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, issue_id) is not None
+    assert coordinator.quality.snapshot()["darts"] == QUALITY_MINIMUM
 
 
 async def test_the_repair_gives_up_on_an_unloaded_board(hass):

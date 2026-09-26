@@ -110,6 +110,40 @@ def test_checkout_training_books_attempts_on_three_visits():
     assert drill.attempts == 3
 
 
+def test_checkout_training_shows_the_route_for_the_rest_of_the_visit():
+    drill = CheckoutDrill(random.Random(3))
+    drill.target = drill.start = 40
+    drill.track([dart("S20")])
+    snapshot = drill.snapshot()
+    assert snapshot["remaining"] == 20 and snapshot["checkout"] == "D10"
+    # Corrected to the double: the checkout is made, nothing is left to show.
+    drill.track([dart("D20")])
+    snapshot = drill.snapshot()
+    assert snapshot["won"] and snapshot["remaining"] == 0
+    assert snapshot["checkout"] is None
+    # A bust and a full visit both show the route for the next visit.
+    drill.track([dart("T20")])
+    snapshot = drill.snapshot()
+    assert snapshot["bust"] and snapshot["remaining"] == 40
+    assert snapshot["checkout"] == "D20"
+    drill.track([dart("S10"), dart("S10"), dart("S10")])
+    snapshot = drill.snapshot()
+    assert snapshot["remaining"] == 10 and snapshot["checkout"] == "D5"
+
+
+def test_restored_progress_past_the_bull_finishes_the_game():
+    drill = TargetDrill("around_the_clock")
+    drill.restore({"index": len(TARGETS), "darts": 30, "hits": 21})
+    snapshot = drill.snapshot()
+    assert snapshot["target"] is None and snapshot["progress"] == len(TARGETS)
+    events = throw(drill, "S1")
+    assert [kind for kind, _ in events] == ["drill_finished"]
+    assert drill.finished and len(drill.results) == 1
+    # The next dart starts a new game.
+    drill.track([dart("S1")])
+    assert drill.snapshot()["target"] == "2"
+
+
 def test_bobs_27_adds_hits_and_takes_the_value_of_a_miss():
     drill = BobsDrill()
     assert (

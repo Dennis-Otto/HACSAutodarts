@@ -89,6 +89,18 @@ def test_partial_takeout_never_counts_remaining_darts_again():
     assert session.snapshot()["darts"] == 4
 
 
+def test_darts_still_being_pulled_are_neither_announced_nor_counted():
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20, S20, BULL))
+    session.observe(board(S20, BULL, **TAKEOUT))
+    # The same darts again, and one of them read differently, while pulling.
+    assert session.observe(board(S20, BULL, **TAKEOUT)) == []
+    assert session.observe(board(S1, BULL)) == []
+    assert session.snapshot()["darts"] == 3
+    assert session.snapshot()["points"] == 130
+
+
 def test_darts_thrown_before_the_takeout_ends_are_counted():
     session = TrainingSession()
     session.observe(board())
@@ -193,6 +205,9 @@ def test_inactive_states_do_not_create_training_darts(status):
         {"numThrows": "1"},
         {"numThrows": 1, "throws": [None]},
         {"numThrows": 1, "throws": [{"segment": {"number": "20", "multiplier": 3}}]},
+        {"numThrows": 1, "throws": [{"segment": "T20"}]},
+        {"numThrows": 1, "throws": [{"segment": {"number": 21, "multiplier": 1}}]},
+        {"numThrows": 1, "throws": [{"segment": {"number": 20, "multiplier": 4}}]},
     ],
 )
 def test_incomplete_or_malformed_snapshot_does_not_reset_visit(invalid):

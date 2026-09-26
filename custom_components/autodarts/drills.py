@@ -8,6 +8,7 @@ until the next dart, which starts it again.
 from __future__ import annotations
 
 import random
+from abc import ABC, abstractmethod
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -44,7 +45,7 @@ def _results(saved: object) -> list[dict[str, Any]]:
     ][:RESULTS]
 
 
-class Drill:
+class Drill(ABC):
     """One training game, restarted by the first dart after it ended."""
 
     kind = ""
@@ -89,8 +90,9 @@ class Drill:
         self._visit, self._skip, self._announced = [], 0, False
         return events
 
+    @abstractmethod
     def _book(self) -> list[tuple[str, dict[str, Any]]]:
-        raise NotImplementedError
+        """Count the darts of the visit; the events if it ends the game."""
 
     def restore(self, saved: dict[str, Any]) -> None:
         self.results = _results(saved.get("results"))

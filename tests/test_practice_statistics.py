@@ -23,6 +23,18 @@ def test_a_nine_darter_counts_its_first_nine_and_one_dart_at_a_double():
     }
 
 
+def test_the_first_nine_average_leaves_later_darts_out():
+    game = playing(301)
+    throw(game, "T20", "T20", "T20")
+    throw(game, "S1", "S1", "S1")
+    throw(game, "S1", "S1", "S1")
+    throw(game, "T20", "S15", "D20")
+    statistics = game.statistics()
+    assert statistics["first_9_average"] == 62.0
+    assert statistics["legs_played"] == 1
+    assert statistics["darts_at_double"] == 1
+
+
 def test_busts_score_nothing_and_every_dart_on_a_finish_counts_at_a_double():
     game = playing(301, 40)
     # 40 and 20 are both finishes; 20 - 20 without a double busts.

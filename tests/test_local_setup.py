@@ -163,6 +163,40 @@ async def test_switch_and_select_refresh_actual_board_state(hass, aioclient_mock
     ]
 
 
+async def test_cloud_connection_switch_connects_and_disconnects(hass, aioclient_mock):
+    await setup_local(hass, aioclient_mock)
+    aioclient_mock.put(BASE + "/api/upstream/connect", status=204)
+    aioclient_mock.put(BASE + "/api/upstream/disconnect", status=204)
+    for service in ("turn_off", "turn_on"):
+        await hass.services.async_call(
+            "switch",
+            service,
+            {"entity_id": entity_id(hass, "switch", "upstream")},
+            blocking=True,
+        )
+    writes = [call for call in aioclient_mock.mock_calls if call[0] != "GET"]
+    assert [(call[0], call[1].path) for call in writes] == [
+        ("PUT", "/api/upstream/disconnect"),
+        ("PUT", "/api/upstream/connect"),
+    ]
+
+
+async def test_camera_frame_rates_follow_the_camera_order(hass, aioclient_mock):
+    aioclient_mock.get(BASE + "/api/cams/stats", json={"fps": [29.9, "fast"]})
+    entry = await setup_local(hass, aioclient_mock)
+    registry = er.async_get(hass)
+    for index in range(3):
+        sensor = entity_id(hass, "sensor", f"camera_{index}_fps")
+        assert registry.async_get(sensor).disabled_by is not None
+        registry.async_update_entity(sensor, disabled_by=None)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert state(hass, "sensor", "camera_0_fps") == "29.9"
+    assert state(hass, "sensor", "camera_1_fps") == "unknown"
+    # The board reports fewer cameras than it has configured.
+    assert state(hass, "sensor", "camera_2_fps") == "unknown"
+
+
 async def test_command_rejection_is_visible_to_user(hass, aioclient_mock):
     await setup_local(hass, aioclient_mock)
     aioclient_mock.post(BASE + "/api/config/calibration/auto", status=409)
@@ -278,6 +312,10 @@ async def test_throw_scores_and_snapshot(hass, aioclient_mock):
     camera = AutodartsCamera(entry.runtime_data.local, 0)
     assert await camera.async_camera_image() == b"jpeg"
     assert not any(call[0] != "GET" for call in aioclient_mock.mock_calls)
+    # A camera without a picture shows none instead of failing.
+    aioclient_mock.get(BASE + "/api/img/cams/1", status=503)
+    silent = AutodartsCamera(entry.runtime_data.local, 1)
+    assert await silent.async_camera_image() is None
 
 
 async def test_wrong_board_at_configured_address_cannot_be_controlled(

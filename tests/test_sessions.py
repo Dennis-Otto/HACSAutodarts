@@ -147,6 +147,29 @@ async def test_a_pause_ends_the_session_at_its_last_dart(hass, aioclient_mock, f
     assert summary["darts"] == 2
 
 
+async def test_unloading_cancels_a_pending_pause(
+    hass, aioclient_mock, hass_storage, freezer
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {"entity_id": entity_id(hass, "number", "training_idle_timeout"), "value": 10},
+        blocking=True,
+    )
+    coordinator.async_receive("state", board(T20))
+    assert coordinator._idle_unsub is not None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert coordinator._idle_unsub is None
+    freezer.tick(timedelta(minutes=11))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    # The session is still running: it ends with the pause after the next start.
+    saved = hass_storage[f"autodarts.{entry.entry_id}.training"]["data"]
+    assert saved["active"] is True and saved["darts"] == 1
+
+
 async def test_an_overdue_pause_ends_the_session_after_a_restart(
     hass, aioclient_mock, hass_storage
 ):

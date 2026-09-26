@@ -162,6 +162,30 @@ async def test_board_without_host_details_keeps_working(hass, aioclient_mock):
     assert state(hass, "sensor", "cpu_usage") == "12.5"
 
 
+async def test_failed_host_read_is_asked_again_at_the_next_poll(hass, aioclient_mock):
+    aioclient_mock.get(BASE + "/api/host", status=503)
+    entry = await setup_v2(hass, aioclient_mock)
+    coordinator = entry.runtime_data.local
+    assert "board_pc" not in coordinator.data
+    assert state(hass, "sensor", "cpu_usage") == "12.5"
+
+    aioclient_mock.clear_requests()
+    mock_board_v2(aioclient_mock)
+    await coordinator.async_refresh()
+    assert state(hass, "sensor", "host_os") == "Debian 13"
+    assert [call[1].path for call in aioclient_mock.mock_calls].count("/api/host") == 1
+
+
+async def test_board_that_tells_no_version_runs_as_classic(hass, aioclient_mock):
+    aioclient_mock.get(BASE + "/api/version", status=404)
+    entry = await setup_local(hass, aioclient_mock)
+    assert "api_generation" not in entry.data
+    assert entry.runtime_data.local.generation is None
+    ids = unique_ids(hass, entry)
+    assert "board-1_upstream" in ids and "board-1_cloud_link" not in ids
+    assert state(hass, "switch", "detection") == "off"
+
+
 async def test_cameras_are_read_right_after_the_detection_starts(hass, aioclient_mock):
     """Board Manager 2 sends no camera messages, so a start triggers one read."""
     stopped = deepcopy(SYSTEM)

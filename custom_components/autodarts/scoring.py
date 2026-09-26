@@ -26,11 +26,6 @@ def rate(hits: int, tries: int) -> float | None:
     return round(hits * 100 / tries, 1) if tries else None
 
 
-def finishable(remaining: int) -> bool:
-    """One double finishes this score: 2 to 40 when even, or the bullseye."""
-    return remaining == 50 or (2 <= remaining <= 40 and remaining % 2 == 0)
-
-
 def evaluate_visit(
     start: int, darts: list[dict[str, Any]], double_out: bool
 ) -> tuple[int, str | None, int]:

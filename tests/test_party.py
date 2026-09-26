@@ -8,6 +8,7 @@ from custom_components.autodarts.party import (
     KILLER_LIVES,
     BullOff,
     distance_mm,
+    make_party,
 )
 from custom_components.autodarts.practice import MAX_PLAYERS, PracticeGame
 
@@ -159,6 +160,74 @@ def test_killer_picks_numbers_then_the_killers_take_lives():
     events = throw(game, "D3", "D3", "D3")
     assert kinds(events) == ["leg_won", "match_won"]
     assert dict(events)["leg_won"]["name"] == "Alex"
+
+
+def test_only_killers_take_lives_and_a_killer_can_lose_the_last_one():
+    game = game_of("killer", 2, p1="Alex", p2="Sam")
+    throw(game, "S7")
+    throw(game, "S12")
+    # Alex is no killer yet: Sam's double takes no life.
+    throw(game, "D12")
+    assert game.party.lives == [KILLER_LIVES] * 2
+    throw(game, "MISS")
+    game.party.killers[0], game.party.lives[0] = True, 1
+    # With the last life, Alex hits the own double: Sam is the last one left.
+    events = game.track([dart("D7")])
+    assert kinds(events) == ["leg_won", "match_won"]
+    assert dict(events)["leg_won"]["name"] == "Sam"
+    alex = game.snapshot()["scores"][0]
+    assert alex["lives"] == 0 and alex["killer"] is False
+
+
+def test_a_correction_can_take_a_shanghai_back():
+    game = game_of("shanghai", 2)
+    shanghai = [dart("S1"), dart("D1"), dart("T1")]
+    assert kinds(game.track(shanghai)) == ["leg_won", "match_won"]
+    # The board corrects the treble to a single: no Shanghai after all.
+    assert game.track([dart("S1"), dart("D1"), dart("S1")]) == []
+    assert game.snapshot()["winner"] is None
+    assert kinds(game.finish_visit()) == ["turn_changed"]
+    assert game.snapshot()["player"] == 2 and game.winner is None
+
+
+def test_killer_turns_skip_players_who_picked_or_are_out():
+    killer = make_party("killer", 3)
+    killer.restore({"numbers": [7, None, 3]})
+    # Whoever still needs a number picks next; a failed pick is thrown again.
+    assert killer.next(2) == 1
+    assert killer.next(1) == 1
+    killer.restore({"numbers": [7, 12, 3], "lives": [0, 2, 0]})
+    assert killer.next(1) == 1
+    # A stored leg without anybody alive keeps the turn instead of failing.
+    killer.restore({"lives": [0, 0, 0]})
+    assert killer.next(2) == 2
+
+
+def test_a_party_game_without_usable_scores_starts_the_leg_fresh():
+    game = game_of("killer", 2)
+    throw(game, "S5")
+    saved = game.stored()
+    saved["party"] = "broken"
+    restored = PracticeGame()
+    restored.restore(saved)
+    assert restored.party.kind == "killer"
+    assert restored.party.numbers == [None, None]
+    assert restored.party.lives == [KILLER_LIVES] * 2
+
+
+def test_a_restored_bull_off_drops_distances_it_cannot_trust():
+    kept = BullOff.restored({"order": [2, 0], "index": 1, "distances": {"2": 5}}, 3)
+    assert kept.index == 1 and kept.distances == {2: 5.0} and kept.thrower == 0
+    for distances in (
+        "broken",
+        # Player 3 has not thrown yet and player 2 threw no distance.
+        {"0": 11.0, "1": "far", "2": 0.0},
+    ):
+        restored = BullOff.restored(
+            {"order": [0, 1, 2], "index": 2, "distances": distances}, 3
+        )
+        assert restored.index == 0 and restored.distances == {}
+        assert restored.thrower == 0
 
 
 def test_a_bull_off_decides_who_starts():

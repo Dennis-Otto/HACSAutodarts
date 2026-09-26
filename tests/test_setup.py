@@ -1,5 +1,6 @@
 """Exercise setup, credential persistence and reauthentication in Home Assistant."""
 
+import logging
 from datetime import timedelta
 from unittest.mock import AsyncMock
 
@@ -10,7 +11,12 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.autodarts import async_setup_entry
-from custom_components.autodarts.api import API_BASE, REFRESH_URL, AutodartsAuthError
+from custom_components.autodarts.api import (
+    API_BASE,
+    REFRESH_URL,
+    AutodartsAuthError,
+    AutodartsConnectionError,
+)
 from custom_components.autodarts.coordinator import AutodartsDataUpdateCoordinator
 
 
@@ -112,3 +118,16 @@ async def test_cloud_is_polled_quickly_only_during_a_match(hass):
     cloud.get_match_state.return_value = {"round": 1}
     await coordinator._async_update_data()
     assert coordinator.update_interval == timedelta(seconds=5)
+
+
+async def test_match_without_its_live_state_is_still_shown(hass, caplog):
+    cloud = AsyncMock()
+    cloud.get_board.return_value = {"id": "board-1", "matchId": "match-1"}
+    cloud.get_match.return_value = {"id": "match-1", "variant": "X01"}
+    cloud.get_match_state.side_effect = AutodartsConnectionError
+    coordinator = AutodartsDataUpdateCoordinator(hass, cloud, "board-1")
+    with caplog.at_level(logging.DEBUG):
+        result = await coordinator._async_update_data()
+    assert result["match"] == {"id": "match-1", "variant": "X01"}
+    assert "Could not fetch match state for match-1" in caplog.text
+    assert "Could not fetch the current match" not in caplog.text
