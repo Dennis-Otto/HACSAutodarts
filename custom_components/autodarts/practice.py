@@ -1,19 +1,21 @@
-"""Practice games on the local board: X01 for up to four players, and drills."""
+"""Practice games on the local board: X01 and Cricket for up to four players, drills."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from homeassistant.util import dt as dt_util
 
 from .checkout import checkout
+from .cricket import CRICKET_NUMBERS, marks_per_round, next_target, play_visit
 from .drills import DRILLS, Drill, make_drill
 from .scoring import average as _average
 from .scoring import evaluate_visit, finishable, rate, score
 from .training import hit_key
 
 GAMES = (301, 501, 701)
+CRICKET = "cricket"
 LEG_HISTORY = 10
 # The statistics cover the last ten legs.
 STATS_LEGS = 10
@@ -43,16 +45,31 @@ class Player:
     first9_points: int = 0
     first9_darts: int = 0
     at_double: int = 0
+    # Cricket: marks per number, and the marks that counted per leg and match.
+    marks: list[int] = field(default_factory=lambda: [0] * len(CRICKET_NUMBERS))
+    marks_hit: int = 0
+    match_marks: int = 0
 
     def new_leg(self, game: int) -> None:
         self.remaining, self.darts, self.points = game, 0, 0
         self.first9_points, self.first9_darts, self.at_double = 0, 0, 0
+        self.marks, self.marks_hit = [0] * len(CRICKET_NUMBERS), 0
 
     @classmethod
     def restored(cls, saved: object, game: int) -> Player:
         data = saved if isinstance(saved, dict) else {}
+        numbers = {
+            key: _count(data.get(key), 0, 10**6, 0)
+            for key, value in asdict(cls()).items()
+            if isinstance(value, int)
+        }
+        marks = data.get("marks")
+        valid = isinstance(marks, list) and len(marks) == len(CRICKET_NUMBERS)
         player = cls(
-            **{key: _count(data.get(key), 0, 10**6, 0) for key in asdict(cls())}
+            **numbers,
+            marks=[_count(mark, 0, 3, 0) for mark in marks]
+            if valid and isinstance(marks, list)
+            else [0] * len(CRICKET_NUMBERS),
         )
         if player.remaining > game:
             player.new_leg(game)
@@ -69,8 +86,9 @@ class PracticeGame:
     """
 
     def __init__(self) -> None:
-        # The start score; 0 while no game is played.
+        # The X01 start score; 0 while no X01 game is played.
         self.game = 0
+        self.cricket = False
         self.double_out = True
         self.legs_to_win = 1
         self.sets_to_win = 1
@@ -97,6 +115,7 @@ class PracticeGame:
             return
         if saved.get("game") in GAMES:
             self.game = saved["game"]
+        self.cricket = saved.get("game") == CRICKET
         if isinstance(saved.get("double_out"), bool):
             self.double_out = saved["double_out"]
         self.legs_to_win = _count(saved.get("legs_to_win"), 1, MAX_LEGS, 1)
@@ -151,14 +170,14 @@ class PracticeGame:
             dict(leg)
             for leg in (legs if isinstance(legs, list) else [])
             if isinstance(leg, dict)
-            and leg.get("game") in GAMES
+            and leg.get("game") in (*GAMES, CRICKET)
             and type(leg.get("darts")) is int
             and leg["darts"] > 0
         ][:LEG_HISTORY]
 
     def stored(self) -> dict[str, Any]:
         return {
-            "game": self.game,
+            "game": CRICKET if self.cricket else self.game,
             "double_out": self.double_out,
             "legs_to_win": self.legs_to_win,
             "sets_to_win": self.sets_to_win,
@@ -177,8 +196,9 @@ class PracticeGame:
     # -- settings --------------------------------------------------------------
 
     def play(self, game: int | str) -> None:
-        """Start an X01 match or a training game, or stop playing with 0."""
+        """Start an X01 or Cricket match or a training game; 0 stops playing."""
         self.drill = game if isinstance(game, str) and game in DRILLS else None
+        self.cricket = game == CRICKET
         self.game = game if not self.drill and game in GAMES else 0
         self.new_match()
 
@@ -220,7 +240,7 @@ class PracticeGame:
 
     def _who(self, index: int) -> dict[str, Any]:
         return {
-            "game": self.game,
+            "game": CRICKET if self.cricket else self.game,
             "player": index + 1,
             "name": self._name(index),
             "players": len(self.players),
@@ -250,6 +270,8 @@ class PracticeGame:
         self._skip = min(self._skip, len(self._visit))
         if self.drill:
             return self.drills[self.drill].track(visit)
+        if self.cricket:
+            return self._track_cricket()
         if not self.game:
             return []
         if self.winner is not None and self._thrown():
@@ -304,6 +326,8 @@ class PracticeGame:
         events: list[tuple[str, dict[str, Any]]] = []
         if self.drill:
             events = self.drills[self.drill].finish_visit()
+        elif self.cricket and self.winner is None and self._thrown():
+            events = self._book_cricket()
         elif self.game and self.winner is None and self._thrown():
             remaining, outcome, darts = self._evaluate()
             player = self.players[self.current]
@@ -388,16 +412,149 @@ class PracticeGame:
             "darts_at_double": totals["at_double"] + drill_darts,
         }
 
+    # -- cricket -----------------------------------------------------------------
+
+    def _cricket_visit(self) -> tuple[list[int], int, int, bool, int]:
+        player = self.players[self.current]
+        others = [
+            item for index, item in enumerate(self.players) if index != self.current
+        ]
+        return play_visit(
+            player.marks,
+            player.points,
+            self._thrown(),
+            [item.marks for item in others],
+            [item.points for item in others],
+        )
+
+    def _track_cricket(self) -> list[tuple[str, dict[str, Any]]]:
+        if self.winner is not None and self._thrown():
+            self.new_match()
+            self._skip = 0
+        _, points, darts, won, counted = self._cricket_visit()
+        outcome = "won" if won else None
+        if outcome == self._announced:
+            return []
+        self._announced = outcome
+        if not won:
+            return []
+        player = self.players[self.current]
+        legs, sets, match = self._result(self.current)
+        leg_darts = player.darts + darts
+        events: list[tuple[str, dict[str, Any]]] = [
+            (
+                "leg_won",
+                {
+                    **self._who(self.current),
+                    "darts": leg_darts,
+                    "points": points,
+                    "mpr": marks_per_round(player.marks_hit + counted, leg_darts),
+                    "legs": legs,
+                    "sets": sets,
+                    "match": match,
+                },
+            )
+        ]
+        if match:
+            events.append(
+                (
+                    "match_won",
+                    {
+                        **self._who(self.current),
+                        "sets": sets,
+                        "mpr": marks_per_round(
+                            player.match_marks + counted, player.match_darts + darts
+                        ),
+                    },
+                )
+            )
+        return events
+
+    def _book_cricket(self) -> list[tuple[str, dict[str, Any]]]:
+        marks, points, darts, won, counted = self._cricket_visit()
+        player = self.players[self.current]
+        player.marks, player.points = marks, points
+        player.darts += darts
+        player.match_darts += darts
+        player.marks_hit += counted
+        player.match_marks += counted
+        if won:
+            self._book_leg()
+        else:
+            self.current = (self.current + 1) % len(self.players)
+        if self.winner is not None:
+            return []
+        up = self.players[self.current]
+        return [
+            (
+                "turn_changed",
+                {
+                    **self._who(self.current),
+                    "remaining": None,
+                    "checkout": None,
+                    "points": up.points,
+                },
+            )
+        ]
+
+    def _cricket_snapshot(self, common: dict[str, Any]) -> dict[str, Any]:
+        marks, points, darts, won, counted = self._cricket_visit()
+        player = self.players[self.current]
+        done = won or self.winner is not None
+        return {
+            "game": CRICKET,
+            **common,
+            "player": self.current + 1,
+            "name": self._name(self.current),
+            "winner": None if self.winner is None else self.winner + 1,
+            "remaining": None,
+            "checkout": None,
+            "target": None if done else next_target(marks),
+            "bust": False,
+            "won": won,
+            "visit": [hit_key(dart) for dart in self._thrown()],
+            "darts": player.darts + darts,
+            "average": None,
+            "points": points,
+            "mpr": marks_per_round(player.marks_hit + counted, player.darts + darts),
+            "numbers": list(CRICKET_NUMBERS),
+            "scores": [
+                {
+                    "player": index + 1,
+                    "name": self._name(index),
+                    "marks": marks if index == self.current else list(item.marks),
+                    "points": points if index == self.current else item.points,
+                    "legs": item.legs,
+                    "sets": item.sets,
+                    "mpr": marks_per_round(
+                        item.match_marks + (counted if index == self.current else 0),
+                        item.match_darts + (darts if index == self.current else 0),
+                    ),
+                }
+                for index, item in enumerate(self.players)
+            ],
+        }
+
     def _book_leg(self) -> None:
-        self._book_stats()
         winner = self.players[self.current]
+        if self.cricket:
+            record = {
+                "darts": winner.darts,
+                "points": winner.points,
+                "mpr": marks_per_round(winner.marks_hit, winner.darts),
+            }
+        else:
+            self._book_stats()
+            record = {
+                "darts": winner.darts,
+                "average": _average(self.game, winner.darts),
+                "checkout": winner.remaining,
+            }
         self.legs.insert(
             0,
             {
                 **self._who(self.current),
-                "darts": winner.darts,
-                "average": _average(self.game, winner.darts),
-                "checkout": winner.remaining,
+                **record,
                 "ended": dt_util.utcnow().isoformat(),
             },
         )
@@ -427,6 +584,8 @@ class PracticeGame:
             "legs": self.legs,
             "drill": self.drills[self.drill].snapshot() if self.drill else None,
         }
+        if self.cricket:
+            return self._cricket_snapshot(common)
         if not self.game:
             return {"game": None, **common}
         remaining, outcome, darts = self._evaluate()

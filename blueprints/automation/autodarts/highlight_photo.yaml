@@ -118,5 +118,10 @@ variables:
   checkout_text: !input checkout_message
   message: "{{ checkout_text if trigger.id == 'checkout' else score_text }}"
 
+conditions:
+  - alias: A Cricket leg has no checkout to show
+    condition: template
+    value_template: "{{ trigger.id != 'checkout' or checkout > 0 }}"
+
 actions:
   - sequence: !input photo_actions

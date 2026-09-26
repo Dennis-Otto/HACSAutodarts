@@ -15,7 +15,7 @@ from .local_coordinator import AutodartsLocalCoordinator
 from .practice import GAMES, MAX_LEGS, MAX_PLAYERS, MAX_SETS, NAME_LENGTH
 
 SERVICE_START_GAME = "start_game"
-GAME_OPTIONS = [*(str(game) for game in GAMES), *DRILLS]
+GAME_OPTIONS = [*(str(game) for game in GAMES), "cricket", *DRILLS]
 
 START_GAME_SCHEMA = vol.Schema(
     {

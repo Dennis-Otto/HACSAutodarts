@@ -71,7 +71,8 @@ Das Übungsspiel folgt wie die Trainingssession den Darts der aktuellen Aufnahme
 - **Checkout-Weg:** Die Integration probiert jede Kombination für die restlichen Darts der Aufnahme. Sie bevorzugt weniger Darts, Stellwürfe ohne Double, ein Double statt des Bullseyes zum Checkout, weniger Triples, dann das Checkout-Double in der Reihenfolge D20, D16, D8, D18, D12, D10, D4, D14, D6, D2 und die ungeraden Doubles, zuletzt den größeren Dart zuerst. Für 159, 162, 163, 165, 166, 168, 169 und alles über 170 gibt es mit Double-Out keinen Weg.
 - **Statistik:** Jedes beendete Leg ergibt einen Eintrag für alle am Board: Punkte und Darts der ersten neun Darts, Darts aufs Double und den Checkout. Überworfene Aufnahmen zählen keine Punkte, auch nicht in den ersten neun. Die Statistik-Sensoren nutzen die letzten 10 Einträge, ihr Verlauf zeigt deine Entwicklung.
 - **Matches:** Mit mehreren Spielern wechselt der Wurf beim Ziehen der Darts, auch nach dem Überwerfen. Wer das Leg beginnt, wechselt jedes Leg. Wer *Legs pro Satz* Legs gewinnt, holt den Satz, und die Legs aller beginnen wieder bei null; wer *Sätze zum Sieg* Sätze holt, gewinnt das Match. Der Average jedes Spielers gilt für das ganze Match.
-- **Speicher:** Spiel, Spieler mit ihren Ständen, Matchformat und die letzten 10 Legs werden zusammen mit der Trainingssession gespeichert.
+- **Cricket:** Ein Dart setzt seine Treffer auf seine Zahl, bis drei sie schließen; weitere Treffer bringen den Wert der Zahl, solange ein anderer Spieler sie offen hat. Der Sieg wird nach jedem Dart geprüft: Ein schließender Dart gewinnt sofort, wenn die Punkte reichen, und spätere Darts der Aufnahme zählen nicht. Treffer pro Runde zählen die Treffer, die eine Zahl geschlossen oder gepunktet haben, pro drei Darts.
+- **Speicher:** Spiel, Spieler mit ihren Ständen und Treffern, Matchformat und die letzten 10 Legs werden zusammen mit der Trainingssession gespeichert.
 
 ## Kamerazustand
 

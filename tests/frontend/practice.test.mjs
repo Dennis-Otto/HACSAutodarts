@@ -150,3 +150,44 @@ test("the training view charts practice legs per day and the practice trend", ()
   ]);
   assert.deepEqual(trend.entities, ["sensor.board_first_nine", "sensor.board_checkout_rate"]);
 });
+
+test("cricket shows every player's marks, the points and the bed to aim at", async () => {
+  const { cricketView, cricketBeds } = await import("../../custom_components/autodarts/frontend/autodarts-card.js");
+  assert.equal(cricketView(undefined), null);
+  assert.equal(cricketView({ state: "301", attributes: { game: 301 } }), null);
+  assert.equal(cricketView({ state: "unavailable", attributes: { game: "cricket" } }), null);
+  const view = cricketView({
+    state: "unknown",
+    attributes: {
+      game: "cricket",
+      player: 2,
+      name: "Lea",
+      target: "T19",
+      darts: 6,
+      points: 0,
+      mpr: 1.5,
+      legs_to_win: 2,
+      numbers: [20, 19, 18, 17, 16, 15, 25],
+      scores: [
+        { player: 1, name: "Dennis", marks: [3, 1, 0, 0, 0, 0, 2], points: 60, legs: 1, sets: 0, mpr: 3.5 },
+        { player: 2, name: null, marks: [3, 9, -1, "x", 0, 0, 0], points: 0, legs: 0, sets: 0, mpr: 1.5 },
+        { player: 3, marks: [1, 2] },
+        null,
+      ],
+    },
+  });
+  assert.deepEqual([view.player, view.name, view.target, view.legsToWin, view.winner], [2, "Lea", "T19", 2, null]);
+  assert.deepEqual(
+    view.scores.map((score) => [score.name, score.marks, score.points]),
+    [
+      ["Dennis", [3, 1, 0, 0, 0, 0, 2], 60],
+      [null, [3, 3, 0, 0, 0, 0, 0], 0],
+    ]
+  );
+  assert.deepEqual(cricketBeds(view), ["T19"]);
+  assert.deepEqual(cricketBeds({ ...view, target: "BULL" }), ["Bull", "25"]);
+  assert.deepEqual(cricketBeds({ ...view, won: true }), []);
+  assert.deepEqual(cricketBeds({ ...view, winner: 1 }), []);
+  const odd = cricketView({ state: "unknown", attributes: { game: "cricket", target: "<b>", numbers: [1] } });
+  assert.deepEqual([odd.target, odd.numbers, odd.scores, odd.mpr], [null, [20, 19, 18, 17, 16, 15, 25], [], null]);
+});

@@ -447,6 +447,23 @@ async def test_practice_caller_calls_requirements_busts_and_game_shots(hass):
             "leg_won",
             {"game": 501, "players": 1, "player": 1, "name": None, "match": False},
         ),
+        # Cricket has no checkout: the next player stays silent.
+        (
+            "turn_changed",
+            {
+                "game": "cricket",
+                "players": 2,
+                "player": 2,
+                "name": "Sam",
+                "remaining": None,
+                "checkout": None,
+                "points": 40,
+            },
+        ),
+        (
+            "leg_won",
+            {"game": "cricket", "players": 2, "player": 2, "name": "Sam"},
+        ),
     ]
     for kind, attributes in events:
         fire(hass, kind, **attributes)
@@ -458,6 +475,7 @@ async def test_practice_caller_calls_requirements_busts_and_game_shots(hass):
         "Game shot, and the match, Sam!",
         "You require 40",
         "Game shot, and the leg!",
+        "Game shot, and the leg, Sam!",
     ]
 
 
@@ -522,6 +540,10 @@ async def test_highlight_photo_for_a_180_and_a_checkout(hass):
     fire(hass, "leg_won", game=501, players=2, player=2, name="Sam", checkout=121)
     await hass.async_block_till_done()
     assert photos[-1].data["message"] == "Checkout 121 by Sam!"
+    # A Cricket leg has no checkout to show.
+    fire(hass, "leg_won", game="cricket", players=2, player=1, name="Lea", mpr=2.4)
+    await hass.async_block_till_done()
+    assert len(photos) == 2
 
 
 async def test_highlight_photo_can_skip_checkouts_and_lower_the_score(hass):

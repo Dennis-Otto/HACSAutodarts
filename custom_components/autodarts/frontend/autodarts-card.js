@@ -178,6 +178,9 @@ const TEXT = {
     drill_done: "Done in",
     drill_bobs_done: "Done with",
     drill_bobs_lost: "Below zero – the next dart starts again",
+    cricket: "Cricket",
+    cricket_mpr: "MPR",
+    cricket_points: "Points",
     // Training card
     training: "Training",
     average_long: "3-dart average",
@@ -330,6 +333,9 @@ const TEXT = {
     drill_done: "Geschafft in",
     drill_bobs_done: "Geschafft mit",
     drill_bobs_lost: "Unter null – der nächste Dart startet neu",
+    cricket: "Cricket",
+    cricket_mpr: "MPR",
+    cricket_points: "Punkte",
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
@@ -901,6 +907,59 @@ function drillBeds(drill) {
   return ["S", "T", "D"].flatMap((bed) => hitBeds(`${bed}${target}`));
 }
 
+const CRICKET_NUMBERS = [20, 19, 18, 17, 16, 15, 25];
+// No mark, one, two, and a closed number, as on a Cricket chalkboard.
+const CRICKET_MARKS = ["", "/", "X", "Ⓧ"];
+
+// The Cricket leg of the remaining-score sensor, which has no state then.
+function cricketView(state) {
+  const attributes = state?.attributes || {};
+  if (!state || state.state === "unavailable" || attributes.game !== "cricket") return null;
+  const number = (value) => (Number.isFinite(value) ? value : null);
+  const name = (value) => (typeof value === "string" && value ? value : null);
+  const numbers =
+    Array.isArray(attributes.numbers) &&
+    attributes.numbers.length === CRICKET_NUMBERS.length &&
+    attributes.numbers.every(Number.isInteger)
+      ? attributes.numbers
+      : CRICKET_NUMBERS;
+  const scores = (Array.isArray(attributes.scores) ? attributes.scores : [])
+    .filter(
+      (score) =>
+        score && Number.isInteger(score.player) && Array.isArray(score.marks) && score.marks.length === numbers.length
+    )
+    .map((score) => ({
+      player: score.player,
+      name: name(score.name),
+      marks: score.marks.map((mark) => (Number.isInteger(mark) ? Math.min(Math.max(mark, 0), 3) : 0)),
+      points: number(score.points) ?? 0,
+      legs: number(score.legs) ?? 0,
+      sets: number(score.sets) ?? 0,
+      mpr: number(score.mpr),
+    }));
+  return {
+    numbers,
+    target: typeof attributes.target === "string" && hitBeds(attributes.target).length ? attributes.target : null,
+    won: attributes.won === true,
+    darts: number(attributes.darts) ?? 0,
+    points: number(attributes.points) ?? 0,
+    mpr: number(attributes.mpr),
+    player: number(attributes.player) ?? 1,
+    name: name(attributes.name),
+    winner: number(attributes.winner),
+    legsToWin: number(attributes.legs_to_win) ?? 1,
+    setsToWin: number(attributes.sets_to_win) ?? 1,
+    scores,
+  };
+}
+
+// Beds to aim at in Cricket: the treble of the next open number, or the whole bull.
+function cricketBeds(cricket) {
+  if (!cricket || cricket.won || cricket.winner !== null || !cricket.target) return [];
+  if (cricket.target === "BULL") return [...hitBeds("BULL"), ...hitBeds("25")];
+  return hitBeds(cricket.target);
+}
+
 // Board status shared by the live and status cards.
 function boardStatus(stateOf) {
   const on = (name) => stateOf(name)?.state === "on";
@@ -1191,6 +1250,23 @@ const CSS = `${BASE_CSS}
   .player-score .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .player-score .rest { font-weight: 800; font-variant-numeric: tabular-nums; }
   .practice-note.bust { color: ${STATUS_COLORS.problem}; }
+  .cricket-grid { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; table-layout: fixed; }
+  .cricket-grid th, .cricket-grid td { padding: 3px 6px; text-align: center; }
+  .cricket-grid thead th {
+    font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cricket-grid tr > :first-child { width: 3.2em; text-align: left; }
+  .cricket-grid tbody th { font-weight: 700; color: var(--secondary-text-color); }
+  .cricket-grid td { font-size: 17px; font-weight: 800; line-height: 1.1; color: var(--ad-accent); }
+  .cricket-grid tr.closed > * { opacity: 0.35; }
+  .cricket-grid tr.target th { color: var(--ad-accent); }
+  .cricket-grid tr.total td {
+    font-size: 15px; color: var(--primary-text-color);
+    border-top: 1px solid var(--divider-color, rgba(127,127,127,.25));
+  }
+  .cricket-grid tr.detail td { font-size: 12px; font-weight: 600; color: var(--secondary-text-color); }
+  .cricket-grid .active { background: color-mix(in srgb, var(--ad-accent) 18%, transparent); }
+  .cricket-grid .winner { background: color-mix(in srgb, ${STATUS_COLORS.ready} 20%, transparent); }
   .practice-note.won { color: ${STATUS_COLORS.ready}; }
   .aim path {
     fill: color-mix(in srgb, var(--ad-accent) 35%, transparent);
@@ -1792,9 +1868,10 @@ function createElements(Base) {
       });
 
       const drill = c.show_practice ? drillView(this._state("drill")) : null;
-      const practice = c.show_practice && !drill ? practiceView(this._state("practice")) : null;
-      this._updatePractice(practice, drill);
-      this._updateBoard(darts, practice, drill);
+      const cricket = c.show_practice && !drill ? cricketView(this._state("practice")) : null;
+      const practice = c.show_practice && !drill && !cricket ? practiceView(this._state("practice")) : null;
+      this._updatePractice(practice, drill, cricket);
+      this._updateBoard(darts, practice, drill, cricket);
       this._updateStats();
       this._updateChips();
       this._updateControls(status);
@@ -1842,12 +1919,81 @@ function createElements(Base) {
       this._setHtml(el.practiceRoute, html);
     }
 
-    _updatePractice(practice, drill = null) {
+    _updateCricket(cricket) {
+      const el = this._el;
+      const t = (key) => this._t(key);
+      const who = (number, name) => name || `${t("score_player")} ${number}`;
+      const match = cricket.scores.length > 1;
+      const mpr = (value) => (value === null ? "" : `${t("cricket_mpr")} ${this._format(value, 2)}`);
+      el.practiceTitle.textContent = t("cricket");
+      if (match) {
+        el.practiceMeta.textContent =
+          cricket.winner === null ? `${who(cricket.player, cricket.name)} ${t("score_turn")}` : "";
+      } else {
+        el.practiceMeta.textContent = cricket.darts
+          ? [`${cricket.darts} ${t("leg_darts")}`, mpr(cricket.mpr)].filter(Boolean).join(" · ")
+          : "";
+      }
+      // In a match the points decide; alone, the numbers closed so far.
+      const current = cricket.scores.find((score) => score.player === cricket.player);
+      const closed = current ? current.marks.filter((mark) => mark >= 3).length : 0;
+      el.practiceRemaining.textContent = match ? String(cricket.points) : `${closed}/${cricket.numbers.length}`;
+      let html = cricket.target
+        ? `<span class="route-bed">${escapeHtml(hitLabel(this._hass, cricket.target))}</span>`
+        : "";
+      if (cricket.winner !== null) {
+        const winner = cricket.scores.find((score) => score.player === cricket.winner);
+        html = `<span class="practice-note won">${escapeHtml(
+          `${who(cricket.winner, winner?.name ?? null)} ${t("score_winner")}`
+        )}</span>`;
+      } else if (cricket.won) html = `<span class="practice-note won">${escapeHtml(t("game_shot"))}</span>`;
+      el.practiceRoute.title = "";
+      this._setHtml(el.practiceRoute, html);
+      if (!el.scoreboard) return;
+      el.scoreboard.hidden = !cricket.scores.length;
+      const column = (score) =>
+        cricket.winner === score.player
+          ? "winner"
+          : match && cricket.winner === null && cricket.player === score.player
+            ? "active"
+            : "";
+      const row = (kind, label, content) =>
+        `<tr class="${kind}"><th>${escapeHtml(label)}</th>${cricket.scores
+          .map((score) => `<td class="${column(score)}">${escapeHtml(content(score))}</td>`)
+          .join("")}</tr>`;
+      const rows = cricket.numbers.map((number, slot) => {
+        const bed = number === 25 ? "BULL" : `T${number}`;
+        const kind = cricket.scores.every((score) => score.marks[slot] >= 3)
+          ? "closed"
+          : bed === cricket.target
+            ? "target"
+            : "";
+        return row(kind, number === 25 ? "Bull" : String(number), (score) => CRICKET_MARKS[score.marks[slot]]);
+      });
+      if (match) {
+        rows.push(row("total", t("cricket_points"), (score) => String(score.points)));
+        rows.push(row("detail", t("cricket_mpr"), (score) => (score.mpr === null ? "–" : this._format(score.mpr, 2))));
+        if (cricket.legsToWin > 1) rows.push(row("detail", t("score_legs"), (score) => String(score.legs)));
+        if (cricket.setsToWin > 1) rows.push(row("detail", t("score_sets"), (score) => String(score.sets)));
+      }
+      const head = match
+        ? `<thead><tr><th></th>${cricket.scores
+            .map((score) => `<th class="${column(score)}">${escapeHtml(who(score.player, score.name))}</th>`)
+            .join("")}</tr></thead>`
+        : "";
+      this._setHtml(el.scoreboard, `<table class="cricket-grid">${head}<tbody>${rows.join("")}</tbody></table>`);
+    }
+
+    _updatePractice(practice, drill = null, cricket = null) {
       const el = this._el;
       if (!el.practice) return;
-      el.practice.hidden = !practice && !drill;
+      el.practice.hidden = !practice && !drill && !cricket;
       if (drill) {
         this._updateDrill(drill);
+        return;
+      }
+      if (cricket) {
+        this._updateCricket(cricket);
         return;
       }
       if (!practice) return;
@@ -1911,7 +2057,7 @@ function createElements(Base) {
       this._setHtml(el.practiceRoute, html);
     }
 
-    _updateBoard(darts, practice = null, drill = null) {
+    _updateBoard(darts, practice = null, drill = null, cricket = null) {
       const c = this._config;
       const latest = darts.length - 1;
       const highlighted =
@@ -1932,7 +2078,9 @@ function createElements(Base) {
       // The next bed of the checkout route, where the player aims now.
       const aim = drill
         ? drillBeds(drill)
-        : practice && !practice.won && practice.winner === null
+        : cricket
+          ? cricketBeds(cricket)
+          : practice && !practice.won && practice.winner === null
           ? hitBeds(practice.route[0] ?? "")
           : [];
       this._setHtml(
@@ -3002,6 +3150,8 @@ export {
   parseSegment,
   pastSessions,
   practiceView,
+  cricketBeds,
+  cricketView,
   drillBeds,
   drillView,
   R,

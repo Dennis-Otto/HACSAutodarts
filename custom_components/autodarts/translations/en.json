@@ -344,7 +344,8 @@
           "around_the_clock": "Around the Clock",
           "doubles": "Doubles training",
           "checkout": "Checkout training",
-          "bobs_27": "Bob's 27"
+          "bobs_27": "Bob's 27",
+          "cricket": "Cricket"
         }
       }
     },
@@ -503,7 +504,7 @@
         },
         "game": {
           "name": "Game",
-          "description": "X01 with 301, 501 or 701 points, or a training game."
+          "description": "X01 with 301, 501 or 701 points, Cricket, or a training game."
         },
         "players": {
           "name": "Players",
@@ -533,7 +534,8 @@
         "around_the_clock": "Around the Clock",
         "doubles": "Doubles training",
         "checkout": "Checkout training",
-        "bobs_27": "Bob's 27"
+        "bobs_27": "Bob's 27",
+        "cricket": "Cricket"
       }
     }
   }
