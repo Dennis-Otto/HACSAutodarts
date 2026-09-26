@@ -231,6 +231,18 @@ const TEXT = {
     legs_per_set: "legs per set",
     sets_to_win: "sets to win",
     visit_short: "Visit",
+    caller: "Caller",
+    caller_on: "Caller on",
+    caller_off: "Tap to switch the caller on",
+    call_scores: "Call every visit",
+    call_checkouts: "Call what a player requires",
+    call_results: "Call game shots and busts",
+    call_sounds: "Play a fanfare for a 180",
+    say_require: "{name}, you require {remaining}",
+    say_require_alone: "You require {remaining}",
+    say_bust: "No score",
+    say_leg: "Game shot, and the leg!",
+    say_match: "Game shot, and the match, {name}!",
     // Training card
     training: "Training",
     average_long: "3-dart average",
@@ -429,6 +441,18 @@ const TEXT = {
     legs_per_set: "Legs pro Satz",
     sets_to_win: "Sätze zum Sieg",
     visit_short: "Aufnahme",
+    caller: "Caller",
+    caller_on: "Caller an",
+    caller_off: "Tippen, um den Caller einzuschalten",
+    call_scores: "Jede Aufnahme ansagen",
+    call_checkouts: "Ansagen, was ein Spieler braucht",
+    call_results: "Game shot und Überwerfen ansagen",
+    call_sounds: "Fanfare bei einer 180",
+    say_require: "{name}, du brauchst {remaining}",
+    say_require_alone: "Du brauchst {remaining}",
+    say_bust: "Überworfen",
+    say_leg: "Game shot, und das Leg!",
+    say_match: "Game shot, und das Match, {name}!",
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
@@ -539,6 +563,12 @@ const SCOREBOARD_DEFAULTS = {
   full_height: false,
   show_visit: true,
   show_status: true,
+  // The caller speaks only when switched on, and a tap unlocks the sound.
+  caller: false,
+  call_scores: true,
+  call_checkouts: true,
+  call_results: true,
+  call_sounds: true,
 };
 
 // Entities a card reads, by domain and translation key of the integration.
@@ -1612,6 +1642,111 @@ function doublesHtml(view, ui) {
   return { ring, list };
 }
 
+// Caller ---------------------------------------------------------------------
+
+// What the caller listens to: the visit on the board and the game.
+function callerState(visit, view) {
+  const throws = Array.isArray(visit?.attributes?.throws)
+    ? visit.attributes.throws.filter(
+        (dart) => dart && Number.isInteger(dart.number) && Number.isInteger(dart.multiplier)
+      )
+    : [];
+  const game = view?.practice ?? view?.cricket ?? view?.party ?? null;
+  const winner = game?.scores?.find((score) => score.player === game.winner);
+  return {
+    darts: throws.length,
+    score: throws.reduce((sum, dart) => sum + dart.number * dart.multiplier, 0),
+    visit: throws.map((dart) => `${dart.multiplier}x${dart.number}`).join(" "),
+    mode: view?.mode ?? "idle",
+    player: game?.player ?? null,
+    name: game?.name ?? null,
+    players: game?.scores?.length ?? 0,
+    remaining: view?.practice?.remaining ?? null,
+    route: view?.practice?.route ?? [],
+    bust: game?.bust === true,
+    won: game?.won === true,
+    winner: game?.winner ?? null,
+    winnerName: winner?.name ?? null,
+  };
+}
+
+// The calls between two states: a visit, a requirement, a bust or a game shot.
+function callerCalls(previous, current, options) {
+  if (!previous) return [];
+  const calls = [];
+  const on = (key) => options[key] !== false;
+  if (on("call_scores") && current.darts === 3 && (previous.darts !== 3 || previous.visit !== current.visit)) {
+    calls.push({ kind: "score", score: current.score });
+    if (current.score === 180 && on("call_sounds")) calls.push({ kind: "fanfare" });
+  }
+  if (on("call_results") && current.bust && !previous.bust) calls.push({ kind: "bust" });
+  if (on("call_results") && current.winner !== null && previous.winner === null) {
+    calls.push({ kind: "match", name: current.winnerName });
+  } else if (on("call_results") && current.won && !previous.won && current.winner === null) {
+    calls.push({ kind: "leg" });
+  }
+  const turn =
+    current.player !== previous.player || current.remaining !== previous.remaining || previous.darts > 0;
+  if (
+    on("call_checkouts") &&
+    current.mode === "x01" &&
+    current.darts === 0 &&
+    turn &&
+    current.winner === null &&
+    current.route.length &&
+    current.remaining !== null &&
+    current.remaining <= 170
+  ) {
+    calls.push({
+      kind: "require",
+      name: current.name,
+      player: current.player,
+      players: current.players,
+      remaining: current.remaining,
+    });
+  }
+  return calls;
+}
+
+// A call as the caller says it.
+function callerText(call, t) {
+  const fill = (text, values) => text.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ""));
+  if (call.kind === "score") return String(call.score);
+  if (call.kind === "bust") return t("say_bust");
+  if (call.kind === "leg") return t("say_leg");
+  if (call.kind === "match") return fill(t("say_match"), { name: call.name ?? "" }).replace(", !", "!");
+  if (call.kind === "require") {
+    // Alone, nobody needs a name; in a match, unnamed players have a number.
+    const name = call.players > 1 ? call.name || `${t("score_player")} ${call.player}` : null;
+    return name
+      ? fill(t("say_require"), { name, remaining: call.remaining })
+      : fill(t("say_require_alone"), { remaining: call.remaining });
+  }
+  return "";
+}
+
+// One audio context for every card; browsers allow sound only after a tap.
+const callerAudio = { unlocked: false, context: null };
+
+function playFanfare() {
+  const context = callerAudio.context;
+  if (!context) return;
+  const start = context.currentTime;
+  [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "triangle";
+    oscillator.frequency.value = frequency;
+    const at = start + index * 0.14;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.25, at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + (index === 3 ? 0.9 : 0.3));
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(at);
+    oscillator.stop(at + 1);
+  });
+}
+
 // Board status shared by the live and status cards.
 function boardStatus(stateOf) {
   const on = (name) => stateOf(name)?.state === "on";
@@ -2250,6 +2385,17 @@ const SCOREBOARD_CSS = `${BASE_CSS}
     font-size: clamp(14px, 2.4cqi, 32px); color: var(--secondary-text-color); font-variant-numeric: tabular-nums;
   }
   .facts b { color: var(--primary-text-color); }
+  .caller-toggle {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    font: inherit; font-size: clamp(12px, 1.5cqi, 18px); font-weight: 600; color: var(--secondary-text-color);
+    border: 1px dashed var(--divider-color, rgba(127,127,127,.4)); background: none;
+  }
+  .caller-toggle[aria-pressed="true"] {
+    color: var(--text-primary-color, #fff); background: var(--ad-accent); border: 1px solid var(--ad-accent);
+  }
+  .caller-toggle::before { content: "🔊"; }
+  .caller-toggle[aria-pressed="false"]::before { content: "🔇"; }
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
   .visit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: clamp(6px, 1.2cqi, 16px); }
   .visit.plain { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .visit[hidden] { display: none; }
@@ -3976,7 +4122,10 @@ function createElements(Base) {
                   <div class="title"></div>
                   <div class="muted meta"></div>
                 </div>
-                ${c.show_status ? `<div class="pill" role="status"></div>` : ""}
+                <div class="header-actions">
+                  ${c.caller ? `<button class="caller-toggle" aria-pressed="false"></button>` : ""}
+                  ${c.show_status ? `<div class="pill" role="status"></div>` : ""}
+                </div>
               </header>
               <div class="banner" role="status" hidden></div>
               <div class="main"></div>
@@ -3993,13 +4142,59 @@ function createElements(Base) {
         banner: root.querySelector(".banner"),
         main: root.querySelector(".main"),
         visit: root.querySelector(".visit"),
+        caller: root.querySelector(".caller-toggle"),
       };
+      this._callerState = null;
+      this._el.caller?.addEventListener("click", () => this._toggleCaller());
+    }
+
+    // The tap that unlocks the sound; a second tap mutes the caller again.
+    _toggleCaller() {
+      if (this.preview) return;
+      callerAudio.unlocked = !callerAudio.unlocked;
+      if (callerAudio.unlocked) {
+        const Context = window.AudioContext || window.webkitAudioContext;
+        if (!callerAudio.context && Context) callerAudio.context = new Context();
+        callerAudio.context?.resume?.();
+        // Speaking inside the tap keeps browsers from blocking later calls.
+        this._speak(this._t("caller_on"));
+      } else {
+        window.speechSynthesis?.cancel();
+      }
+      this._showCaller();
+    }
+
+    _showCaller() {
+      const button = this._el.caller;
+      if (!button) return;
+      button.setAttribute("aria-pressed", String(callerAudio.unlocked));
+      button.textContent = callerAudio.unlocked ? this._t("caller_on") : this._t("caller_off");
+    }
+
+    _speak(text) {
+      const speech = window.speechSynthesis;
+      if (!text || !speech || typeof SpeechSynthesisUtterance === "undefined") return;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = this._hass.locale?.language || this._hass.language || "en";
+      speech.speak(utterance);
+    }
+
+    _announce(visit, view) {
+      const current = callerState(visit, view);
+      const previous = this._callerState;
+      this._callerState = current;
+      if (!this._config.caller || !callerAudio.unlocked || this.preview) return;
+      for (const call of callerCalls(previous, current, this._config)) {
+        if (call.kind === "fanfare") playFanfare();
+        else this._speak(callerText(call, (key) => this._t(key)));
+      }
     }
 
     _update() {
       const c = this._config;
       const el = this._el;
       const t = (key) => this._t(key);
+      this._showCaller();
       const [status, statusText] = boardStatus((name) => this._state(name));
       this.style.setProperty("--ad-status", STATUS_COLORS[status]);
       this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
@@ -4028,6 +4223,7 @@ function createElements(Base) {
           goal: Number(this._state("today")?.attributes?.goal) || 0,
         },
       });
+      this._announce(visit, view);
       el.title.textContent = board.title;
       el.meta.textContent = board.meta;
       el.banner.hidden = !board.banner;
@@ -4372,7 +4568,12 @@ function createElements(Base) {
     static defaults = SCOREBOARD_DEFAULTS;
 
     _schema() {
-      return [device, title, toggles(["full_height", "show_visit", "show_status"])];
+      return [
+        device,
+        title,
+        toggles(["full_height", "show_visit", "show_status"]),
+        toggles(["caller", "call_scores", "call_checkouts", "call_results", "call_sounds"]),
+      ];
     }
   }
 
@@ -4515,6 +4716,9 @@ export {
   doublesView,
   playersHtml,
   playersView,
+  callerCalls,
+  callerState,
+  callerText,
   scoreboardHtml,
   scoreboardView,
   cricketBeds,
