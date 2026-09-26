@@ -1006,11 +1006,11 @@ function dashboardStrategy(hass, config = {}) {
         hours_to_show: 168,
       });
     }
-    if (id("sensor.practice_legs")) {
+    if (id("sensor.practice_legs_played")) {
       trends.push({
         type: "statistics-graph",
         title: t("practice_legs_per_day"),
-        entities: [id("sensor.practice_legs")],
+        entities: [id("sensor.practice_legs_played")],
         stat_types: ["change"],
         period: "day",
         chart_type: "bar",

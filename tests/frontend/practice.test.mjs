@@ -130,7 +130,7 @@ test("the training view charts practice legs per day and the practice trend", ()
   const entity = (entity_id, translation_key) => ({ entity_id, translation_key, device_id: "dev", platform: "autodarts" });
   const entities = [
     entity("sensor.board_darts", "training_darts"),
-    entity("sensor.board_practice_legs", "practice_legs"),
+    entity("sensor.board_practice_legs", "practice_legs_played"),
     entity("sensor.board_first_nine", "practice_first_9_average"),
     entity("sensor.board_checkout_rate", "practice_checkout_rate"),
   ];

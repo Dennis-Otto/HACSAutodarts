@@ -232,7 +232,7 @@
       "practice_doubles_rate": {
         "default": "mdi:percent-circle-outline"
       },
-      "practice_legs": {
+      "practice_legs_played": {
         "default": "mdi:counter"
       }
     },

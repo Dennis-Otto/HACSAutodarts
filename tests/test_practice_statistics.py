@@ -17,7 +17,7 @@ def test_a_nine_darter_counts_its_first_nine_and_one_dart_at_a_double():
         "first_9_average": 167.0,
         "checkout_rate": 100.0,
         "doubles_rate": 100.0,
-        "legs": 1,
+        "legs_played": 1,
         "legs_counted": 1,
         "darts_at_double": 1,
     }
@@ -40,7 +40,7 @@ def test_without_double_out_there_is_no_checkout_rate():
     throw(game, "S20")
     statistics = game.statistics()
     assert statistics["checkout_rate"] is None and statistics["doubles_rate"] is None
-    assert statistics["legs"] == 1
+    assert statistics["legs_played"] == 1
 
 
 def test_the_doubles_rate_adds_the_double_drills():
@@ -75,13 +75,13 @@ def test_matches_count_every_player_and_the_statistics_survive_a_restart():
     statistics = game.statistics()
     # Alex 180 + 40 in four darts, Sam 60 in three darts.
     assert statistics["first_9_average"] == round(280 * 3 / 7, 2)
-    assert statistics["legs"] == 1
+    assert statistics["legs_played"] == 1
     assert all(player.first9_darts == 0 for player in game.players)
     restored = PracticeGame()
     restored.restore(game.stored())
     assert restored.statistics() == statistics
     restored.restore({"leg_stats": [{"first9_points": -1}], "legs_total": "x"})
-    assert restored.statistics()["legs"] == 0
+    assert restored.statistics()["legs_played"] == 0
 
 
 def test_only_the_last_ten_legs_count():
@@ -90,7 +90,7 @@ def test_only_the_last_ten_legs_count():
         game.players[0].remaining = 40
         throw(game, "D20")
     statistics = game.statistics()
-    assert statistics["legs"] == STATS_LEGS + 3
+    assert statistics["legs_played"] == STATS_LEGS + 3
     assert statistics["legs_counted"] == STATS_LEGS
 
 

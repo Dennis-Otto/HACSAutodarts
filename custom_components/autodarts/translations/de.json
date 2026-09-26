@@ -256,8 +256,8 @@
       "practice_doubles_rate": {
         "name": "Übungsspiel Doppelquote"
       },
-      "practice_legs": {
-        "name": "Übungsspiel Legs"
+      "practice_legs_played": {
+        "name": "Übungsspiel gespielte Legs"
       }
     },
     "button": {

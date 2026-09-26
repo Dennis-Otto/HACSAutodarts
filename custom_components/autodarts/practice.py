@@ -371,7 +371,7 @@ class PracticeGame:
             "doubles_rate": rate(
                 totals["checkouts"] + drill_hits, totals["at_double"] + drill_darts
             ),
-            "legs": self.legs_total,
+            "legs_played": self.legs_total,
             "legs_counted": len(self.leg_stats),
             "darts_at_double": totals["at_double"] + drill_darts,
         }

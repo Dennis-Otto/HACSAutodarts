@@ -256,8 +256,8 @@
       "practice_doubles_rate": {
         "name": "Practice doubles rate"
       },
-      "practice_legs": {
-        "name": "Practice legs"
+      "practice_legs_played": {
+        "name": "Practice legs played"
       }
     },
     "button": {

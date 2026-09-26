@@ -721,7 +721,7 @@ PRACTICE_STATISTICS = {
     "first_9_average": "points",
     "checkout_rate": PERCENTAGE,
     "doubles_rate": PERCENTAGE,
-    "legs": None,
+    "legs_played": None,
 }
 
 
@@ -732,7 +732,7 @@ class AutodartsPracticeStatistic(AutodartsLocalEntity, SensorEntity):
         super().__init__(coordinator, f"practice_{key}")
         self._key = key
         self._attr_native_unit_of_measurement = PRACTICE_STATISTICS[key]
-        if key == "legs":
+        if key == "legs_played":
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
         else:
             self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -749,7 +749,7 @@ class AutodartsPracticeStatistic(AutodartsLocalEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        if self._key == "legs":
+        if self._key == "legs_played":
             return None
         statistics = self.coordinator.practice.statistics()
         return {

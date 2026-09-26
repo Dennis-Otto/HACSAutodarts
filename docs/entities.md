@@ -106,7 +106,7 @@ Play X01 on the local board without an Autodarts game. Home Assistant counts dow
 | Practice first 9 average | Sensor, points | 3-dart average of the first nine darts of each leg, over the last 10 legs of everybody at the board. |
 | Practice checkout rate | Sensor, % | Legs won per dart thrown at a double, over the last 10 legs. A dart counts at a double when one double could finish the score: 2 to 40 when even, or 50. Only with double out. |
 | Practice doubles rate | Sensor, % | The same darts at a double together with the last 10 results of the doubles training and Bob's 27. |
-| Practice legs | Sensor, total | X01 legs finished; its long-term statistics show the legs per day. |
+| Practice legs played | Sensor, total | X01 legs finished; its long-term statistics show the legs per day. |
 | Practice players | Number | 1–4 players. A change starts a new match. |
 | Practice legs per set | Number | 1–11 legs win a set. A change starts a new match. |
 | Practice sets to win | Number | 1–7 sets win the match. A change starts a new match. |
