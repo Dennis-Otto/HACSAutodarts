@@ -27,10 +27,11 @@
 - **Local and realtime.** Talks directly to the Autodarts Board Manager in your network. Darts appear within a fraction of a second, and no cloud account or client ID is needed.
 - **Found automatically.** Board Manager 2 announces itself on the network, so Home Assistant offers the board with one click. You can also search for your boards or enter an address.
 - **Both Board Manager generations.** Works with the classic Board Manager 1 and the headless Board Manager 2. It detects the generation and switches over by itself when you update the board.
-- **Three dashboard cards** are included and load automatically:
+- **Four dashboard cards** are included and load automatically:
   - a live dartboard with blinking hit beds and dart positions;
   - a training card with a hit heatmap and visit history;
   - a board status card for detection, connections and cameras;
+  - a scoreboard for a tablet or TV at the board, readable from the oche;
   - plus an automatic dashboard that arranges everything for every board in one click.
 - **Training analytics:**
   - training sessions that start with the first dart or on purpose, end after a pause and keep your last 20 sessions;
@@ -97,7 +98,7 @@
 
    Choose **Search for boards on this network** or **Enter board address** and confirm. You need no account, password or client ID.
 
-3. **Add the cards.** Edit a dashboard, choose **Add card** and search for *Autodarts*; all three cards pick your board automatically. Or create a complete dashboard in one step: **Settings → Dashboards → Add dashboard → Autodarts**.
+3. **Add the cards.** Edit a dashboard, choose **Add card** and search for *Autodarts*; all four cards pick your board automatically. Or create a complete dashboard in one step: **Settings → Dashboards → Add dashboard → Autodarts**.
 
 The [installation guide](docs/installation.md) covers requirements, manual installation, cloud linking, updates and removal.
 
@@ -129,6 +130,7 @@ The integration serves its cards itself, so no dashboard resource is needed. Eac
 | --- | --- | --- |
 | **Autodarts** | `custom:autodarts-card` | The current visit on a dartboard drawn to Board Manager geometry. Hit beds blink, darts appear at their detected position and the board glows in the detection status colour. Also shows training statistics, connection chips and controls. |
 | **Autodarts training** | `custom:autodarts-training-card` | 3-dart average, a heatmap of your hits (per bed or per number), statistics tiles, your most hit beds and a chart of recent visits, plus a *New session* button. |
+| **Autodarts scoreboard** | `custom:autodarts-scoreboard-card` | A large scoreboard for a tablet or TV: every player's score with the checkout route, the Cricket chalkboard, the target of a training game, the winner and the current visit. |
 | **Autodarts board status** | `custom:autodarts-status-card` | Detection switch, Board Manager version and updates, connections, board PC load, a health tile for every camera and maintenance controls. |
 
 ```yaml
@@ -137,7 +139,7 @@ mode: numbers        # heatmap per number instead of per bed
 history_size: 30     # visits in the chart
 ```
 
-Or let the integration build a complete dashboard with live, training and board views for every board: **Settings → Dashboards → Add dashboard → Autodarts**, or in YAML simply `strategy: {type: custom:autodarts}`.
+Or let the integration build a complete dashboard with live, scoreboard, training and board views for every board: **Settings → Dashboards → Add dashboard → Autodarts**, or in YAML simply `strategy: {type: custom:autodarts}`.
 
 All options, with screenshots, are in the [card guide](docs/cards.md).
 
@@ -194,7 +196,7 @@ Details: [how it works](docs/how-it-works.md).
 | --- | --- |
 | [Installation](docs/installation.md) | Requirements, HACS and manual installation, setup, cloud link, updates, removal |
 | [Entities](docs/entities.md) | Every entity, event, state and attribute |
-| [Dashboard cards](docs/cards.md) | All three cards and their options |
+| [Dashboard cards](docs/cards.md) | All four cards and their options |
 | [Automations](docs/automations.md) | Board events, blueprints and examples |
 | [How it works](docs/how-it-works.md) | Data flow, update intervals, training rules, privacy |
 | [Troubleshooting](docs/troubleshooting.md) | Common problems, repairs, diagnostics and logs |

@@ -2,7 +2,7 @@
 
 [← Übersicht](README.md) · [English](../cards.md)
 
-Die Integration bringt drei Karten mit. Home Assistant lädt sie automatisch; eine Dashboard-Ressource oder ein eigener HACS-Download ist nicht nötig. Jede Karte:
+Die Integration bringt vier Karten mit. Home Assistant lädt sie automatisch; eine Dashboard-Ressource oder ein eigener HACS-Download ist nicht nötig. Jede Karte:
 
 - hat einen visuellen Editor und folgt deinem Design (hell oder dunkel) und deiner Sprache;
 - passt sich ihrer Breite an, vom Handy bis zum Wandtablet;
@@ -151,6 +151,38 @@ show_reset: false
 | `show_controls` | Wahrheitswert | `true` | Wartungstasten anzeigen |
 | `accent_color` | CSS-Farbe | Primärfarbe des Designs | Beschriftungen und Erkennungsschalter |
 
+## Anzeigetafel
+
+`custom:autodarts-scoreboard-card` ist für ein Tablet oder einen Fernseher neben dem Board gemacht: groß genug, um sie vom Abwurf aus zu lesen, und sie zeigt immer, was gerade gespielt wird.
+
+<img src="../images/de/scoreboard.png" alt="Anzeigetafel in einem 501-Match: Alex am Board mit 81 Rest und dem Weg T15 D18, Sam mit 361, darunter die Darts der aktuellen Aufnahme" width="760">
+
+- **X01:** eine Kachel pro Spieler mit Restpunkten, Legs, Sätzen und Average. Der Spieler am Board ist hervorgehoben und bekommt den Checkout-Weg, das Überwerfen oder das Game shot.
+- **Cricket:** eine große Kreidetafel mit den Treffern aller Spieler, den Punkten und den Treffern pro Runde; darunter steht die nächste offene Zahl.
+- **Trainingsspiele:** das Ziel in großer Schrift mit Fortschritt, Darts und Trefferquote (Bob's 27: Punkte und Runde; Checkout-Training: Rest, Weg und Checkout-Quote).
+- **Zwischen den Spielen:** die Punkte der aktuellen Aufnahme zusammen mit Darts, 3-Dart-Average, bester Aufnahme und 180ern der Trainingssession.
+- **Sieger:** Ein Banner nennt den Matchgewinner bis zum nächsten Dart.
+- **Aufnahme:** Unten stehen die drei Darts der aktuellen Aufnahme und ihre Punkte.
+
+<img src="../images/de/scoreboard-cricket.png" alt="Anzeigetafel bei Cricket zwischen Alex und Sam: die Kreidetafel mit Treffern, Punkten und Treffern pro Runde, T19 als nächstes Ziel" width="760">
+
+Das [automatische Dashboard](#automatisches-dashboard) hat eine Ansicht *Anzeigetafel*, die die Karte über den ganzen Bildschirm zeigt. Öffne sie auf dem Tablet und nutze den Vollbildmodus des Browsers oder die Home-Assistant-App im Kioskmodus.
+
+### Optionen
+
+| Option | Werte | Standard | Beschreibung |
+| --- | --- | --- | --- |
+| `device_id` | Gerät | erstes Board | Das anzuzeigende Board |
+| `full_height` | Wahrheitswert | `false` | Die Höhe des Bildschirms füllen, für eine Ansicht im Panel-Modus |
+| `show_visit` | Wahrheitswert | `true` | Die Darts der aktuellen Aufnahme anzeigen |
+| `show_status` | Wahrheitswert | `true` | Den Board-Status anzeigen |
+| `accent_color` | CSS-Farbe | Primärfarbe des Designs | Spieler am Board, Wege und Aufnahmepunkte |
+
+```yaml
+type: custom:autodarts-scoreboard-card
+full_height: true
+```
+
 ## Automatisches Dashboard
 
 Statt die Karten selbst anzuordnen, kann die Integration ein komplettes Dashboard erzeugen:
@@ -158,11 +190,12 @@ Statt die Karten selbst anzuordnen, kann die Integration ein komplettes Dashboar
 1. Öffne **Einstellungen → Dashboards → Dashboard hinzufügen**.
 2. Wähle **Autodarts**.
 
-Pro Board entstehen drei Ansichten. Sie aktualisieren sich selbst, wenn du ein Board hinzufügst oder Entitäten aktivierst:
+Pro Board entstehen vier Ansichten. Sie aktualisieren sich selbst, wenn du ein Board hinzufügst oder Entitäten aktivierst:
 
 | Ansicht | Inhalt |
 | --- | --- |
 | **Live** | Die Live-Karte über die volle Breite, die Steuerung des Übungsspiels und die Spielernamen |
+| **Anzeigetafel** | Die [Anzeigetafel](#anzeigetafel) über den ganzen Bildschirm, für ein Tablet oder einen Fernseher am Board |
 | **Training** | Die Trainingskarte, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet), der 3-Dart-Average der letzten 7 Tage, Übungslegs pro Tag sowie First-9-Average und Checkout-Quote des Übungsspiels |
 | **Board** | Der Board-Status, die Board-Einstellungen und das Board-Manager-Update |
 
@@ -187,7 +220,7 @@ Alle Optionen lassen sich im visuellen Editor einstellen; die Geräteauswahl bie
 
 ## Tipps
 
-- **Wandtablet:** Die Live-Karte mit `layout: vertical` füllt einen Bildschirm im Hochformat; die Scheibe skaliert mit.
+- **Wandtablet:** Die Live-Karte mit `layout: vertical` füllt einen Bildschirm im Hochformat; die Scheibe skaliert mit. Für einen Bildschirm im Querformat am Board nimm die [Anzeigetafel](#anzeigetafel).
 - **Kombinieren:** Setze Live-Karte und Trainingskarte in einer Abschnittsansicht mit zwei Spalten nebeneinander.
 - **Mehrere Boards:** Lege pro Board eine Karte an und wähle das Board im Editor der Karte.
 - **Alte Version im Cache:** Nach einem Update ändert sich die Adresse der Karte automatisch. Zeigt ein Browser trotzdem eine alte Karte, lade die Seite neu. In der Companion-App hilft *Einstellungen → Companion-App → Fehlerbehebung → Frontend-Cache zurücksetzen*.

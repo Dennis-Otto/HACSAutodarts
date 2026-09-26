@@ -586,6 +586,7 @@ class Scenario:
             "autodarts-card",
             "autodarts-training-card",
             "autodarts-status-card",
+            "autodarts-scoreboard-card",
         ):
             check(f'"{element}"' in source, f"Card element {element} missing")
         async with self.session.get(f"{HA}/") as response:
