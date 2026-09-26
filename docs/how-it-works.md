@@ -60,6 +60,17 @@ Training sessions are computed in Home Assistant from what the board detects. Th
 
 Sessions do not know players or games. A running session counts every detected dart, whether you play X01, Cricket or just practise.
 
+## Practice game
+
+The practice game follows the darts of the current visit, including corrections, like the training session does. When you pull the darts, the visit is booked.
+
+- **Counting down:** the score starts at 301, 501 or 701 and every dart subtracts its score.
+- **Bust:** a dart that goes below zero, leaves 1 with double out, or reaches 0 without a double busts the visit. The score returns to the start of the visit. The dart that busts counts as thrown; later darts of the visit do not.
+- **Win:** a dart that reaches exactly 0, with double out on a double or the bullseye, wins the leg. `leg_won` is announced at once. The leg is booked when you pull the darts, so a correction before that still counts. The next visit starts a new leg.
+- **Average:** points scored per three darts of the leg. Darts of a bust visit count, their points do not.
+- **Checkout route:** the integration tries every combination for the darts left in the visit. It prefers fewer darts, setup darts that are not doubles, a double over the bullseye to finish, fewer trebles, then the finishing double in the order D20, D16, D8, D18, D12, D10, D4, D14, D6, D2 and the odd doubles, and finally the bigger dart first. The scores 159, 162, 163, 165, 166, 168, 169 and everything above 170 have no route with double out.
+- **Storage:** the game, the current leg and the last 10 legs are saved together with the training session.
+
 ## Camera health
 
 A camera counts as failed when it delivers no frames for **15 seconds** while the detection runs. Stopped detection, calibration and camera standby are not failures. The combined *Camera problem* sensor is on when any camera has failed.

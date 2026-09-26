@@ -21,6 +21,7 @@ To add one, edit a dashboard, select **Add card** and search for **Autodarts**.
 
 - **Visit:** score, the three dart slots and a progress indicator. The latest dart is outlined.
 - **Last visits:** the scores of your last five visits, coloured like the training card's chart. Hover one for its darts.
+- **Practice game:** while a [practice game](entities.md#practice-game) runs, the remaining score, the checkout route and busts appear above the dart slots, and the board outlines the bed to aim at next.
 - **Board:**
   - Hit beds blink in the highlight colour.
   - Numbered markers show where each dart landed.
@@ -32,6 +33,8 @@ To add one, edit a dashboard, select **Add card** and search for **Autodarts**.
 Tap the board, or press Enter on it, to open the visit details.
 
 <img src="images/en/card-visit.webp" alt="Animation: three darts land, their beds blink and the score adds up; the takeout empties the board" width="620">
+
+<img src="images/en/card-practice.png" alt="Live card during a 501 practice leg: 81 remaining after a triple 20, the checkout route T15 D18 and the triple 15 outlined on the board" width="760">
 
 ### Options
 
@@ -47,6 +50,7 @@ Tap the board, or press Enter on it, to open the visit details.
 | `show_numbers` | boolean | `true` | Show the numbers around the board |
 | `show_stats` | boolean | `true` | Show the training statistics |
 | `show_recent` | boolean | `true` | Show the last visits |
+| `show_practice` | boolean | `true` | Show the practice game and the bed to aim at |
 | `show_connection` | boolean | `true` | Show the connection chips |
 | `show_controls` | boolean | `true` | Show the controls |
 | `accent_color` | CSS colour | theme primary colour | Labels and main button |
@@ -166,7 +170,7 @@ For every board, the dashboard gets three views, which update themselves when yo
 
 | View | Contents |
 | --- | --- |
-| **Live** | The live card across the full width |
+| **Live** | The live card across the full width and the practice game controls |
 | **Training** | The training card, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly) and the 3-dart average of the last 7 days |
 | **Board** | The board status card, the board settings and the Board Manager update |
 

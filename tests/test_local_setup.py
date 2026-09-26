@@ -50,7 +50,7 @@ async def test_local_only_setup_entities_and_private_diagnostics(hass, aioclient
     assert all(str(call[1]).startswith(BASE) for call in aioclient_mock.mock_calls)
     registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(registry, entry.entry_id)
-    assert len(entities) == 62
+    assert len(entities) == 67
     assert state(hass, "switch", "detection") == "off"
     assert state(hass, "switch", "upstream") == "on"
     assert state(hass, "binary_sensor", "local_connected") == "on"
@@ -80,6 +80,11 @@ async def test_local_only_setup_entities_and_private_diagnostics(hass, aioclient
         "auto_start": True,
         "idle_minutes": 0,
         "stored_sessions": 0,
+    }
+    assert diagnostics["practice_game"] == {
+        "game": None,
+        "double_out": True,
+        "stored_legs": 0,
     }
     for sensitive in ("private-board-api-key", "api_key", "192.0.2.10", "/dev/video0"):
         assert sensitive not in str(diagnostics)
@@ -301,7 +306,7 @@ async def test_discovered_host_saved_and_later_cloud_auth_failure_is_isolated(
     assert entry.data["host"] == "192.0.2.10"
     assert entry.data["port"] == 3180
     registry = er.async_get(hass)
-    assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 68
+    assert len(er.async_entries_for_config_entry(registry, entry.entry_id)) == 73
     assert state(hass, "sensor", "board_status") == "connected"
     with patch.object(
         entry.runtime_data.cloud.cloud,

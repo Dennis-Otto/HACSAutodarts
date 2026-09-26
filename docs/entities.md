@@ -41,6 +41,8 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `status_changed` | The detection status changes | `status` |
 | `session_started` | A training session starts: with the *Training session* switch, the *New training session* button, or the first dart when *Start sessions automatically* is on | `started` and `reason` (`manual`, `new_session` or `first_dart`) |
 | `session_ended` | A training session ends: with the switch, the button, or after the pause set in *End session after a pause of* | `reason` (`manual`, `new_session` or `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` and the other training totals |
+| `bust` | A dart of the [practice game](#practice-game) goes below zero, leaves 1 with double out, or reaches 0 without a double | `game`, `remaining` (the score at the start of the visit, which stays) |
+| `leg_won` | A dart finishes the practice leg | `game`, `darts` and `average` of the leg, `checkout` (the score checked out) |
 
 Events are never replayed after a restart or reconnection. See [automations](automations.md) for examples.
 
@@ -77,6 +79,23 @@ The defaults, automatic start on and no pause limit, count every dart as version
 | Last session average | Sensor, points | 3-dart average of the last finished session. Attributes: `started`, `ended`, `duration_minutes`, the totals, and `sessions` with the last 20 sessions, which the recorder does not store. |
 
 Totals use the state class *total increasing*, so Home Assistant's statistics and energy-style graphs handle resets correctly. [How the counting works](how-it-works.md#training-session).
+
+## Practice game
+
+Play X01 on the local board without an Autodarts game. Home Assistant counts down, recognises busts and shows the checkout route. The game needs no cloud and survives restarts.
+
+- **Start:** choose 301, 501 or 701 in *Practice game*. Darts already on the board do not count. *New practice leg* starts the leg again from the full score.
+- **Visits:** a visit ends when you pull the darts. After a bust, the score of the visit start stays. Darts after a bust or after the winning dart do not count.
+- **Checkout:** the route for the darts left in the visit, for example `T20 T20 BULL` for 170. [How the route is chosen](how-it-works.md#practice-game).
+- **Sessions:** the practice game and [training sessions](#training-session) are independent. A dart counts in both.
+
+| Entity | Type | Description |
+| --- | --- | --- |
+| Practice game | Select | `off`, `301`, `501` or `701`. Choosing a game starts a new leg. |
+| Practice remaining score | Sensor | Remaining score of the leg; *unknown* without a game. Attributes: `game`, `double_out`, `checkout`, `bust`, `won`, `visit` (the segments of the current visit), `darts` and `average` of the leg, and `legs` with the last 10 legs (`game`, `darts`, `average`, `checkout`, `ended`). The recorder stores neither `visit` nor `legs`. |
+| Practice checkout | Sensor | The checkout route, for example `T20 25 D18`; *unknown* when no route exists. |
+| New practice leg | Button | Starts the leg again from the full score. |
+| Practice double out | Switch, *Configuration* | Finish on a double or the bullseye. On by default. |
 
 ## Controls
 

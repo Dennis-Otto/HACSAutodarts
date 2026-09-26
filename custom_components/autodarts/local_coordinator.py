@@ -1,4 +1,4 @@
-"""Combine local push notifications, HTTP recovery and persistent training counts."""
+"""Combine local push notifications, HTTP recovery, training and practice games."""
 
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ from .local_api import (
     AutodartsLocalClient,
     board_generation,
 )
+from .practice import PracticeGame
 from .training import TrainingSession
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,6 +56,8 @@ EVENT_TYPES = [
     "visit_completed",
     "session_started",
     "session_ended",
+    "bust",
+    "leg_won",
 ]
 
 
@@ -85,6 +88,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_name = "Autodarts Board"
         self.event_signal = f"{DOMAIN}_{entry.entry_id}_event"
         self.training = TrainingSession()
+        self.practice = PracticeGame()
         self._store: Store[dict[str, Any]] = Store(
             hass, 1, f"{DOMAIN}.{entry.entry_id}.training"
         )
@@ -112,12 +116,19 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_setup(self) -> None:
         saved = await self._store.async_load()
         self.training.restore(saved)
+        self.practice.restore(
+            saved.get("practice") if isinstance(saved, dict) else None
+        )
         if saved is None:
             self._save_training()
 
+    def _stored(self) -> dict[str, Any]:
+        """Training sessions and the practice game, saved together."""
+        return {**self.training.stored(), "practice": self.practice.stored()}
+
     def _save_training(self) -> None:
         self._training_dirty = True
-        self._store.async_delay_save(self.training.stored, 5)
+        self._store.async_delay_save(self._stored, 5)
 
     @callback
     def async_start(self) -> None:
@@ -139,7 +150,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._idle_unsub()
             self._idle_unsub = None
         if self._training_dirty:
-            await self._store.async_save(self.training.stored())
+            await self._store.async_save(self._stored())
             self._training_dirty = False
 
     async def _listen(self) -> None:
@@ -224,11 +235,15 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._emit("takeout_finished", {}, source)
 
     def _process(self, data: dict[str, Any], fields: set[str], source: str) -> None:
-        previous_training = self.training.stored()
+        previous_training = self._stored()
         state = data.get("local", {})
         if "local" in fields:
             previous = self._observed_state
             for kind, attributes in self.training.observe(state):
+                if kind == "visit_completed":
+                    self.practice.finish_visit()
+                self._emit(kind, attributes, source)
+            for kind, attributes in self.practice.track(self.training.visit()):
                 self._emit(kind, attributes, source)
             if previous is not None:
                 status = state.get("status")
@@ -271,7 +286,8 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._finish_takeout(source)
             self._observed_motion = motion
         data["training"] = self.training.snapshot()
-        if self.training.stored() != previous_training:
+        data["practice"] = self.practice.snapshot()
+        if self._stored() != previous_training:
             self._save_training()
             self._schedule_idle_end()
         data["camera_problems"] = self._health.update(data, time.monotonic())
@@ -536,12 +552,16 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_training(self, events: list[tuple[str, dict[str, Any]]]) -> None:
         """Save a session change at once, then announce it."""
-        stored = self.training.stored()
+        stored = self._stored()
         await self._store.async_save(stored)
-        self._training_dirty = self.training.stored() != stored
+        self._training_dirty = self._stored() != stored
         for kind, attributes in events:
             self._emit(kind, attributes, "training")
-        self.data = {**(self.data or {}), "training": self.training.snapshot()}
+        self.data = {
+            **(self.data or {}),
+            "training": self.training.snapshot(),
+            "practice": self.practice.snapshot(),
+        }
         self._schedule_idle_end()
         self.async_update_listeners()
 
@@ -562,6 +582,19 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_idle_minutes(self, minutes: int) -> None:
         self.training.idle_minutes = minutes
+        await self._async_training([])
+
+    async def async_play(self, game: int) -> None:
+        """Start a practice game, or stop playing with 0."""
+        self.practice.play(game)
+        await self._async_training([])
+
+    async def async_new_leg(self) -> None:
+        self.practice.new_leg()
+        await self._async_training([])
+
+    async def async_set_double_out(self, enabled: bool) -> None:
+        self.practice.double_out = enabled
         await self._async_training([])
 
     def _idle_due(self) -> datetime | None:

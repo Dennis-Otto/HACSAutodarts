@@ -68,6 +68,11 @@ ENTITIES = {
     "training_auto_start": "switch",
     "training_idle_timeout": "number",
     "training_last_session": "sensor",
+    "practice_game": "select",
+    "practice_double_out": "switch",
+    "practice_new_leg": "button",
+    "practice_remaining": "sensor",
+    "practice_checkout": "sensor",
 }
 if GENERATION >= 2:
     # Board Manager 2 reports its cloud link, load and updates, and has no toggle.
@@ -447,6 +452,8 @@ class Scenario:
             lambda: self.entry_is("loaded"), "the reloaded entry without polling"
         )
         await self.expect_states({"realtime_connected": "on", "detection": "on"})
+        await self.service("select", "select_option", "practice_game", option="301")
+        await self.expect_states({"practice_game": "301", "practice_remaining": "301"})
         await self.ws("subscribe_events", event_type="state_changed")
 
         await self.board(
@@ -509,6 +516,7 @@ class Scenario:
                 "training_visits": "1",
                 "training_highest_visit": "70",
                 "training_average": "105.0",
+                "practice_remaining": "231",
             }
         )
         hits = (await self.state("training_darts"))["attributes"]["hits"]

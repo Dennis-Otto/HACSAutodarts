@@ -313,6 +313,10 @@ async def async_setup_entry(
         )
         entities.append(AutodartsLastSessionSensor(runtime.local))
         entities.extend(
+            AutodartsPracticeSensor(runtime.local, key)
+            for key in ("remaining", "checkout")
+        )
+        entities.extend(
             AutodartsLocalSensor(runtime.local, description)
             for description in STATIC_SENSORS
             if description.key in local_keys
@@ -670,3 +674,30 @@ class AutodartsLastSessionSensor(AutodartsLocalEntity, SensorEntity):
             **{key: value for key, value in last.items() if key != "average"},
             "sessions": history,
         }
+
+
+class AutodartsPracticeSensor(AutodartsLocalEntity, SensorEntity):
+    """The remaining score and the checkout route of the practice leg."""
+
+    # Darts and past legs are for cards; the recorder keeps the score.
+    _unrecorded_attributes = frozenset({"visit", "legs"})
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
+        super().__init__(coordinator, f"practice_{key}")
+        self._key = key
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> int | str | None:
+        game = self.coordinator.practice.snapshot()
+        return game.get(self._key)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self._key != "remaining":
+            return None
+        game = self.coordinator.practice.snapshot()
+        return {key: value for key, value in game.items() if key != "remaining"}

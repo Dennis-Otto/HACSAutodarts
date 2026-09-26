@@ -38,6 +38,15 @@ async def async_get_config_entry_diagnostics(
             if local
             else None
         ),
+        "practice_game": (
+            {
+                "game": local.practice.game or None,
+                "double_out": local.practice.double_out,
+                "stored_legs": len(local.practice.legs),
+            }
+            if local
+            else None
+        ),
         "poll_interval_seconds": (
             local.update_interval.total_seconds()
             if local and local.update_interval
