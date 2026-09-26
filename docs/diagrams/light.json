@@ -1,0 +1,17 @@
+{
+  "theme": "base",
+  "flowchart": { "htmlLabels": false, "curve": "basis", "padding": 18 },
+  "themeVariables": {
+    "fontFamily": "Roboto, Helvetica, Arial, sans-serif",
+    "fontSize": "17px",
+    "primaryColor": "#e7f5fe",
+    "primaryBorderColor": "#0288d1",
+    "primaryTextColor": "#15202b",
+    "lineColor": "#546170",
+    "clusterBkg": "#f6f8fa",
+    "clusterBorder": "#c9d1d9",
+    "titleColor": "#15202b",
+    "edgeLabelBackground": "#ffffff",
+    "tertiaryColor": "#f6f8fa"
+  }
+}
