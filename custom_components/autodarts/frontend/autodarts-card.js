@@ -149,6 +149,8 @@ const TEXT = {
     show_stats: "Show training statistics",
     show_connection: "Show connection status",
     show_controls: "Show controls",
+    recent: "Last visits",
+    show_recent: "Show last visits",
     // Training card
     training: "Training",
     average_long: "3-dart average",
@@ -173,8 +175,19 @@ const TEXT = {
     show_heatmap: "Show heatmap",
     show_top: "Show most hit beds",
     show_history: "Show recent visits",
-    show_reset: "Show new session button",
+    show_reset: "Show session controls",
     history_size: "Visits in the history",
+    start_session: "Start session",
+    end_session: "End session",
+    session_running: "Session running",
+    session_ended: "Session ended",
+    no_session: "No session running",
+    no_session_hint: "Start a session to count your darts.",
+    past_sessions: "Past sessions",
+    session_end: "Ended",
+    duration: "Duration",
+    highest_short: "Best",
+    show_sessions: "Show past sessions",
     // Status card
     status: "Board status",
     detection: "Detection",
@@ -195,6 +208,7 @@ const TEXT = {
     restart: "Restart",
     show_cameras: "Show cameras",
     show_system: "Show board PC",
+    vision_short: "Detection",
     unknown: "unknown",
     // Dashboard strategy
     view_live: "Live",
@@ -260,6 +274,8 @@ const TEXT = {
     show_stats: "Trainingsstatistik anzeigen",
     show_connection: "Verbindungsstatus anzeigen",
     show_controls: "Steuerung anzeigen",
+    recent: "Vorige Aufnahmen",
+    show_recent: "Vorige Aufnahmen anzeigen",
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
@@ -283,8 +299,19 @@ const TEXT = {
     show_heatmap: "Heatmap anzeigen",
     show_top: "Häufigste Felder anzeigen",
     show_history: "Letzte Aufnahmen anzeigen",
-    show_reset: "Schaltfläche für neue Session anzeigen",
+    show_reset: "Session-Steuerung anzeigen",
     history_size: "Aufnahmen im Verlauf",
+    start_session: "Session starten",
+    end_session: "Session beenden",
+    session_running: "Session läuft",
+    session_ended: "Session beendet",
+    no_session: "Keine Session aktiv",
+    no_session_hint: "Starte eine Session, damit deine Darts zählen.",
+    past_sessions: "Vergangene Sessions",
+    session_end: "Ende",
+    duration: "Dauer",
+    highest_short: "Beste",
+    show_sessions: "Vergangene Sessions anzeigen",
     status: "Board-Status",
     detection: "Erkennung",
     on: "An",
@@ -304,6 +331,7 @@ const TEXT = {
     restart: "Neu starten",
     show_cameras: "Kameras anzeigen",
     show_system: "Board-PC anzeigen",
+    vision_short: "Erkennung",
     unknown: "unbekannt",
     view_live: "Live",
     view_training: "Training",
@@ -324,6 +352,7 @@ const DEFAULTS = {
   show_stats: true,
   show_connection: true,
   show_controls: true,
+  show_recent: true,
 };
 
 const TRAINING_DEFAULTS = {
@@ -334,6 +363,7 @@ const TRAINING_DEFAULTS = {
   show_top: true,
   show_history: true,
   show_reset: true,
+  show_sessions: true,
   history_size: 20,
 };
 
@@ -391,6 +421,8 @@ const TRAINING_KEYS = {
   started: "sensor.training_started",
   events: "event.board_events",
   newSession: "button.reset_training",
+  session: "switch.training_session",
+  lastSession: "sensor.training_last_session",
 };
 
 const STATUS_KEYS = {
@@ -402,6 +434,9 @@ const STATUS_KEYS = {
   memory: "sensor.memory_usage",
   fps: "sensor.detection_fps",
   update: "update.board_software",
+  hostOs: "sensor.host_os",
+  processor: "sensor.host_processor",
+  vision: "sensor.vision_version",
 };
 
 // Per-camera entities carry their camera number as an attribute.
@@ -670,13 +705,57 @@ function visitBucket(score) {
   return "low";
 }
 
+// "Intel(R) Core(TM) i3-9100T CPU @ 3.10GHz" reads as "Intel Core i3-9100T".
+function shortProcessor(name) {
+  if (typeof name !== "string") return "";
+  return name
+    .replace(/\((R|TM)\)/gi, "")
+    .replace(/\s+CPU\b.*$|\s*@.*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Completed visits of the visit sensor, newest first; malformed entries are skipped.
+function recentVisits(visits, limit = 5) {
+  if (!Array.isArray(visits)) return [];
+  return visits
+    .filter((visit) => visit && Number.isFinite(visit.score) && visit.score >= 0 && Array.isArray(visit.segments))
+    .slice(0, limit)
+    .map((visit) => ({
+      score: Math.round(visit.score),
+      segments: visit.segments.filter((segment) => typeof segment === "string"),
+    }));
+}
+
+// Finished sessions of the last-session sensor, newest first.
+function pastSessions(sessions, limit = 5) {
+  if (!Array.isArray(sessions)) return [];
+  const number = (value) => (Number.isFinite(value) ? value : null);
+  return sessions
+    .filter((session) => session && Number.isFinite(Date.parse(session.ended)) && session.darts > 0)
+    .slice(0, limit)
+    .map((session) => ({
+      ended: Date.parse(session.ended),
+      minutes: number(session.duration_minutes),
+      darts: number(session.darts),
+      average: number(session.average),
+      best: number(session.highest_visit),
+    }));
+}
+
 // Rows of history/history_during_period for the board events entity.
 function visitsFromHistory(rows, since = 0) {
-  const visits = [];
+  let visits = [];
   for (const row of Array.isArray(rows) ? rows : []) {
     const attributes = row?.a || row?.attributes;
+    const time = Date.parse(row?.s ?? row?.state);
+    // The start sensor has whole seconds, so a visit of the previous session
+    // can fall into the same second; the start event itself is precise.
+    if (attributes?.event_type === "session_started" && time >= since) {
+      visits = [];
+      continue;
+    }
     if (attributes?.event_type !== "visit_completed") continue;
-    const time = Date.parse(row.s ?? row.state);
     const score = Number(attributes.score);
     if (!Number.isFinite(time) || !Number.isFinite(score) || time < since) continue;
     visits.push({
@@ -900,6 +979,14 @@ const CSS = `${BASE_CSS}
   .score-unit { font-size: 14px; color: var(--secondary-text-color); }
   .progress { margin-left: auto; font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; }
   .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .recent { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .recent[hidden] { display: none; }
+  .recent-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .recent-visit {
+    min-width: 2.4em; padding: 3px 8px; border-radius: 999px; text-align: center;
+    font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--primary-text-color);
+    border: 1px solid var(--bucket); background: color-mix(in srgb, var(--bucket) 16%, transparent);
+  }
   .slot {
     position: relative; padding: 10px 8px 9px; border-radius: 14px; text-align: center;
     border: 1px solid var(--divider-color, rgba(127,127,127,.25));
@@ -1006,8 +1093,20 @@ const TRAINING_CSS = `${BASE_CSS}
     position: absolute; left: 0; right: 0; bottom: calc((100% - 16px) * var(--height));
     border-top: 1px dashed var(--secondary-text-color); opacity: .55; pointer-events: none;
   }
-  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .footer-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
   .footer-row button.action { flex: 0 0 auto; }
+  .footer-row button.action[hidden] { display: none; }
+  .footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .sessions[hidden] { display: none; }
+  .session-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .session-table th {
+    padding: 4px 6px; text-align: right; font-size: 11px; font-weight: 600; color: var(--secondary-text-color);
+  }
+  .session-table td {
+    padding: 6px; text-align: right; color: var(--primary-text-color);
+    border-top: 1px solid var(--divider-color, rgba(127,127,127,.2));
+  }
+  .session-table :is(th, td):first-child { text-align: left; }
   .empty-hint { font-size: 13px; color: var(--secondary-text-color); text-align: center; padding: 8px 0; }
 `;
 
@@ -1044,6 +1143,10 @@ const STATUS_CSS = `${BASE_CSS}
   }
   .info-tile .badge.ok { color: ${STATUS_COLORS.ready}; background: color-mix(in srgb, ${STATUS_COLORS.ready} 14%, transparent); cursor: default; }
   .metrics { display: flex; gap: 14px; flex-wrap: wrap; }
+  .system-info {
+    all: unset; display: block; cursor: pointer; overflow-wrap: anywhere;
+  }
+  .system-info[hidden] { display: none; }
   .metric .value { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .metric .name { font-size: 11px; color: var(--secondary-text-color); }
   .camera-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
@@ -1289,6 +1392,14 @@ function createElements(Base) {
                     )
                     .join("")}
                 </div>
+                ${
+                  c.show_recent
+                    ? `<div class="recent" hidden>
+                        <span class="muted">${t("recent")}</span>
+                        <div class="recent-list"></div>
+                      </div>`
+                    : ""
+                }
               </div>
               <div class="board">
                 <div class="board-frame">
@@ -1344,6 +1455,8 @@ function createElements(Base) {
         pill: root.querySelector(".pill"),
         score: root.querySelector(".score"),
         progress: root.querySelector(".progress"),
+        recent: root.querySelector(".recent"),
+        recentList: root.querySelector(".recent-list"),
         slots: [...root.querySelectorAll(".slot")],
         since: root.querySelector(".since"),
         stats: Object.fromEntries(
@@ -1409,6 +1522,20 @@ function createElements(Base) {
         : known.reduce((sum, dart) => sum + dart.number * dart.multiplier, 0);
       el.score.textContent = darts.length || usable(visit) ? total : "–";
       el.progress.textContent = darts.length ? `${t("dart")} ${darts.length} ${t("of")} 3` : "";
+      if (el.recent) {
+        const visits = recentVisits(visit?.attributes?.recent_visits);
+        el.recent.hidden = !visits.length;
+        this._setHtml(
+          el.recentList,
+          visits
+            .map(
+              (item) =>
+                `<span class="recent-visit" style="--bucket:${VISIT_COLORS[visitBucket(item.score)]}" ` +
+                `title="${escapeHtml(`${item.segments.join(" · ")} = ${item.score}`)}">${item.score}</span>`
+            )
+            .join("")
+        );
+      }
 
       el.slots.forEach((slot, index) => {
         const dart = darts[index];
@@ -1678,10 +1805,27 @@ function createElements(Base) {
                   : ""
               }
               ${
+                c.show_sessions
+                  ? `<div class="sessions" hidden>
+                      <div class="section-label">${t("past_sessions")}</div>
+                      <table class="session-table">
+                        <thead><tr>
+                          <th>${t("session_end")}</th><th>${t("duration")}</th><th>${t("darts")}</th>
+                          <th>${t("average")}</th><th>${t("highest_short")}</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>`
+                  : ""
+              }
+              ${
                 c.show_reset
                   ? `<div class="footer-row">
-                      <span class="muted"></span>
-                      <button class="action" data-action="new_session">${t("new_session")}</button>
+                      <span class="muted session-state"></span>
+                      <div class="footer-actions">
+                        <button class="action" data-action="session" hidden></button>
+                        <button class="action" data-action="new_session">${t("new_session")}</button>
+                      </div>
                     </div>`
                   : ""
               }
@@ -1703,10 +1847,23 @@ function createElements(Base) {
         top: root.querySelector(".top"),
         history: root.querySelector(".history-chart"),
         newSession: root.querySelector('[data-action="new_session"]'),
+        session: root.querySelector('[data-action="session"]'),
+        sessionState: root.querySelector(".session-state"),
+        sessions: root.querySelector(".sessions"),
+        sessionRows: root.querySelector(".session-table tbody"),
       };
       this._el.newSession?.addEventListener("click", () => {
         if (this.preview) return;
         if (this._confirmed("new_session")) this._press(this._ids.newSession);
+        this._confirmChanged();
+      });
+      this._el.session?.addEventListener("click", () => {
+        if (this.preview || !this._ids.session) return;
+        const running = this._state("session")?.state === "on";
+        // Starting is harmless; ending needs a second tap like a new session.
+        if (!running || this._confirmed("end_session")) {
+          this._call("switch", running ? "turn_off" : "turn_on", { entity_id: this._ids.session });
+        }
         this._confirmChanged();
       });
       root.querySelector(".tiles")?.addEventListener("click", () => this._moreInfo(this._ids.darts));
@@ -1715,11 +1872,65 @@ function createElements(Base) {
 
     _confirmChanged() {
       const button = this._el?.newSession;
-      if (!button) return;
-      const confirming = this._confirm === "new_session";
-      button.textContent = this._t(confirming ? "confirm" : "new_session");
-      button.classList.toggle("confirm", confirming);
-      button.disabled = !this._ids.newSession;
+      if (button) {
+        const confirming = this._confirm === "new_session";
+        button.textContent = this._t(confirming ? "confirm" : "new_session");
+        button.classList.toggle("confirm", confirming);
+        button.disabled = !this._ids.newSession;
+      }
+      const toggle = this._el?.session;
+      if (toggle) {
+        const running = this._state("session")?.state === "on";
+        const confirming = running && this._confirm === "end_session";
+        toggle.hidden = !this._ids.session;
+        toggle.textContent = this._t(confirming ? "confirm" : running ? "end_session" : "start_session");
+        toggle.classList.toggle("primary", !running);
+        toggle.classList.toggle("confirm", confirming);
+      }
+    }
+
+    _updateSessions() {
+      const el = this._el;
+      const session = this._state("session");
+      if (el.sessionState) {
+        const changed = Date.parse(session?.last_changed);
+        el.sessionState.textContent = !session
+          ? ""
+          : session.state === "on"
+            ? this._t("session_running")
+            : Number.isFinite(changed)
+              ? `${this._t("session_ended")} ${this._dateTime(changed)}`
+              : this._t("no_session");
+      }
+      if (!el.sessions) return;
+      const sessions = pastSessions(this._state("lastSession")?.attributes?.sessions);
+      el.sessions.hidden = !sessions.length;
+      this._setHtml(
+        el.sessionRows,
+        sessions
+          .map((item) =>
+            [
+              this._dateTime(item.ended),
+              item.minutes === null ? "–" : item.minutes < 1 ? "<1 min" : `${this._format(item.minutes)} min`,
+              this._format(item.darts),
+              this._format(item.average, 1),
+              this._format(item.best),
+            ]
+              .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+              .join("")
+          )
+          .map((row) => `<tr>${row}</tr>`)
+          .join("")
+      );
+    }
+
+    _dateTime(time) {
+      return new Intl.DateTimeFormat(this._hass.locale?.language || this._hass.language, {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(time));
     }
 
     _update() {
@@ -1740,6 +1951,8 @@ function createElements(Base) {
       el.totals.darts.textContent = this._format(darts);
       el.totals.visits.textContent = this._format(this._number("visits"));
       el.empty.hidden = darts > 0;
+      const idle = this._state("session")?.state === "off";
+      el.empty.textContent = this._t(idle ? "no_session_hint" : "no_darts");
 
       const tiles = el.tiles;
       if (tiles.highest) {
@@ -1756,6 +1969,7 @@ function createElements(Base) {
       this._updateHeat(hits);
       this._updateTop(hits, darts);
       this._updateHistory();
+      this._updateSessions();
       this._confirmChanged();
     }
 
@@ -1969,6 +2183,7 @@ function createElements(Base) {
                     ? `<div class="info-tile system-tile" hidden>
                         <span class="section-label">${t("system")}</span>
                         <div class="metrics"></div>
+                        <button class="system-info muted" hidden></button>
                       </div>`
                     : ""
                 }
@@ -2004,6 +2219,7 @@ function createElements(Base) {
         chips: root.querySelector(".chips"),
         system: root.querySelector(".system-tile"),
         metrics: root.querySelector(".metrics"),
+        systemInfo: root.querySelector(".system-info"),
         camerasSection: root.querySelector(".cameras-section"),
         cameras: root.querySelector(".camera-grid"),
         controls: root.querySelector(".controls"),
@@ -2014,6 +2230,7 @@ function createElements(Base) {
         const id = event.target.closest(".chip")?.dataset.entity;
         if (id) this._moreInfo(id);
       });
+      this._el.systemInfo?.addEventListener("click", () => this._moreInfo(this._ids.hostOs));
       this._el.metrics?.addEventListener("click", (event) => {
         const id = event.target.closest("[data-entity]")?.dataset.entity;
         if (id) this._moreInfo(id);
@@ -2128,7 +2345,18 @@ function createElements(Base) {
         metric("memory", this._t("memory"), value("memory", 0, unit("memory"))),
         metric("fps", this._t("detection_fps"), value("fps", 1, "fps")),
       ].join("");
-      this._el.system.hidden = !markup;
+      const text = (name) => (usable(this._state(name)) ? String(this._state(name).state) : "");
+      const vision = text("vision");
+      const info = [
+        text("hostOs"),
+        shortProcessor(text("processor")),
+        vision ? `${this._t("vision_short")} ${vision}` : "",
+      ].filter(Boolean);
+      if (this._el.systemInfo) {
+        this._el.systemInfo.hidden = !info.length;
+        this._el.systemInfo.textContent = info.join(" · ");
+      }
+      this._el.system.hidden = !markup && !info.length;
       this._setHtml(this._el.metrics, markup);
     }
 
@@ -2270,7 +2498,7 @@ function createElements(Base) {
           ],
         },
         dropdown("highlight", this._options("highlight", ["visit", "last", "none"])),
-        toggles(["blink", "show_markers", "show_numbers", "show_stats", "show_connection", "show_controls"]),
+        toggles(["blink", "show_markers", "show_numbers", "show_stats", "show_recent", "show_connection", "show_controls"]),
       ];
     }
   }
@@ -2291,7 +2519,7 @@ function createElements(Base) {
           ],
         },
         { name: "history_size", selector: { number: { min: 5, max: 60, step: 1, mode: "slider" } } },
-        toggles(["show_heatmap", "show_stats", "show_top", "show_history", "show_reset"]),
+        toggles(["show_heatmap", "show_stats", "show_top", "show_history", "show_sessions", "show_reset"]),
       ];
     }
   }
@@ -2395,8 +2623,11 @@ export {
   NUMBERS,
   numbersSvg,
   parseSegment,
+  pastSessions,
   R,
+  recentVisits,
   sectorAt,
+  shortProcessor,
   topHits,
   visitBucket,
   visitsFromHistory,

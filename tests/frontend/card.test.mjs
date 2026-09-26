@@ -14,8 +14,11 @@ import {
   NUMBERS,
   numbersSvg,
   parseSegment,
+  pastSessions,
   R,
+  recentVisits,
   sectorAt,
+  shortProcessor,
 } from "../../custom_components/autodarts/frontend/autodarts-card.js";
 
 const hass = { locale: { language: "en" } };
@@ -116,4 +119,42 @@ test("colour options reach the style only as valid colours", (t) => {
   for (const value of ["url(https://example.com/x.png)", "red; background: blue", "", 42, null, undefined]) {
     assert.equal(cssColor(value, "fallback"), "fallback");
   }
+});
+
+test("recent visits keep valid entries, newest first, at most five", () => {
+  const visits = [
+    { time: "t", score: 180, darts: 3, segments: ["T20", "T20", "T20"] },
+    { score: "140", segments: [] },
+    { score: 60.4, segments: ["T20", 5, null] },
+    null,
+    { score: -1, segments: [] },
+    ...Array.from({ length: 6 }, (_, index) => ({ score: index, segments: [] })),
+  ];
+  const result = recentVisits(visits);
+  assert.equal(result.length, 5);
+  assert.deepEqual(result[0], { score: 180, segments: ["T20", "T20", "T20"] });
+  assert.deepEqual(result[1], { score: 60, segments: ["T20"] });
+  assert.deepEqual(recentVisits("junk"), []);
+});
+
+test("past sessions need an end time and darts", () => {
+  const sessions = [
+    { ended: "2026-09-26T18:40:00+00:00", duration_minutes: 42.5, darts: 90, average: 55.27, highest_visit: 140 },
+    { ended: "2026-09-26T17:00:00+00:00", darts: 0, average: null },
+    { ended: "yesterday", darts: 3 },
+    { ended: "2026-09-25T20:00:00+00:00", darts: 12, average: "x", highest_visit: null },
+  ];
+  assert.deepEqual(pastSessions(sessions), [
+    { ended: Date.parse("2026-09-26T18:40:00+00:00"), minutes: 42.5, darts: 90, average: 55.27, best: 140 },
+    { ended: Date.parse("2026-09-25T20:00:00+00:00"), minutes: null, darts: 12, average: null, best: null },
+  ]);
+  assert.deepEqual(pastSessions(undefined), []);
+  assert.equal(pastSessions(Array(9).fill(sessions[0]), 5).length, 5);
+});
+
+test("processor names drop trademarks and clock speed", () => {
+  assert.equal(shortProcessor("Intel(R) Core(TM) i3-9100T CPU @ 3.10GHz"), "Intel Core i3-9100T");
+  assert.equal(shortProcessor("AMD Ryzen 5 5600G with Radeon Graphics"), "AMD Ryzen 5 5600G with Radeon Graphics");
+  assert.equal(shortProcessor("Cortex-A76 @ 2.4GHz"), "Cortex-A76");
+  assert.equal(shortProcessor(null), "");
 });

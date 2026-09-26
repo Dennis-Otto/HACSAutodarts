@@ -89,6 +89,24 @@ test("completed visits are read from the event history", () => {
   assert.deepEqual(visitsFromHistory(null), []);
 });
 
+test("a session start drops visits of the previous session in the same second", () => {
+  // The start sensor reports 20:00:00; the previous visit ended 300 ms later.
+  const since = Date.parse("2026-09-25T20:00:00+00:00");
+  const rows = [
+    { s: "2026-09-25T20:00:00.100+00:00", a: { event_type: "visit_completed", score: 60 } },
+    { s: "2026-09-25T20:00:00.300+00:00", a: { event_type: "session_ended", darts: 3 } },
+    { s: "2026-09-25T20:00:00.600+00:00", a: { event_type: "session_started" } },
+    { s: "2026-09-25T20:00:04+00:00", a: { event_type: "visit_completed", score: 100 } },
+  ];
+  assert.deepEqual(
+    visitsFromHistory(rows, since).map((visit) => visit.score),
+    [100]
+  );
+  // An older session start before the window changes nothing.
+  const older = [{ s: "2026-09-25T19:00:00+00:00", a: { event_type: "session_started" } }, rows[3]];
+  assert.deepEqual(visitsFromHistory(older, since).map((visit) => visit.score), [100]);
+});
+
 test("board status follows connection, detection and takeout", () => {
   const states = (values) => (name) => (name in values ? { state: values[name] } : undefined);
   assert.deepEqual(boardStatus(states({})), ["offline", "status_offline"]);
