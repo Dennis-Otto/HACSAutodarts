@@ -22,11 +22,12 @@
   - Board-Status mit Erkennung, Verbindungen und Kameras;
   - dazu ein automatisches Dashboard, das alles pro Board mit einem Klick anordnet.
 - **Trainingsanalyse:**
+  - Trainingssessions, die mit dem ersten Dart oder bewusst beginnen, nach einer Pause enden und die letzten 20 Sessions behalten;
   - 3-Dart-Average, Aufnahmen, höchste Aufnahme, 100+/140+/180, Triple-Quote;
   - Treffer pro Feld, lokal gespeichert und über Neustarts hinweg erhalten.
 - **Automationen mit Bühnenatmosphäre.**
-  - Board-Ereignisse für jeden Dart, jede Korrektur, jede Entnahme und jede abgeschlossene Aufnahme.
-  - Sechs fertige Blueprints: 180-Feier, Dart-Caller, Licht bei der Entnahme, automatische Erkennung, Warnungen und tägliche Berichte.
+  - Board-Ereignisse für jeden Dart, jede Korrektur, jede Entnahme, jede abgeschlossene Aufnahme und jede Trainingssession.
+  - Sieben fertige Blueprints: 180-Feier, Dart-Caller, Licht bei der Entnahme, automatische Erkennung, Warnungen, tägliche Berichte und eine Routine für Trainingssessions.
 - **Volle Kontrolle.**
   - Erkennung starten, stoppen und zurücksetzen.
   - Kalibrierung für das Board oder einzelne Kameras; Board Manager neu starten.
@@ -37,7 +38,7 @@
   - Stellt Verbindungen selbst wieder her und meldet eine falsche Board-Adresse unter Reparaturen.
   - Diagnosedaten ohne Geheimnisse.
   - Auf Deutsch und Englisch.
-  - Rund 300 automatische Tests, darunter ein Docker-End-to-End-Test mit beiden Board-Manager-Generationen und ein Browsertest jeder Karte.
+  - Mehr als 350 automatische Tests, darunter ein Docker-End-to-End-Test mit beiden Board-Manager-Generationen und ein Browsertest jeder Karte.
 
 ## Schnellstart
 

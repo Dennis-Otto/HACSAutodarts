@@ -33,9 +33,10 @@
   - a board status card for detection, connections and cameras;
   - plus an automatic dashboard that arranges everything for every board in one click.
 - **Training analytics:**
+  - training sessions that start with the first dart or on purpose, end after a pause and keep your last 20 sessions;
   - 3-dart average, visits, highest visit, 100+/140+/180 and triple rate;
   - hits per bed, stored locally and kept across restarts.
-- **Automations that feel like a stage.** Board events for every dart, correction, takeout and completed visit, plus six ready-made blueprints: 180 celebrations, a dart caller, takeout lights, automatic detection, alerts and daily reports.
+- **Automations that feel like a stage.** Board events for every dart, correction, takeout, completed visit and training session, plus seven ready-made blueprints: 180 celebrations, a dart caller, takeout lights, automatic detection, alerts, daily reports and a training session routine.
 - **Full control.**
   - Start, stop and reset detection; calibrate the board or single cameras; restart Board Manager.
   - Board settings, camera standby and Board Manager updates.
@@ -45,7 +46,7 @@
   - Reconnects automatically and flags a wrong board address in Repairs.
   - Redacts all secrets in diagnostics.
   - Translated into English and German.
-  - About 300 automated tests, including a Docker end-to-end test against both Board Manager generations and a real browser test of every card.
+  - More than 350 automated tests, including a Docker end-to-end test against both Board Manager generations and a real browser test of every card.
 
 ## Screenshots
 
@@ -104,14 +105,14 @@ The [installation guide](docs/installation.md) covers requirements, manual insta
 | Area | Entities and features | Board Manager 1 | Board Manager 2 |
 | --- | --- | :---: | :---: |
 | Live visit | Detection status, last dart, darts in visit, visit score with dart positions | ✓ | ✓ |
-| Board events | Dart detected and corrected, takeout started and finished, visit completed, status changed | ✓ | ✓ |
-| Training | Darts, points, 3-dart average, visits, highest visit, 100+/140+/180, triples, doubles, bulls, misses, hits per bed, session start and reset | ✓ | ✓ |
+| Board events | Dart detected and corrected, takeout started and finished, visit completed, status changed, session started and ended | ✓ | ✓ |
+| Training | Training sessions with automatic start and end and the last 20 sessions; darts, points, 3-dart average, visits, highest visit, 100+/140+/180, triples, doubles, bulls, misses, hits per bed | ✓ | ✓ |
 | Controls | Detection switch; start, stop and reset buttons; calibration (board and per camera); restart; camera streams | ✓ | ✓ |
 | Settings | Calibrate on start, automatic recalibration, distortion correction, camera standby | ✓ | ✓ |
 | Health | Board Manager connection, realtime connection, cameras active, calibration, camera problems (overall and per camera), frame rates | ✓ | ✓ |
 | Motion | Hand detected, image stable, darts partially or fully removed | ✓ | ✓ |
 | Board cloud link | Switch and buttons for the board's own cloud connection | ✓ | – |
-| System | Autodarts cloud connection, CPU and memory of the board PC, Board Manager update | – | ✓ |
+| System | Autodarts cloud connection, CPU and memory, operating system, processor and detection software of the board PC, Board Manager update | – | ✓ |
 | Snapshots | One camera entity per board camera (disabled by default) | ✓ | ✓ |
 | Cloud match data *(optional)* | Board status, game mode, match state, round, visit score, darts thrown | Needs an Autodarts client ID | Needs an Autodarts client ID |
 
