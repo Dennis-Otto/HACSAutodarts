@@ -2,7 +2,7 @@
 
 [← Übersicht](README.md) · [English](../roadmap.md)
 
-Diese Roadmap zeigt, was nach Version 1.0 geplant ist. Sie ist eine Richtung, kein Versprechen: Die Prioritäten richten sich nach den Rückmeldungen der Spieler, die Termine nach der verfügbaren Freizeit. Ideen und Stimmen sind als [Funktionswunsch](https://github.com/Dennis-Otto/ha-autodarts/issues/new/choose) willkommen.
+Diese Roadmap zeigt, was jede Version gebracht hat und was als Nächstes kommt. Sie ist eine Richtung, kein Versprechen: Die Prioritäten richten sich nach den Rückmeldungen der Spieler, die Termine nach der verfügbaren Freizeit. Ideen und Stimmen sind als [Funktionswunsch](https://github.com/Dennis-Otto/ha-autodarts/issues/new/choose) willkommen.
 
 ## Version 1.0: das lokale Fundament
 
@@ -14,15 +14,19 @@ Enthalten, alles ohne Autodarts-Cloud:
 - Drei Dashboard-Karten, ein automatisches Dashboard und sechs Blueprints.
 - Dokumentation auf Englisch und Deutsch.
 
-## Als Nächstes: 1.1 und 1.2
+## Version 1.1: Trainingssessions
+
+- Trainingssessions, die mit dem ersten Dart oder bewusst beginnen, nach einer Pause enden und eine Übersicht der letzten 20 Sessions behalten.
+- Die Ereignisse `session_started` und `session_ended` und ein siebter Blueprint, der Licht, Erkennung und Kalibrierung an die Session koppelt.
+- Die letzten Aufnahmen in der Live-Karte, Sessionstatus und vergangene Sessions in der Trainingskarte.
+- Details zum Board-PC aus Board Manager 2: Betriebssystem, Prozessor und Erkennungssoftware.
+
+## Als Nächstes: 1.2
 
 | Thema | Was es bringt |
 | --- | --- |
-| **Trainingssessions** | Session ausdrücklich starten und beenden, nach einer Zeit ohne Darts automatisch beenden und eine Übersicht vergangener Sessions behalten. Ein Blueprint koppelt Licht, Erkennung und Kalibrierung an die Session |
 | **Lokale Übungsspiele** | Ein X01-Übungsmodus, der die Restpunkte führt, Überwerfen erkennt und Checkouts vorschlägt, alles vom lokalen Board |
 | **Live-Kamerabild** | Livestreams der Board-Kameras statt Standbildern, wo Board Manager 2 sie anbietet |
-| **Details zum Board-PC** | Betriebssystem, Hardware und Version der Bilderkennung auf der Geräteseite und in der Diagnose |
-| **Aufnahmen in der Live-Karte** | Die letzten Aufnahmen neben der aktuellen |
 
 ## Später
 

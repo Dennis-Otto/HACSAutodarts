@@ -193,7 +193,7 @@ Details: [how it works](docs/how-it-works.md).
 | [How it works](docs/how-it-works.md) | Data flow, update intervals, training rules, privacy |
 | [Troubleshooting](docs/troubleshooting.md) | Common problems, repairs, diagnostics and logs |
 | [Security design](docs/security.md) | What is protected, trust boundaries, threats and countermeasures |
-| [Roadmap](docs/roadmap.md) | What comes after 1.0 |
+| [Roadmap](docs/roadmap.md) | Released versions and what comes next |
 | [Development](docs/development.md) | Tests, Docker E2E, demo instance, screenshots, releases |
 | [Deutsche Dokumentation](docs/de/README.md) | Die komplette Anleitung auf Deutsch |
 
