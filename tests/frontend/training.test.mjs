@@ -145,6 +145,7 @@ test("entities are found per device and cameras grouped by number", () => {
       d: entity("sensor.other_board_status", "local_status", "other"),
       e: { entity_id: "light.kitchen", platform: "hue", device_id: "board" },
       f: entity("sensor.board_status", "local_status"),
+      g: entity("sensor.board_uptime", undefined),
     },
     states: {
       "binary_sensor.cam_2_problem": { state: "on", attributes: { camera: 2 } },
@@ -155,6 +156,13 @@ test("entities are found per device and cameras grouped by number", () => {
   const index = entityIndex(hass, "board");
   assert.deepEqual(index["sensor.local_status"], ["sensor.board_status"]);
   assert.equal(index["light.undefined"], undefined);
+  // Entities without a translation key cannot be told apart and are skipped.
+  assert.deepEqual(Object.keys(index).sort(), [
+    "binary_sensor.individual_camera_problem",
+    "button.calibrate_camera",
+    "sensor.local_status",
+  ]);
+  assert.deepEqual(entityIndex({}, "board"), {});
   // The index is cached until the entity registry changes.
   assert.equal(entityIndex(hass, "board"), index);
   assert.deepEqual(cameraEntities(hass, index), [

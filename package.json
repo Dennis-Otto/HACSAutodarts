@@ -8,9 +8,10 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test \"tests/frontend/*.test.mjs\" \"tests/frontend/*.test.js\""
+    "test": "node --test --experimental-test-coverage --test-coverage-include=custom_components/autodarts/frontend/autodarts-card.js --test-coverage-lines=100 --test-coverage-branches=99 --test-coverage-functions=99 \"tests/frontend/*.test.mjs\" \"tests/frontend/*.test.js\""
   },
   "devDependencies": {
-    "fast-check": "4.10.2"
+    "fast-check": "4.10.2",
+    "happy-dom": "20.14.5"
   }
 }
