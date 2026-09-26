@@ -337,6 +337,12 @@
       },
       "practice_double_out": {
         "name": "Übungsspiel Double-Out"
+      },
+      "practice_double_in": {
+        "name": "Übungsspiel Double-In"
+      },
+      "practice_bull_off": {
+        "name": "Übungsspiel Ausbullen"
       }
     },
     "select": {
@@ -354,7 +360,13 @@
           "doubles": "Doppeltraining",
           "checkout": "Checkout-Training",
           "bobs_27": "Bob's 27",
-          "cricket": "Cricket"
+          "cricket": "Cricket",
+          "101": "101",
+          "901": "901",
+          "1001": "1001",
+          "shanghai": "Shanghai",
+          "halve_it": "Halve-It",
+          "killer": "Killer"
         }
       }
     },
@@ -436,7 +448,8 @@
               "drill_finished": "Trainingsspiel beendet",
               "checkout_attempt": "Checkout-Versuch",
               "personal_best": "Bestleistung",
-              "daily_goal_reached": "Tagesziel erreicht"
+              "daily_goal_reached": "Tagesziel erreicht",
+              "bull_off_won": "Ausbullen gewonnen"
             }
           }
         }
@@ -518,7 +531,7 @@
         },
         "game": {
           "name": "Spiel",
-          "description": "X01 mit 301, 501 oder 701 Punkten, Cricket oder ein Trainingsspiel."
+          "description": "X01 von 101 bis 1001 Punkten, Cricket, ein Partyspiel oder ein Trainingsspiel."
         },
         "players": {
           "name": "Spieler",
@@ -535,6 +548,14 @@
         "double_out": {
           "name": "Double-Out",
           "description": "X01-Legs auf einem Double oder dem Bullseye beenden."
+        },
+        "double_in": {
+          "name": "Double-In",
+          "description": "X01-Legs beginnen mit einem Double oder dem Bullseye."
+        },
+        "bull_off": {
+          "name": "Ausbullen",
+          "description": "Die Spieler werfen zuerst aufs Bull; wer am nächsten liegt, beginnt das Match."
         }
       }
     }
@@ -549,7 +570,13 @@
         "doubles": "Doppeltraining",
         "checkout": "Checkout-Training",
         "bobs_27": "Bob's 27",
-        "cricket": "Cricket"
+        "cricket": "Cricket",
+        "101": "101",
+        "901": "901",
+        "1001": "1001",
+        "shanghai": "Shanghai",
+        "halve_it": "Halve-It",
+        "killer": "Killer"
       }
     }
   }

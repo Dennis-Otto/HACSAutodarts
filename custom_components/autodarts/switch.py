@@ -32,7 +32,10 @@ async def async_setup_entry(
                 ),
                 AutodartsTrainingSwitch(coordinator, "training_session"),
                 AutodartsTrainingSwitch(coordinator, "training_auto_start"),
-                AutodartsDoubleOutSwitch(coordinator),
+                *(
+                    AutodartsPracticeSwitch(coordinator, option)
+                    for option in PRACTICE_OPTIONS
+                ),
             ]
         )
 
@@ -110,13 +113,18 @@ class AutodartsTrainingSwitch(AutodartsLocalEntity, SwitchEntity):
             await self.coordinator.async_set_auto_start(False)
 
 
-class AutodartsDoubleOutSwitch(AutodartsLocalEntity, SwitchEntity):
-    """Finish practice legs on a double or the bullseye."""
+# Rules of the practice game: finish on a double, start on a double, bull-off.
+PRACTICE_OPTIONS = ("double_out", "double_in", "bull_off")
+
+
+class AutodartsPracticeSwitch(AutodartsLocalEntity, SwitchEntity):
+    """A rule of the practice game."""
 
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
-        super().__init__(coordinator, "practice_double_out")
+    def __init__(self, coordinator: AutodartsLocalCoordinator, option: str) -> None:
+        super().__init__(coordinator, f"practice_{option}")
+        self._option = option
 
     @property
     def available(self) -> bool:
@@ -124,10 +132,10 @@ class AutodartsDoubleOutSwitch(AutodartsLocalEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        return self.coordinator.practice.double_out
+        return bool(getattr(self.coordinator.practice, self._option))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self.coordinator.async_set_double_out(True)
+        await self.coordinator.async_set_practice_option(self._option, True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.coordinator.async_set_double_out(False)
+        await self.coordinator.async_set_practice_option(self._option, False)

@@ -294,3 +294,39 @@ async def test_practice_statistics_follow_the_legs(hass, aioclient_mock):
     registry = er.async_get(hass)
     legs = registry.async_get(entity_id(hass, "sensor", "practice_legs_played"))
     assert legs.capabilities == {"state_class": "total_increasing"}
+
+
+async def test_party_games_rules_and_the_bull_off_in_home_assistant(
+    hass, aioclient_mock
+):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    events = record(hass, coordinator)
+    await select_game(hass, "shanghai")
+    assert state(hass, "select", "practice_game") == "shanghai"
+    assert state(hass, "sensor", "practice_target") == "1"
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.state == "unknown" and remaining.attributes["round"] == 1
+    assert remaining.attributes["points"] == 0
+
+    registry = er.async_get(hass)
+    for key in ("practice_double_in", "practice_bull_off"):
+        rule = registry.async_get(entity_id(hass, "switch", key))
+        assert rule.entity_category == er.EntityCategory.CONFIG
+        assert state(hass, "switch", key) == "off"
+    await set_number(hass, "practice_players", 2)
+    await switch(hass, "practice_bull_off", True)
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.attributes["bull_off"]["player"] == 1
+    await throw(hass, coordinator, OUTER_BULL)
+    await throw(hass, coordinator, BULL)
+    won = [attributes for kind, attributes in events if kind == "bull_off_won"]
+    assert won and won[0]["player"] == 2 and won[0]["distance"] == 0.0
+    remaining = hass.states.get(entity_id(hass, "sensor", "practice_remaining"))
+    assert remaining.attributes["bull_off"] is None
+    assert remaining.attributes["player"] == 2
+
+    await select_game(hass, "1001")
+    await switch(hass, "practice_double_in", True)
+    assert coordinator.practice.double_in is True
+    assert coordinator.practice.snapshot()["remaining"] == 1001

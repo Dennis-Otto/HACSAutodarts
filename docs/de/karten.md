@@ -18,7 +18,7 @@ Zum Hinzufügen bearbeitest du ein Dashboard, wählst **Karte hinzufügen** und 
 
 - **Aufnahme:** Punkte, die drei Dart-Felder und der Fortschritt. Der jüngste Dart ist hervorgehoben.
 - **Vorige Aufnahmen:** die Punkte deiner letzten fünf Aufnahmen, eingefärbt wie im Diagramm der Trainingskarte. Mit dem Mauszeiger siehst du die Darts.
-- **Übungsspiel:** Läuft ein [Übungsspiel](entitaeten.md#übungsspiel), stehen Restpunkte, Checkout-Weg und Überwerfen über den Dart-Feldern, und die Scheibe umrandet das nächste Zielfeld. Im Match listet eine Anzeigetafel alle Spieler mit Restpunkten, Legs, Sätzen und Average und hebt den Spieler am Board hervor. Bei [Cricket](entitaeten.md#cricket) zeigt eine Kreidetafel die Treffer aller Spieler auf 20 bis 15 und dem Bull, die Punkte und die Treffer pro Runde, blendet Zahlen ab, die alle geschlossen haben, und umrandet die nächste offene Zahl auf der Scheibe. In einem [Trainingsspiel](entitaeten.md#trainingsspiele) zeigt der Bereich Ziel, Fortschritt, Darts und Trefferquote (Bob's 27: Punkte und Runde; Checkout-Training: Weg und Checkout-Quote), und die Scheibe umrandet die Felder des Ziels.
+- **Übungsspiel:** Läuft ein [Übungsspiel](entitaeten.md#übungsspiel), stehen Restpunkte, Checkout-Weg und Überwerfen über den Dart-Feldern, und die Scheibe umrandet das nächste Zielfeld. Im Match listet eine Anzeigetafel alle Spieler mit Restpunkten, Legs, Sätzen und Average und hebt den Spieler am Board hervor. Bei den [Partyspielen](entitaeten.md#partyspiele) zeigt der Bereich Runde, Ziel und die Punkte aller Spieler, bei Killer ihre Zahl und Leben. Beim Ausbullen listet er den Abstand jedes Darts. Bei [Cricket](entitaeten.md#cricket) zeigt eine Kreidetafel die Treffer aller Spieler auf 20 bis 15 und dem Bull, die Punkte und die Treffer pro Runde, blendet Zahlen ab, die alle geschlossen haben, und umrandet die nächste offene Zahl auf der Scheibe. In einem [Trainingsspiel](entitaeten.md#trainingsspiele) zeigt der Bereich Ziel, Fortschritt, Darts und Trefferquote (Bob's 27: Punkte und Runde; Checkout-Training: Weg und Checkout-Quote), und die Scheibe umrandet die Felder des Ziels.
 - **Scheibe:**
   - Getroffene Felder blinken in der Hervorhebungsfarbe.
   - Nummerierte Markierungen zeigen, wo jeder Dart steckt.
@@ -160,10 +160,14 @@ show_reset: false
 
 - **X01:** eine Kachel pro Spieler mit Restpunkten, Legs, Sätzen und Average. Der Spieler am Board ist hervorgehoben und bekommt den Checkout-Weg, das Überwerfen oder das Game shot.
 - **Cricket:** eine große Kreidetafel mit den Treffern aller Spieler, den Punkten und den Treffern pro Runde; darunter steht die nächste offene Zahl.
+- **Partyspiele:** Runde und Ziel, die Punkte aller Spieler oder bei Killer ihre Zahl und Leben als rote Herzen.
+- **Ausbullen:** der Abstand jedes Darts zur Mitte.
 - **Trainingsspiele:** das Ziel in großer Schrift mit Fortschritt, Darts und Trefferquote (Bob's 27: Punkte und Runde; Checkout-Training: Rest, Weg und Checkout-Quote).
 - **Zwischen den Spielen:** die Punkte der aktuellen Aufnahme zusammen mit Darts, 3-Dart-Average, bester Aufnahme und 180ern der Trainingssession, der Trainingsserie und den Darts von heute zum Tagesziel.
 - **Sieger:** Ein Banner nennt den Matchgewinner bis zum nächsten Dart.
 - **Aufnahme:** Unten stehen die drei Darts der aktuellen Aufnahme und ihre Punkte.
+
+<img src="../images/de/killer.webp" alt="Animation: Killer für Alex, Sam und Kim auf der Anzeigetafel. Alle werfen für eine Zahl, Alex wird Killer und nimmt Sam die Leben, Kim wird ebenfalls Killer, und Alex nimmt das letzte Leben zum Sieg" width="760">
 
 <img src="../images/de/scoreboard-cricket.png" alt="Anzeigetafel bei Cricket zwischen Alex und Sam: die Kreidetafel mit Treffern, Punkten und Treffern pro Runde, T19 als nächstes Ziel" width="760">
 

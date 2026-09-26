@@ -12,10 +12,11 @@ from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN
 from .drills import DRILLS
 from .local_coordinator import AutodartsLocalCoordinator
+from .party import PARTY_GAMES
 from .practice import GAMES, MAX_LEGS, MAX_PLAYERS, MAX_SETS, NAME_LENGTH
 
 SERVICE_START_GAME = "start_game"
-GAME_OPTIONS = [*(str(game) for game in GAMES), "cricket", *DRILLS]
+GAME_OPTIONS = [*(str(game) for game in GAMES), "cricket", *PARTY_GAMES, *DRILLS]
 
 START_GAME_SCHEMA = vol.Schema(
     {
@@ -29,6 +30,8 @@ START_GAME_SCHEMA = vol.Schema(
         vol.Optional("legs"): vol.All(vol.Coerce(int), vol.Range(min=1, max=MAX_LEGS)),
         vol.Optional("sets"): vol.All(vol.Coerce(int), vol.Range(min=1, max=MAX_SETS)),
         vol.Optional("double_out"): cv.boolean,
+        vol.Optional("double_in"): cv.boolean,
+        vol.Optional("bull_off"): cv.boolean,
     }
 )
 
@@ -73,6 +76,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
             legs=call.data.get("legs"),
             sets=call.data.get("sets"),
             double_out=call.data.get("double_out"),
+            double_in=call.data.get("double_in"),
+            bull_off=call.data.get("bull_off"),
         )
 
     hass.services.async_register(

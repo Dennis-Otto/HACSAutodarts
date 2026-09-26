@@ -26,6 +26,7 @@ test("the practice view reads the remaining score sensor", () => {
       winner: null,
       legsToWin: 1,
       setsToWin: 1,
+      opened: true,
       scores: [],
     }
   );
@@ -190,4 +191,56 @@ test("cricket shows every player's marks, the points and the bed to aim at", asy
   assert.deepEqual(cricketBeds({ ...view, winner: 1 }), []);
   const odd = cricketView({ state: "unknown", attributes: { game: "cricket", target: "<b>", numbers: [1] } });
   assert.deepEqual([odd.target, odd.numbers, odd.scores, odd.mpr], [null, [20, 19, 18, 17, 16, 15, 25], [], null]);
+});
+
+test("party games show points, lives and the beds of their target", async () => {
+  const { partyView, partyBeds, bullOffView } = await import(
+    "../../custom_components/autodarts/frontend/autodarts-card.js"
+  );
+  assert.equal(partyView({ state: "unknown", attributes: { game: "cricket" } }), null);
+  const shanghai = partyView({
+    state: "unknown",
+    attributes: { game: "shanghai", round: 3, rounds: 7, target: "3", points: 9, player: 1, scores: [{ player: 1, points: 9 }] },
+  });
+  assert.deepEqual([shanghai.kind, shanghai.round, shanghai.rounds, shanghai.points], ["shanghai", 3, 7, 9]);
+  assert.deepEqual(partyBeds(shanghai), ["SI3", "SO3", "T3", "D3"]);
+  const halve = (target) => partyBeds({ ...shanghai, kind: "halve_it", target });
+  assert.equal(halve("D").length, 21);
+  assert.equal(halve("T").length, 20);
+  assert.deepEqual(halve("BULL"), ["Bull", "25"]);
+  assert.deepEqual(partyBeds({ ...shanghai, won: true }), []);
+  const killer = partyView({
+    state: "unknown",
+    attributes: {
+      game: "killer",
+      phase: "play",
+      player: 1,
+      target: null,
+      scores: [
+        { player: 1, number: 7, lives: 3, killer: true },
+        { player: 2, number: 12, lives: 0, killer: false },
+        { player: 3, number: 3, lives: 2, killer: false },
+        { player: "x" },
+      ],
+    },
+  });
+  // A killer aims at the doubles of the players still in the game.
+  assert.deepEqual(partyBeds(killer), ["D3"]);
+  assert.deepEqual(partyBeds({ ...killer, target: "D7" }), ["D7"]);
+  assert.deepEqual(partyBeds({ ...killer, phase: "choose" }), []);
+  assert.deepEqual(partyBeds({ ...killer, needsPlayers: 2 }), []);
+  assert.equal(killer.scores.length, 3);
+  assert.equal(bullOffView({ state: "301", attributes: { bull_off: null } }), null);
+  const bullOff = bullOffView({
+    state: "301",
+    attributes: { bull_off: { player: 2, name: "Sam", throws: [{ player: 1, distance: 11 }, { player: 2, distance: null }, "x"] } },
+  });
+  assert.deepEqual(bullOff, {
+    player: 2,
+    name: "Sam",
+    throws: [
+      { player: 1, name: null, distance: 11 },
+      { player: 2, name: null, distance: null },
+    ],
+  });
 });

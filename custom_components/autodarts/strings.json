@@ -337,6 +337,12 @@
       },
       "practice_double_out": {
         "name": "Practice double out"
+      },
+      "practice_double_in": {
+        "name": "Practice double in"
+      },
+      "practice_bull_off": {
+        "name": "Practice bull-off"
       }
     },
     "select": {
@@ -354,7 +360,13 @@
           "doubles": "Doubles training",
           "checkout": "Checkout training",
           "bobs_27": "Bob's 27",
-          "cricket": "Cricket"
+          "cricket": "Cricket",
+          "101": "101",
+          "901": "901",
+          "1001": "1001",
+          "shanghai": "Shanghai",
+          "halve_it": "Halve-It",
+          "killer": "Killer"
         }
       }
     },
@@ -436,7 +448,8 @@
               "drill_finished": "Training game finished",
               "checkout_attempt": "Checkout attempt",
               "personal_best": "Personal best",
-              "daily_goal_reached": "Daily goal reached"
+              "daily_goal_reached": "Daily goal reached",
+              "bull_off_won": "Bull-off won"
             }
           }
         }
@@ -518,7 +531,7 @@
         },
         "game": {
           "name": "Game",
-          "description": "X01 with 301, 501 or 701 points, Cricket, or a training game."
+          "description": "X01 from 101 to 1001 points, Cricket, a party game or a training game."
         },
         "players": {
           "name": "Players",
@@ -535,6 +548,14 @@
         "double_out": {
           "name": "Double out",
           "description": "Finish X01 legs on a double or the bullseye."
+        },
+        "double_in": {
+          "name": "Double in",
+          "description": "X01 legs start with a double or the bullseye."
+        },
+        "bull_off": {
+          "name": "Bull-off",
+          "description": "Players throw at the bull first; the closest starts the match."
         }
       }
     }
@@ -549,7 +570,13 @@
         "doubles": "Doubles training",
         "checkout": "Checkout training",
         "bobs_27": "Bob's 27",
-        "cricket": "Cricket"
+        "cricket": "Cricket",
+        "101": "101",
+        "901": "901",
+        "1001": "1001",
+        "shanghai": "Shanghai",
+        "halve_it": "Halve-It",
+        "killer": "Killer"
       }
     }
   }

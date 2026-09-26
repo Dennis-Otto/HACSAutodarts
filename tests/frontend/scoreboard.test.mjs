@@ -184,3 +184,41 @@ test("between games the scoreboard adds the streak and the darts towards the dai
   const none = scoreboardHtml({ mode: "idle" }, { ...ui, stats: { ...stats, streak: 0, today: null } });
   assert.doesNotMatch(none.main, /streak|darts_today/);
 });
+
+test("party games and the bull-off have their own boards", () => {
+  const killer = board({
+    practice: {
+      state: "unknown",
+      attributes: {
+        game: "killer",
+        phase: "play",
+        player: 1,
+        target: null,
+        scores: [
+          { player: 1, name: "Alex", number: 7, lives: 3, killer: true },
+          { player: 2, name: "Sam", number: 12, lives: 0 },
+        ],
+      },
+    },
+  });
+  assert.equal(killer.title, "party_killer");
+  assert.match(killer.main, /<div class="big lives">♥♥♥<\/div><div class="route"><span class="note">killer_hunt<\/span>/);
+  assert.match(killer.main, /<div class="player out"><div class="name">Sam<\/div><div class="big lives">✕<\/div>/);
+  const halve = board({
+    practice: {
+      state: "unknown",
+      attributes: { game: "halve_it", round: 3, rounds: 9, target: "D", player: 1, scores: [{ player: 1, points: 80 }] },
+    },
+  });
+  assert.equal(halve.meta, "drill_round 3/9");
+  assert.match(halve.main, /<div class="big">80<\/div><div class="route"><span class="bed">any_double<\/span>/);
+  const bullOff = board({
+    practice: {
+      state: "501",
+      attributes: { game: 501, bull_off: { player: 2, throws: [{ player: 1, name: "Alex", distance: 11.4 }, { player: 2, name: "Sam" }] } },
+    },
+  });
+  assert.deepEqual([bullOff.title, bullOff.meta], ["bull_off", "bull_off_hint"]);
+  assert.match(bullOff.main, /<div class="player"><div class="name">Alex<\/div><div class="big">11 mm<\/div>/);
+  assert.match(bullOff.main, /<div class="player active"><div class="name">Sam<\/div><div class="big">–<\/div>/);
+});

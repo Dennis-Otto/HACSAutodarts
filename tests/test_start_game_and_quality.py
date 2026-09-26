@@ -101,6 +101,21 @@ async def test_start_game_sets_up_a_match_in_one_call(hass, aioclient_mock):
     assert state(hass, "select", "practice_game") == "cricket"
     assert state(hass, "sensor", "practice_target") == "T20"
 
+    await hass.services.async_call(
+        DOMAIN,
+        "start_game",
+        {
+            "game": "killer",
+            "players": ["A", "B", "C"],
+            "bull_off": True,
+            "double_in": True,
+        },
+        blocking=True,
+    )
+    assert practice.party.kind == "killer" and len(practice.players) == 3
+    assert practice.bull_off and practice.double_in and practice.bulling is not None
+    assert state(hass, "select", "practice_game") == "killer"
+
 
 async def test_start_game_names_the_board_problem(hass, aioclient_mock):
     entry = await setup_local(hass, aioclient_mock, state=board())

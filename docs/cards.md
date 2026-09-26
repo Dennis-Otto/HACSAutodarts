@@ -21,7 +21,7 @@ To add one, edit a dashboard, select **Add card** and search for **Autodarts**.
 
 - **Visit:** score, the three dart slots and a progress indicator. The latest dart is outlined.
 - **Last visits:** the scores of your last five visits, coloured like the training card's chart. Hover one for its darts.
-- **Practice game:** while a [practice game](entities.md#practice-game) runs, the remaining score, the checkout route and busts appear above the dart slots, and the board outlines the bed to aim at next. In a match, a scoreboard lists every player with the remaining score, legs, sets and average, and highlights the player at the board. In [Cricket](entities.md#cricket), a chalkboard shows the marks of every player on 20 to 15 and the bull, the points and the marks per round, dims the numbers everybody has closed and outlines the next open number on the board. In a [training game](entities.md#training-games), the panel shows the target, the progress, darts and hit rate (Bob's 27: points and round; checkout training: the route and the checkout rate), and the board outlines the beds of the target.
+- **Practice game:** while a [practice game](entities.md#practice-game) runs, the remaining score, the checkout route and busts appear above the dart slots, and the board outlines the bed to aim at next. In a match, a scoreboard lists every player with the remaining score, legs, sets and average, and highlights the player at the board. In the [party games](entities.md#party-games), the panel shows the round, the target and every player's points or, in Killer, their number and lives. During a bull-off it lists the distance of every dart. In [Cricket](entities.md#cricket), a chalkboard shows the marks of every player on 20 to 15 and the bull, the points and the marks per round, dims the numbers everybody has closed and outlines the next open number on the board. In a [training game](entities.md#training-games), the panel shows the target, the progress, darts and hit rate (Bob's 27: points and round; checkout training: the route and the checkout rate), and the board outlines the beds of the target.
 - **Board:**
   - Hit beds blink in the highlight colour.
   - Numbered markers show where each dart landed.
@@ -174,10 +174,14 @@ show_system: false
 
 - **X01:** a tile for every player with the remaining score, legs, sets and average. The player at the board is outlined and gets the checkout route, a bust or the game shot.
 - **Cricket:** a large chalkboard with the marks of every player, the points and the marks per round; the next open number is shown below.
+- **Party games:** the round and the target, every player's points, or in Killer their number and lives in red hearts.
+- **Bull-off:** the distance of every player's dart from the centre.
 - **Training games:** the target in large type, with the progress, darts and hit rate (Bob's 27: points and round; checkout training: the score, the route and the checkout rate).
 - **Between games:** the score of the current visit together with darts, 3-dart average, highest visit and 180s of the training session, the training streak and today's darts towards the daily goal.
 - **Winner:** a banner names the winner of the match until the next dart.
 - **Visit:** the three darts of the current visit and its score along the bottom.
+
+<img src="images/en/killer.webp" alt="Animation: Killer for Alex, Sam and Kim on the scoreboard. Everybody throws for a number, Alex becomes a killer and takes Sam's lives, Kim becomes a killer too, and Alex takes the last life to win" width="760">
 
 <img src="images/en/scoreboard-cricket.png" alt="Scoreboard in Cricket between Alex and Sam: the chalkboard with marks, points and marks per round, and T19 as the next target" width="760">
 

@@ -385,6 +385,32 @@ def practice(browser: Browser) -> None:
         and state["aim"] == 1,
         f"Cricket state {state}",
     )
+
+    # Shanghai: the round, the number to hit and every player's points.
+    page.evaluate(
+        CALL_SERVICE,
+        ["select", "select_option", "practice_game", {"option": "shanghai"}],
+    )
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().title === 'Shanghai'", timeout=15000
+    )
+    single_one = {
+        "segment": {"name": "S1", "number": 1, "multiplier": 1, "bed": "SingleOuter"},
+        "coords": {"x": 0.25, "y": 0.72},
+    }
+    control({"event": "Throw detected", "throws": [single_one]})
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().remaining === '1'", timeout=15000
+    )
+    state = page.evaluate(PRACTICE_STATE)
+    check(
+        state["route"] == ["1"]
+        and state["meta"].startswith("Round 1/7")
+        and state["aim"] == 4,
+        f"Shanghai state {state}",
+    )
+    control({"status": "Takeout in progress", "event": "Takeout started"})
+    control({"status": "Throw", "event": "Takeout finished", "throws": []})
     page.evaluate(
         CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
     )

@@ -6,13 +6,13 @@ import math
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from .practice import GAMES
+
 # Record -> whether a higher value is better.
 RECORDS: dict[str, bool] = {
     "highest_visit": True,
     "highest_checkout": True,
-    "fewest_darts_301": False,
-    "fewest_darts_501": False,
-    "fewest_darts_701": False,
+    **{f"fewest_darts_{game}": False for game in GAMES},
     "best_cricket_mpr": True,
     "around_the_clock": False,
     "doubles": False,
@@ -178,7 +178,7 @@ class PersonalRecords:
             return [("highest_visit", _value(value("score")), None)]
         if kind == "leg_won" and value("game") == "cricket":
             return [("best_cricket_mpr", _value(value("mpr")), name)]
-        if kind == "leg_won" and value("game") in (301, 501, 701):
+        if kind == "leg_won" and value("game") in GAMES:
             return [
                 ("highest_checkout", _value(value("checkout")), name),
                 (f"fewest_darts_{value('game')}", _value(value("darts")), name),

@@ -132,6 +132,8 @@ def test_darts_already_thrown_do_not_count_for_a_new_leg():
         "sets_to_win": 1,
         "legs": [],
         "drill": None,
+        "double_in": False,
+        "bull_off": None,
     }
     game.play(501)
     game.track([dart("T20"), dart("T19")])
@@ -163,6 +165,7 @@ def test_restore_keeps_valid_data_only():
             "marks": [0] * 7,
             "marks_hit": 0,
             "match_marks": 0,
+            "opened": False,
         }
     ]
     assert stored["double_out"] is False and stored["names"] == [""] * MAX_PLAYERS

@@ -38,7 +38,7 @@
   - 3-dart average, visits, highest visit, 100+/140+/180 and triple rate;
   - hits per bed, stored locally and kept across restarts.
   - personal bests with an event when you beat one, a training streak in days and a daily goal in darts.
-- **Practice games and matches.** Play X01 (301, 501 or 701) or Cricket on the local board, alone or as a match of up to four players with legs and sets. The remaining score counts down, busts are recognised, and the live card shows the checkout route, the bed to aim at and a scoreboard, in Cricket a chalkboard with marks, points and marks per round. Four training games train the basics: Around the Clock, doubles training, checkout training and Bob's 27. First-9 average, checkout rate, doubles rate and legs per day show your progress.
+- **Practice games and matches.** Play X01 (101 to 1001, with double in and a bull-off if you like), Cricket or the party games Shanghai, Halve-It and Killer on the local board, alone or as a match of up to four players with legs and sets. The remaining score counts down, busts are recognised, and the live card shows the checkout route, the bed to aim at and a scoreboard, in Cricket a chalkboard with marks, points and marks per round. Four training games train the basics: Around the Clock, doubles training, checkout training and Bob's 27. First-9 average, checkout rate, doubles rate and legs per day show your progress.
 - **Automations that feel like a stage.** Board events for every dart, correction, takeout, completed visit and training session, plus nine ready-made blueprints: 180 celebrations, a dart caller, takeout lights, automatic detection, alerts, daily reports, a training session routine, a practice caller and a highlight photo.
 - **Full control.**
   - Start, stop and reset detection; calibrate the board or single cameras; restart Board Manager.
@@ -130,7 +130,7 @@ The [installation guide](docs/installation.md) covers requirements, manual insta
 | Live visit | Detection status, last dart, darts in visit, visit score with dart positions | ✓ | ✓ |
 | Board events | Dart detected and corrected, takeout started and finished, visit completed, status changed, session started and ended, bust, leg won, match won, turn changed, training game finished, checkout attempt | ✓ | ✓ |
 | Training | Training sessions with automatic start and end and the last 20 sessions; darts, points, 3-dart average, visits, highest visit, 100+/140+/180, triples, doubles, bulls, misses, hits per bed | ✓ | ✓ |
-| Practice game | X01 with 301, 501 or 701 and Cricket for 1–4 players, double out, legs and sets, player names, remaining score, busts, checkout routes and the last 10 legs; training games Around the Clock, doubles, checkout training and Bob's 27 | ✓ | ✓ |
+| Practice game | X01 from 101 to 1001 with double in and bull-off, Cricket, Shanghai, Halve-It and Killer for 1–4 players, double out, legs and sets, player names, remaining score, busts, checkout routes and the last 10 legs; training games Around the Clock, doubles, checkout training and Bob's 27 | ✓ | ✓ |
 | Actions | `autodarts.start_game`: start X01 or a training game with players, names and format in one call, also by voice | ✓ | ✓ |
 | Controls | Detection switch; start, stop and reset buttons; calibration (board and per camera); restart; camera streams | ✓ | ✓ |
 | Settings | Calibrate on start, automatic recalibration, distortion correction, camera standby | ✓ | ✓ |
