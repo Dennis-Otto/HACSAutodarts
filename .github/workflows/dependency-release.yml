@@ -20,7 +20,7 @@ concurrency:
 jobs:
   release:
     if: >-
-      github.repository == 'Dennis-Otto/HACSAutodarts' &&
+      github.repository == 'Dennis-Otto/ha-autodarts' &&
       (github.event_name == 'workflow_dispatch' || vars.RELEASE_AUTOMATION_CLIENT_ID != '') &&
       (github.event_name != 'pull_request_target' ||
         (github.event.pull_request.merged &&

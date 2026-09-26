@@ -16,7 +16,7 @@ SPEC = importlib.util.spec_from_file_location(
 )
 release = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release)
-REPOSITORY = "Dennis-Otto/HACSAutodarts"
+REPOSITORY = "Dennis-Otto/ha-autodarts"
 
 
 def pull(number=2, author="dependabot[bot]", sha="dependency"):

@@ -20,7 +20,7 @@ const STATUS_TYPE = "autodarts-status-card";
 const STATUS_EDITOR_TYPE = "autodarts-status-card-editor";
 const STRATEGY_TYPE = "autodarts";
 const STRATEGY_ELEMENT = `ll-strategy-dashboard-${STRATEGY_TYPE}`;
-const DOCS = "https://github.com/Dennis-Otto/HACSAutodarts#dashboard-cards";
+const DOCS = "https://github.com/Dennis-Otto/ha-autodarts#dashboard-cards";
 
 // Board Manager geometry in millimetres; dart coordinates are normalised to
 // the outer edge of the double ring (170 mm) with y pointing to the 20.

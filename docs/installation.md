@@ -17,10 +17,10 @@ The integration needs **no Autodarts login, password or API key** for local use.
 
 ### With HACS (recommended)
 
-[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Dennis-Otto&repository=HACSAutodarts&category=integration)
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Dennis-Otto&repository=ha-autodarts&category=integration)
 
 1. Open **HACS** in Home Assistant.
-2. Open the menu (⋮) → **Custom repositories**, add `https://github.com/Dennis-Otto/HACSAutodarts` with the type **Integration**, and select **Add**.
+2. Open the menu (⋮) → **Custom repositories**, add `https://github.com/Dennis-Otto/ha-autodarts` with the type **Integration**, and select **Add**.
 3. Search for **Autodarts**, open it and select **Download**.
 4. Restart Home Assistant.
 
@@ -28,7 +28,7 @@ HACS shows new versions as an update in **Settings → Updates**. The update dia
 
 ### Manually
 
-1. Download the latest release from [GitHub](https://github.com/Dennis-Otto/HACSAutodarts/releases).
+1. Download the latest release from [GitHub](https://github.com/Dennis-Otto/ha-autodarts/releases).
 2. Copy the folder `custom_components/autodarts` into the `custom_components` folder of your Home Assistant configuration. The result is `config/custom_components/autodarts/manifest.json`.
 3. Restart Home Assistant.
 

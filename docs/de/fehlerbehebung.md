@@ -87,7 +87,7 @@ logger:
 
 ### Fehler melden
 
-Öffne ein [Issue](https://github.com/Dennis-Otto/HACSAutodarts/issues/new/choose) mit:
+Öffne ein [Issue](https://github.com/Dennis-Otto/ha-autodarts/issues/new/choose) mit:
 
 - Home-Assistant-Version und Board-Manager-Version;
 - den Diagnosedaten;

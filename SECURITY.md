@@ -8,7 +8,7 @@ Security fixes are provided for the latest release of the Autodarts integration.
 
 Please do not open a public issue for a suspected vulnerability. Use GitHub's private vulnerability reporting for this repository:
 
-<https://github.com/Dennis-Otto/HACSAutodarts/security/advisories/new>
+<https://github.com/Dennis-Otto/ha-autodarts/security/advisories/new>
 
 Include the affected version, Home Assistant version, Board Manager version, setup type (local or cloud), reproduction steps, and potential impact. Reports will be acknowledged as soon as practical. Confirmed vulnerabilities are fixed privately and disclosed in a GitHub security advisory and the release notes once a fixed release is available.
 

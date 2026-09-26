@@ -9,12 +9,12 @@
     "@Dennis-Otto"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/Dennis-Otto/HACSAutodarts",
+  "documentation": "https://github.com/Dennis-Otto/ha-autodarts",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/Dennis-Otto/HACSAutodarts/issues",
+  "issue_tracker": "https://github.com/Dennis-Otto/ha-autodarts/issues",
   "requirements": [],
-  "version": "1.0.1",
+  "version": "1.0.2",
   "zeroconf": [
     "_autodarts-board._tcp.local."
   ]

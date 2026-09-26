@@ -17,7 +17,7 @@ from pytest_homeassistant_custom_component.common import (
 
 BLUEPRINTS = Path(__file__).parents[1] / "blueprints" / "automation" / "autodarts"
 EVENTS = "event.autodarts_board_events"
-SOURCE = "https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/"
+SOURCE = "https://github.com/Dennis-Otto/ha-autodarts/blob/main/blueprints/automation/autodarts/"
 
 
 @pytest.fixture(autouse=True)
