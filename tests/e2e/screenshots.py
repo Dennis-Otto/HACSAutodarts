@@ -38,7 +38,6 @@ BULL = {
     "coords": {"x": 0.012, "y": -0.02},
 }
 
-# Calls a service for an Autodarts entity through the logged-in frontend.
 # The numbers clockwise from the top, to place darts in the middle of a bed.
 ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
 
@@ -57,6 +56,7 @@ def at(name: str) -> dict:
     }
 
 
+# Calls a service for an Autodarts entity through the logged-in frontend.
 CALL_SERVICE = """
 async ([domain, service, key, data]) => {
   const hass = document.querySelector('home-assistant').hass;
