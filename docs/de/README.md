@@ -70,6 +70,14 @@
     <td width="50%"><img src="../images/de/card.png" alt="Live-Karte mit der aktuellen Aufnahme auf der Dartscheibe"><p align="center"><b>Live-Karte</b></p></td>
     <td width="50%"><img src="../images/de/device.png" alt="Geräteseite des Autodarts-Boards in Home Assistant"><p align="center"><b>Geräteseite</b></p></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="../images/de/scoreboard.webp" alt="Animation: die Anzeigetafel in einem 501-Match; nach jeder Aufnahme wechselt der Wurf, und Alex checkt 141 zum Sieg"><p align="center"><b>Anzeigetafel</b>: ein 501-Match am Bildschirm neben dem Board</p></td>
+    <td width="50%"><img src="../images/de/cricket.webp" alt="Animation: Cricket zwischen Alex und Sam auf der Kreidetafel der Live-Karte"><p align="center"><b>Cricket</b>: Treffer, Punkte und die nächste Zahl</p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="../images/de/practice-checkout.webp" alt="Animation: ein 141er-Checkout mit Weg und umrandetem Feld nach jedem Dart"><p align="center"><b>Übungsspiel</b>: der Checkout-Weg folgt jedem Dart</p></td>
+    <td width="50%"><img src="../images/de/training-game.webp" alt="Animation: Around the Clock, jeder Treffer bringt das Ziel und seine umrandeten Felder weiter"><p align="center"><b>Trainingsspiel</b>: Around the Clock</p></td>
+  </tr>
 </table>
 
 ## Anleitungen
