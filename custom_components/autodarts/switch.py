@@ -1,4 +1,4 @@
-"""Local detection, upstream connection, calibration settings and training sessions."""
+"""Local detection, upstream connection, settings, training and practice games."""
 
 from functools import partial
 from typing import Any
@@ -32,6 +32,7 @@ async def async_setup_entry(
                 ),
                 AutodartsTrainingSwitch(coordinator, "training_session"),
                 AutodartsTrainingSwitch(coordinator, "training_auto_start"),
+                AutodartsDoubleOutSwitch(coordinator),
             ]
         )
 
@@ -107,3 +108,26 @@ class AutodartsTrainingSwitch(AutodartsLocalEntity, SwitchEntity):
             await self.coordinator.async_end_session()
         else:
             await self.coordinator.async_set_auto_start(False)
+
+
+class AutodartsDoubleOutSwitch(AutodartsLocalEntity, SwitchEntity):
+    """Finish practice legs on a double or the bullseye."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "practice_double_out")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.practice.double_out
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_double_out(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_double_out(False)

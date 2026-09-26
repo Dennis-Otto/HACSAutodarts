@@ -237,6 +237,12 @@
       },
       "vision_version": {
         "name": "Detection software version"
+      },
+      "practice_remaining": {
+        "name": "Practice remaining score"
+      },
+      "practice_checkout": {
+        "name": "Practice checkout"
       }
     },
     "button": {
@@ -272,6 +278,9 @@
       },
       "reset_training": {
         "name": "New training session"
+      },
+      "practice_new_leg": {
+        "name": "New practice leg"
       }
     },
     "switch": {
@@ -295,11 +304,23 @@
       },
       "training_auto_start": {
         "name": "Start sessions automatically"
+      },
+      "practice_double_out": {
+        "name": "Practice double out"
       }
     },
     "select": {
       "standby_minutes": {
         "name": "Camera standby (minutes)"
+      },
+      "practice_game": {
+        "name": "Practice game",
+        "state": {
+          "off": "Off",
+          "301": "301",
+          "501": "501",
+          "701": "701"
+        }
       }
     },
     "number": {
@@ -360,7 +381,9 @@
               "status_changed": "Status changed",
               "visit_completed": "Visit completed",
               "session_started": "Session started",
-              "session_ended": "Session ended"
+              "session_ended": "Session ended",
+              "bust": "Bust",
+              "leg_won": "Leg won"
             }
           }
         }

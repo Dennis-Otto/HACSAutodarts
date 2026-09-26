@@ -237,6 +237,12 @@
       },
       "vision_version": {
         "name": "Version der Erkennungssoftware"
+      },
+      "practice_remaining": {
+        "name": "Übungsspiel Restpunkte"
+      },
+      "practice_checkout": {
+        "name": "Übungsspiel Checkout-Weg"
       }
     },
     "button": {
@@ -272,6 +278,9 @@
       },
       "reset_training": {
         "name": "Neue Trainingssession"
+      },
+      "practice_new_leg": {
+        "name": "Neues Übungsleg"
       }
     },
     "switch": {
@@ -295,11 +304,23 @@
       },
       "training_auto_start": {
         "name": "Sessions automatisch starten"
+      },
+      "practice_double_out": {
+        "name": "Übungsspiel Double-Out"
       }
     },
     "select": {
       "standby_minutes": {
         "name": "Kamera-Standby (Minuten)"
+      },
+      "practice_game": {
+        "name": "Übungsspiel",
+        "state": {
+          "off": "Aus",
+          "301": "301",
+          "501": "501",
+          "701": "701"
+        }
       }
     },
     "number": {
@@ -360,7 +381,9 @@
               "status_changed": "Status geändert",
               "visit_completed": "Aufnahme abgeschlossen",
               "session_started": "Session gestartet",
-              "session_ended": "Session beendet"
+              "session_ended": "Session beendet",
+              "bust": "Überworfen",
+              "leg_won": "Leg gewonnen"
             }
           }
         }

@@ -36,6 +36,7 @@
   - training sessions that start with the first dart or on purpose, end after a pause and keep your last 20 sessions;
   - 3-dart average, visits, highest visit, 100+/140+/180 and triple rate;
   - hits per bed, stored locally and kept across restarts.
+- **Practice games.** Play X01 (301, 501 or 701) on the local board. The remaining score counts down, busts are recognised, and the live card shows the checkout route and the bed to aim at.
 - **Automations that feel like a stage.** Board events for every dart, correction, takeout, completed visit and training session, plus seven ready-made blueprints: 180 celebrations, a dart caller, takeout lights, automatic detection, alerts, daily reports and a training session routine.
 - **Full control.**
   - Start, stop and reset detection; calibrate the board or single cameras; restart Board Manager.
@@ -105,8 +106,9 @@ The [installation guide](docs/installation.md) covers requirements, manual insta
 | Area | Entities and features | Board Manager 1 | Board Manager 2 |
 | --- | --- | :---: | :---: |
 | Live visit | Detection status, last dart, darts in visit, visit score with dart positions | ✓ | ✓ |
-| Board events | Dart detected and corrected, takeout started and finished, visit completed, status changed, session started and ended | ✓ | ✓ |
+| Board events | Dart detected and corrected, takeout started and finished, visit completed, status changed, session started and ended, bust, leg won | ✓ | ✓ |
 | Training | Training sessions with automatic start and end and the last 20 sessions; darts, points, 3-dart average, visits, highest visit, 100+/140+/180, triples, doubles, bulls, misses, hits per bed | ✓ | ✓ |
+| Practice game | X01 with 301, 501 or 701, double out, remaining score, busts, checkout routes and the last 10 legs | ✓ | ✓ |
 | Controls | Detection switch; start, stop and reset buttons; calibration (board and per camera); restart; camera streams | ✓ | ✓ |
 | Settings | Calibrate on start, automatic recalibration, distortion correction, camera standby | ✓ | ✓ |
 | Health | Board Manager connection, realtime connection, cameras active, calibration, camera problems (overall and per camera), frame rates | ✓ | ✓ |

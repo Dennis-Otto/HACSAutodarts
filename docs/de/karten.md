@@ -18,6 +18,7 @@ Zum Hinzufügen bearbeitest du ein Dashboard, wählst **Karte hinzufügen** und 
 
 - **Aufnahme:** Punkte, die drei Dart-Felder und der Fortschritt. Der jüngste Dart ist hervorgehoben.
 - **Vorige Aufnahmen:** die Punkte deiner letzten fünf Aufnahmen, eingefärbt wie im Diagramm der Trainingskarte. Mit dem Mauszeiger siehst du die Darts.
+- **Übungsspiel:** Läuft ein [Übungsspiel](entitaeten.md#übungsspiel), stehen Restpunkte, Checkout-Weg und Überwerfen über den Dart-Feldern, und die Scheibe umrandet das nächste Zielfeld.
 - **Scheibe:**
   - Getroffene Felder blinken in der Hervorhebungsfarbe.
   - Nummerierte Markierungen zeigen, wo jeder Dart steckt.
@@ -29,6 +30,8 @@ Zum Hinzufügen bearbeitest du ein Dashboard, wählst **Karte hinzufügen** und 
 Ein Tipp auf die Scheibe, oder die Eingabetaste darauf, öffnet die Details der Aufnahme.
 
 <img src="../images/de/card-visit.webp" alt="Animation: drei Darts landen, ihre Felder blinken, die Punkte zählen mit; die Entnahme leert die Scheibe" width="620">
+
+<img src="../images/de/card-practice.png" alt="Live-Karte in einem 501-Übungsleg: 81 Rest nach einer Triple 20, der Checkout-Weg T15 D18 und die umrandete Triple 15 auf der Scheibe" width="760">
 
 ### Optionen
 
@@ -44,6 +47,7 @@ Ein Tipp auf die Scheibe, oder die Eingabetaste darauf, öffnet die Details der 
 | `show_numbers` | Wahrheitswert | `true` | Zahlen um die Scheibe anzeigen |
 | `show_stats` | Wahrheitswert | `true` | Trainingsstatistik anzeigen |
 | `show_recent` | Wahrheitswert | `true` | Vorige Aufnahmen anzeigen |
+| `show_practice` | Wahrheitswert | `true` | Übungsspiel und nächstes Zielfeld anzeigen |
 | `show_connection` | Wahrheitswert | `true` | Verbindungen anzeigen |
 | `show_controls` | Wahrheitswert | `true` | Steuerung anzeigen |
 | `accent_color` | CSS-Farbe | Primärfarbe des Designs | Beschriftungen und Haupttaste |
@@ -152,7 +156,7 @@ Pro Board entstehen drei Ansichten. Sie aktualisieren sich selbst, wenn du ein B
 
 | Ansicht | Inhalt |
 | --- | --- |
-| **Live** | Die Live-Karte über die volle Breite |
+| **Live** | Die Live-Karte über die volle Breite und die Steuerung des Übungsspiels |
 | **Training** | Die Trainingskarte, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet) und der 3-Dart-Average der letzten 7 Tage |
 | **Board** | Der Board-Status, die Board-Einstellungen und das Board-Manager-Update |
 

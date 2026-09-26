@@ -277,12 +277,16 @@ class TrainingSession:
         self._hits.update(map(hit_key, self._counted()))
         self._counting = [False] * len(self._active)
 
-    def _commit(self, announce: bool = False) -> None:
-        announced = [
+    def visit(self) -> list[dict[str, Any]]:
+        """The announced darts of the current visit, in throwing order."""
+        return [
             dart
             for dart, tracked in zip(self._active, self._tracked, strict=True)
             if tracked
         ]
+
+    def _commit(self, announce: bool = False) -> None:
+        announced = self.visit()
         self._fold()
         if announce and announced:
             visit = {

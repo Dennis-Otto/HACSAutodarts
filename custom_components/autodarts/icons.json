@@ -68,6 +68,9 @@
       },
       "reset_training": {
         "default": "mdi:restart"
+      },
+      "practice_new_leg": {
+        "default": "mdi:restart"
       }
     },
     "event": {
@@ -83,6 +86,9 @@
     "select": {
       "standby_minutes": {
         "default": "mdi:timer-outline"
+      },
+      "practice_game": {
+        "default": "mdi:scoreboard-outline"
       }
     },
     "sensor": {
@@ -195,6 +201,12 @@
       },
       "vision_version": {
         "default": "mdi:eye-outline"
+      },
+      "practice_remaining": {
+        "default": "mdi:counter"
+      },
+      "practice_checkout": {
+        "default": "mdi:flag-checkered"
       }
     },
     "switch": {
@@ -227,6 +239,9 @@
       },
       "training_auto_start": {
         "default": "mdi:play-circle-outline"
+      },
+      "practice_double_out": {
+        "default": "mdi:numeric-2-box-outline"
       }
     }
   }

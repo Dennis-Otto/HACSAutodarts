@@ -56,6 +56,32 @@ CARD_STATE = f"""
   }};
 }}
 """
+PRACTICE_STATE = f"""
+() => {{
+  const root = ({CARDS})()[0].shadowRoot;
+  return {{
+    hidden: root.querySelector('.practice').hidden,
+    title: root.querySelector('.practice-title').textContent,
+    remaining: root.querySelector('.practice-remaining').textContent,
+    route: [...root.querySelectorAll('.route-bed')].map((el) => el.textContent),
+    aim: root.querySelectorAll('.aim path').length,
+  }};
+}}
+"""
+T20 = {
+    "segment": {"name": "T20", "number": 20, "multiplier": 3, "bed": "Triple"},
+    "coords": {"x": 0.035, "y": 0.608},
+}
+# Calls a service for an Autodarts entity through the logged-in frontend.
+CALL_SERVICE = """
+async ([domain, service, key, data]) => {
+  const hass = document.querySelector('home-assistant').hass;
+  const entity = Object.values(hass.entities).find(
+    (item) => item.platform === 'autodarts' && item.translation_key === key
+  );
+  await hass.callService(domain, service, { entity_id: entity.entity_id, ...data });
+}
+"""
 TRAINING_STATE = f"""
 () => {{
   const root = ({TRAINING_CARDS})()[0].shadowRoot;
@@ -125,6 +151,16 @@ def check(condition: bool, message: str) -> None:
 def board_requests() -> dict:
     with urllib.request.urlopen(f"{BOARD}/control/requests", timeout=10) as response:
         return json.load(response)
+
+
+def control(changes: dict) -> None:
+    request = urllib.request.Request(
+        f"{BOARD}/control/state",
+        data=json.dumps(changes).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    urllib.request.urlopen(request, timeout=10).read()
 
 
 def open_view(
@@ -222,6 +258,42 @@ def visit(browser: Browser) -> None:
         [(c["method"], c["path"]) for c in new] == [("POST", "/api/reset")],
         f"Reset sent {new}",
     )
+    errors = page_errors(page, problems)
+    check(not errors, f"Console problems: {errors}")
+    page.close()
+
+
+def practice(browser: Browser) -> None:
+    """A practice leg counts down and shows the route and the bed to aim at."""
+    page, problems = open_board(browser)
+    control({"status": "Throw", "event": "Takeout finished", "throws": []})
+    page.evaluate(
+        CALL_SERVICE, ["select", "select_option", "practice_game", {"option": "301"}]
+    )
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().remaining === '301'", timeout=15000
+    )
+    for count in range(1, 4):
+        control({"event": "Throw detected", "throws": [T20] * count})
+    control({"status": "Takeout in progress", "event": "Takeout started"})
+    control({"status": "Throw", "event": "Takeout finished", "throws": []})
+    page.wait_for_function(
+        f"() => ({PRACTICE_STATE})().remaining === '121'", timeout=15000
+    )
+    state = page.evaluate(PRACTICE_STATE)
+    expected = {
+        "hidden": False,
+        "title": "Practice 301",
+        "remaining": "121",
+        "route": ["T20", "25", "D18"],
+        "aim": 1,
+    }
+    check(state == expected, f"Practice state {state} != {expected}")
+    page.evaluate(
+        CALL_SERVICE, ["select", "select_option", "practice_game", {"option": "off"}]
+    )
+    page.wait_for_function(f"() => ({PRACTICE_STATE})().hidden", timeout=15000)
+    check(page.evaluate(PRACTICE_STATE)["aim"] == 0, "Aim still shown without a game")
     errors = page_errors(page, problems)
     check(not errors, f"Console problems: {errors}")
     page.close()
@@ -377,6 +449,7 @@ def main() -> None:
             # The training card reads the demo session before any control changes it.
             ("training card", lambda: training(browser)),
             ("live card", lambda: visit(browser)),
+            ("practice game", lambda: practice(browser)),
             ("status card", lambda: status(browser)),
             ("automatic dashboard", lambda: strategy(browser)),
             ("live card editor", lambda: editor(browser)),
@@ -411,7 +484,8 @@ def main() -> None:
         browser.close()
     print(
         "Browser check passed: card registration on every load, visit, highlights, "
-        "controls with confirmation, last visits, training heatmap, history and "
+        "controls with confirmation, last visits, practice game, training heatmap, "
+        "history and "
         "sessions, board status, "
         "the generated dashboard, all three editors and light theme."
     )

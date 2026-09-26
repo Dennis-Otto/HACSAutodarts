@@ -224,6 +224,36 @@ actions:
 mode: single
 ```
 
+### Game shot im Übungsspiel ansagen
+
+Sagt ein gewonnenes Leg und ein Überwerfen im [Übungsspiel](entitaeten.md#übungsspiel) auf deinen Lautsprechern an.
+
+```yaml
+alias: Darts – Ansage im Übungsspiel
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: event.autodarts_board_board_events
+    options:
+      event_type:
+        - leg_won
+        - bust
+actions:
+  - action: tts.speak
+    target:
+      entity_id: tts.home_assistant_cloud
+    data:
+      media_player_entity_id: media_player.dartraum
+      message: >-
+        {% set event = trigger.to_state.attributes %}
+        {% if event.event_type == 'leg_won' %}
+          Game shot, das Leg mit {{ event.darts }} Darts.
+        {% else %}
+          Überworfen. Du brauchst weiter {{ event.remaining }}.
+        {% endif %}
+mode: queued
+```
+
 Die Entitäts-IDs in den Beispielen hängen vom Namen deines Boards und der Sprache bei der Einrichtung ab. Du findest sie auf der Geräteseite.
 
 ## Automationen älterer Versionen anpassen

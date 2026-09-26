@@ -60,6 +60,17 @@ Trainingssessions berechnet Home Assistant aus dem, was das Board erkennt. Sie f
 
 Spieler und Spiele kennen die Sessions nicht. Eine laufende Session zählt jeden erkannten Dart, egal ob du X01, Cricket oder freies Training spielst.
 
+## Übungsspiel
+
+Das Übungsspiel folgt wie die Trainingssession den Darts der aktuellen Aufnahme, einschließlich Korrekturen. Wenn du die Darts ziehst, wird die Aufnahme verbucht.
+
+- **Herunterzählen:** Der Rest beginnt bei 301, 501 oder 701, und jeder Dart zieht seine Punkte ab.
+- **Überwerfen:** Ein Dart, der unter null geht, mit Double-Out 1 übrig lässt oder 0 ohne Double erreicht, überwirft die Aufnahme. Der Rest springt auf den Beginn der Aufnahme zurück. Der überwerfende Dart zählt als geworfen, spätere Darts der Aufnahme nicht.
+- **Checkout:** Ein Dart, der genau 0 erreicht, mit Double-Out auf einem Double oder dem Bullseye, gewinnt das Leg. `leg_won` wird sofort gemeldet. Verbucht wird das Leg beim Ziehen der Darts, eine Korrektur davor zählt also noch. Die nächste Aufnahme beginnt ein neues Leg.
+- **Average:** erzielte Punkte pro drei Darts des Legs. Darts einer überworfenen Aufnahme zählen, ihre Punkte nicht.
+- **Checkout-Weg:** Die Integration probiert jede Kombination für die restlichen Darts der Aufnahme. Sie bevorzugt weniger Darts, Stellwürfe ohne Double, ein Double statt des Bullseyes zum Checkout, weniger Triples, dann das Checkout-Double in der Reihenfolge D20, D16, D8, D18, D12, D10, D4, D14, D6, D2 und die ungeraden Doubles, zuletzt den größeren Dart zuerst. Für 159, 162, 163, 165, 166, 168, 169 und alles über 170 gibt es mit Double-Out keinen Weg.
+- **Speicher:** Spiel, aktuelles Leg und die letzten 10 Legs werden zusammen mit der Trainingssession gespeichert.
+
 ## Kamerazustand
 
 Eine Kamera gilt als gestört, wenn sie bei laufender Erkennung **15 Sekunden** lang keine Bilder liefert. Gestoppte Erkennung, Kalibrierung und Kamera-Standby sind keine Störung. Der gemeinsame Sensor *Kamerastörung* ist an, sobald eine Kamera gestört ist.

@@ -41,6 +41,8 @@ Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Ass
 | `status_changed` | Der Erkennungsstatus ändert sich | `status` |
 | `session_started` | Eine Trainingssession beginnt: mit dem Schalter *Trainingssession*, der Taste *Neue Trainingssession* oder mit dem ersten Dart, wenn *Sessions automatisch starten* an ist | `started` und `reason` (`manual`, `new_session` oder `first_dart`) |
 | `session_ended` | Eine Trainingssession endet: mit dem Schalter, der Taste oder nach der Pause aus *Session beenden nach einer Pause von* | `reason` (`manual`, `new_session` oder `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` und die übrigen Trainingssummen |
+| `bust` | Ein Dart im [Übungsspiel](#übungsspiel) geht unter null, lässt mit Double-Out 1 übrig oder erreicht 0 ohne Double | `game`, `remaining` (der Rest zu Beginn der Aufnahme, der bleibt) |
+| `leg_won` | Ein Dart beendet das Übungsleg | `game`, `darts` und `average` des Legs, `checkout` (der ausgecheckte Rest) |
 
 Nach einem Neustart oder Verbindungsabbruch werden Ereignisse nie wiederholt. Beispiele stehen unter [Automationen](automationen.md).
 
@@ -77,6 +79,23 @@ Mit den Standardwerten, automatischer Start an und keine Pausengrenze, zählt je
 | Schnitt der letzten Session | Sensor, Punkte | 3-Dart-Average der letzten beendeten Session. Attribute: `started`, `ended`, `duration_minutes`, die Summen und `sessions` mit den letzten 20 Sessions, die der Recorder nicht speichert. |
 
 Die Summen nutzen die Zustandsklasse *total increasing*. Statistiken und Verlaufsdiagramme von Home Assistant behandeln einen Neustart der Session daher korrekt. [So wird gezählt](funktionsweise.md#trainingssession).
+
+## Übungsspiel
+
+Spiele X01 am lokalen Board ohne Autodarts-Spiel. Home Assistant zählt herunter, erkennt Überwerfen und zeigt den Checkout-Weg. Das Spiel braucht keine Cloud und übersteht Neustarts.
+
+- **Starten:** Wähle 301, 501 oder 701 in *Übungsspiel*. Darts, die schon im Board stecken, zählen nicht. *Neues Übungsleg* beginnt das Leg wieder beim vollen Rest.
+- **Aufnahmen:** Eine Aufnahme endet, wenn du die Darts ziehst. Nach dem Überwerfen bleibt der Rest vom Beginn der Aufnahme. Darts nach dem Überwerfen oder nach dem Checkout zählen nicht.
+- **Checkout:** der Weg für die restlichen Darts der Aufnahme, etwa `T20 T20 BULL` für 170. [So wird der Weg gewählt](funktionsweise.md#übungsspiel).
+- **Sessions:** Übungsspiel und [Trainingssessions](#trainingssession) sind unabhängig. Ein Dart zählt in beiden.
+
+| Entität | Typ | Beschreibung |
+| --- | --- | --- |
+| Übungsspiel | Auswahl | `off` (*Aus*), `301`, `501` oder `701`. Die Wahl eines Spiels startet ein neues Leg. |
+| Übungsspiel Restpunkte | Sensor | Restpunkte des Legs; ohne Spiel *unbekannt*. Attribute: `game`, `double_out`, `checkout`, `bust`, `won`, `visit` (die Felder der aktuellen Aufnahme), `darts` und `average` des Legs sowie `legs` mit den letzten 10 Legs (`game`, `darts`, `average`, `checkout`, `ended`). Der Recorder speichert weder `visit` noch `legs`. |
+| Übungsspiel Checkout-Weg | Sensor | Der Checkout-Weg, etwa `T20 25 D18`; *unbekannt*, wenn es keinen gibt. |
+| Neues Übungsleg | Taste | Beginnt das Leg wieder beim vollen Rest. |
+| Übungsspiel Double-Out | Schalter, *Konfiguration* | Checkout auf einem Double oder dem Bullseye. Standardmäßig an. |
 
 ## Steuerung
 

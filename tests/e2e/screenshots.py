@@ -37,6 +37,17 @@ BULL = {
     "coords": {"x": 0.012, "y": -0.02},
 }
 
+# Calls a service for an Autodarts entity through the logged-in frontend.
+CALL_SERVICE = """
+async ([domain, service, key, data]) => {
+  const hass = document.querySelector('home-assistant').hass;
+  const entity = Object.values(hass.entities).find(
+    (item) => item.platform === 'autodarts' && item.translation_key === key
+  );
+  await hass.callService(domain, service, { entity_id: entity.entity_id, ...data });
+}
+"""
+
 FIND_CARDS = """
 () => {
   const cards = [];
@@ -159,6 +170,40 @@ def visit_animation(page: Page) -> None:
     for darts in ([T20], [T20, S5], [T20, S5, BULL]):
         control({"event": "Throw detected", "throws": darts})
     wait_for_score(page, "115")
+
+
+def practice_card(page: Page) -> None:
+    """A 501 practice leg with the checkout route and the bed to aim at."""
+
+    def service(option: str) -> None:
+        page.evaluate(
+            CALL_SERVICE,
+            ["select", "select_option", "practice_game", {"option": option}],
+        )
+
+    def takeout() -> None:
+        control({"status": "Takeout in progress", "event": "Takeout started"})
+        control({"status": "Throw", "event": "Takeout finished", "throws": []})
+        wait_for_score(page, "0")
+
+    takeout()
+    service("501")
+    for _ in range(2):
+        for count in range(1, 4):
+            control({"event": "Throw detected", "throws": [T20] * count})
+            page.wait_for_timeout(300)
+        wait_for_score(page, "180")
+        takeout()
+    control({"event": "Throw detected", "throws": [T20]})
+    page.wait_for_function(
+        f"() => ({FIND_CARDS})().some((c) => "
+        "c.shadowRoot.querySelector('.practice-remaining')?.textContent === '81')",
+        timeout=15000,
+    )
+    page.wait_for_timeout(800)
+    peak(page)
+    card_shot(page, "card-practice")
+    service("off")
 
 
 def find(tag: str) -> str:
@@ -312,6 +357,18 @@ def main() -> None:
         open_dashboard(page, "board")
         visit_animation(page)
         animation.close()
+
+        # Last, because the practice leg adds visits to the demo session.
+        practice = browser.new_context(
+            viewport={"width": 1280, "height": 820},
+            device_scale_factor=2,
+            locale=LOCALE,
+            color_scheme="dark",
+        )
+        page = practice.new_page()
+        open_dashboard(page, "board")
+        practice_card(page)
+        practice.close()
         browser.close()
 
 

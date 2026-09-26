@@ -151,6 +151,13 @@ const TEXT = {
     show_controls: "Show controls",
     recent: "Last visits",
     show_recent: "Show last visits",
+    practice: "Practice",
+    leg_darts: "darts",
+    checkout: "Checkout",
+    bust: "Bust – the score stays",
+    game_shot: "Game shot!",
+    no_checkout: "No checkout possible",
+    show_practice: "Show practice game",
     // Training card
     training: "Training",
     average_long: "3-dart average",
@@ -276,6 +283,13 @@ const TEXT = {
     show_controls: "Steuerung anzeigen",
     recent: "Vorige Aufnahmen",
     show_recent: "Vorige Aufnahmen anzeigen",
+    practice: "Übungsspiel",
+    leg_darts: "Darts",
+    checkout: "Checkout",
+    bust: "Überworfen – der Rest bleibt",
+    game_shot: "Game shot!",
+    no_checkout: "Kein Checkout möglich",
+    show_practice: "Übungsspiel anzeigen",
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
@@ -353,6 +367,7 @@ const DEFAULTS = {
   show_connection: true,
   show_controls: true,
   show_recent: true,
+  show_practice: true,
 };
 
 const TRAINING_DEFAULTS = {
@@ -403,6 +418,7 @@ const KEYS = {
   bulls: "sensor.training_bulls",
   max: "sensor.training_scores_180",
   started: "sensor.training_started",
+  practice: "sensor.practice_remaining",
 };
 
 const TRAINING_KEYS = {
@@ -768,6 +784,25 @@ function visitsFromHistory(rows, since = 0) {
   return visits;
 }
 
+// The practice leg of the remaining-score sensor, or null without a game.
+function practiceView(state) {
+  if (!usable(state)) return null;
+  const remaining = Number(state.state);
+  if (!Number.isInteger(remaining) || remaining < 0) return null;
+  const attributes = state.attributes || {};
+  const number = (value) => (Number.isFinite(value) ? value : null);
+  const route = typeof attributes.checkout === "string" ? attributes.checkout.split(/\s+/) : [];
+  return {
+    game: number(attributes.game),
+    remaining,
+    route: route.filter((bed) => hitBeds(bed).length),
+    bust: attributes.bust === true,
+    won: attributes.won === true,
+    darts: number(attributes.darts) ?? 0,
+    average: number(attributes.average),
+  };
+}
+
 // Board status shared by the live and status cards.
 function boardStatus(stateOf) {
   const on = (name) => stateOf(name)?.state === "on";
@@ -817,13 +852,27 @@ function dashboardStrategy(hass, config = {}) {
     const board = { device_id: deviceId };
     const full = { grid_options: { columns: "full" } };
 
+    const practice = ["select.practice_game", "button.practice_new_leg", "switch.practice_double_out"]
+      .map(id)
+      .filter(Boolean);
     views.push({
       title: `${t("view_live")}${suffix}`,
       path: `live${slug}`,
       icon: "mdi:bullseye-arrow",
       type: "sections",
       max_columns: 2,
-      sections: [{ type: "grid", column_span: 2, cards: [{ type: `custom:${CARD_TYPE}`, ...board, ...full }] }],
+      sections: [
+        { type: "grid", column_span: 2, cards: [{ type: `custom:${CARD_TYPE}`, ...board, ...full }] },
+        ...(practice.length
+          ? [
+              {
+                type: "grid",
+                column_span: 2,
+                cards: [{ type: "heading", heading: t("practice") }, { type: "entities", entities: practice }],
+              },
+            ]
+          : []),
+      ],
     });
 
     const trends = [];
@@ -979,6 +1028,31 @@ const CSS = `${BASE_CSS}
   .score-unit { font-size: 14px; color: var(--secondary-text-color); }
   .progress { margin-left: auto; font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; }
   .slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .practice {
+    display: grid; gap: 8px; padding: 10px 12px; border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--ad-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--ad-accent) 8%, transparent);
+  }
+  .practice[hidden] { display: none; }
+  .practice-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .practice-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .practice-remaining {
+    font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -0.03em;
+    color: var(--primary-text-color); font-variant-numeric: tabular-nums;
+  }
+  .practice-route { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .route-bed {
+    padding: 3px 9px; border-radius: 8px; font-size: 13px; font-weight: 700;
+    color: var(--ad-accent); border: 1px solid var(--ad-accent);
+  }
+  .route-bed:first-child { color: var(--text-primary-color, #fff); background: var(--ad-accent); }
+  .practice-note { font-size: 13px; font-weight: 700; }
+  .practice-note.bust { color: ${STATUS_COLORS.problem}; }
+  .practice-note.won { color: ${STATUS_COLORS.ready}; }
+  .aim path {
+    fill: color-mix(in srgb, var(--ad-accent) 35%, transparent);
+    stroke: var(--ad-accent); stroke-width: 3; stroke-dasharray: 6 3;
+  }
   .recent { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .recent[hidden] { display: none; }
   .recent-list { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1383,6 +1457,20 @@ function createElements(Base) {
                     <span class="progress"></span>
                   </div>
                 </div>
+                ${
+                  c.show_practice
+                    ? `<div class="practice" hidden>
+                        <div class="practice-head">
+                          <span class="section-label practice-title"></span>
+                          <span class="muted practice-meta"></span>
+                        </div>
+                        <div class="practice-row">
+                          <span class="practice-remaining">–</span>
+                          <div class="practice-route"></div>
+                        </div>
+                      </div>`
+                    : ""
+                }
                 <div class="slots">
                   ${[1, 2, 3]
                     .map(
@@ -1406,6 +1494,7 @@ function createElements(Base) {
                   <svg viewBox="-230 -230 460 460" role="button" tabindex="0" aria-label="${t("board_label")}">
                     <g class="face">${boardSvg(c.board_style)}</g>
                     <g class="hits${c.blink ? " blink" : ""}"></g>
+                    <g class="aim"></g>
                     ${c.show_numbers ? `<g class="numbers">${numbersSvg(c.board_style)}</g>` : ""}
                     <g class="darts"></g>
                   </svg>
@@ -1457,6 +1546,12 @@ function createElements(Base) {
         progress: root.querySelector(".progress"),
         recent: root.querySelector(".recent"),
         recentList: root.querySelector(".recent-list"),
+        practice: root.querySelector(".practice"),
+        practiceTitle: root.querySelector(".practice-title"),
+        practiceMeta: root.querySelector(".practice-meta"),
+        practiceRemaining: root.querySelector(".practice-remaining"),
+        practiceRoute: root.querySelector(".practice-route"),
+        aim: root.querySelector(".aim"),
         slots: [...root.querySelectorAll(".slot")],
         since: root.querySelector(".since"),
         stats: Object.fromEntries(
@@ -1551,13 +1646,40 @@ function createElements(Base) {
         value.textContent = `${dart.number * dart.multiplier} ${t("points")}`;
       });
 
-      this._updateBoard(darts);
+      const practice = c.show_practice ? practiceView(this._state("practice")) : null;
+      this._updatePractice(practice);
+      this._updateBoard(darts, practice);
       this._updateStats();
       this._updateChips();
       this._updateControls(status);
     }
 
-    _updateBoard(darts) {
+    _updatePractice(practice) {
+      const el = this._el;
+      if (!el.practice) return;
+      el.practice.hidden = !practice;
+      if (!practice) return;
+      const t = (key) => this._t(key);
+      el.practiceTitle.textContent = `${t("practice")} ${practice.game ?? ""}`.trim();
+      el.practiceMeta.textContent = practice.darts
+        ? `${practice.darts} ${t("leg_darts")}` +
+          (practice.average === null ? "" : ` · ${t("average")} ${this._format(practice.average, 1)}`)
+        : "";
+      el.practiceRemaining.textContent = practice.remaining;
+      const route = practice.route
+        .map((bed) => `<span class="route-bed">${escapeHtml(hitLabel(this._hass, bed))}</span>`)
+        .join("");
+      let html = route;
+      if (practice.won) html = `<span class="practice-note won">${escapeHtml(t("game_shot"))}</span>`;
+      else if (practice.bust) html = `<span class="practice-note bust">${escapeHtml(t("bust"))}</span>${route}`;
+      else if (!route && practice.remaining <= 170) {
+        html = `<span class="muted">${escapeHtml(t("no_checkout"))}</span>`;
+      }
+      el.practiceRoute.title = practice.route.length ? `${t("checkout")}: ${practice.route.join(" ")}` : "";
+      this._setHtml(el.practiceRoute, html);
+    }
+
+    _updateBoard(darts, practice = null) {
       const c = this._config;
       const latest = darts.length - 1;
       const highlighted =
@@ -1573,6 +1695,16 @@ function createElements(Base) {
           .map((id) => bedPath(id))
           .filter(Boolean)
           .map((d) => `<path class="hit" d="${d}"/>`)
+          .join("")
+      );
+      // The next bed of the checkout route, where the player aims now.
+      const aim = practice && !practice.won ? hitBeds(practice.route[0] ?? "") : [];
+      this._setHtml(
+        this._el.aim,
+        aim
+          .map((id) => bedPath(id))
+          .filter(Boolean)
+          .map((d) => `<path d="${d}"/>`)
           .join("")
       );
 
@@ -2498,7 +2630,16 @@ function createElements(Base) {
           ],
         },
         dropdown("highlight", this._options("highlight", ["visit", "last", "none"])),
-        toggles(["blink", "show_markers", "show_numbers", "show_stats", "show_recent", "show_connection", "show_controls"]),
+        toggles([
+          "blink",
+          "show_markers",
+          "show_numbers",
+          "show_stats",
+          "show_recent",
+          "show_practice",
+          "show_connection",
+          "show_controls",
+        ]),
       ];
     }
   }
@@ -2624,6 +2765,7 @@ export {
   numbersSvg,
   parseSegment,
   pastSessions,
+  practiceView,
   R,
   recentVisits,
   sectorAt,
