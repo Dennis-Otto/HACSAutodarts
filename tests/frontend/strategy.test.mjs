@@ -108,3 +108,62 @@ test("the training view offers the daily goal, the streak and personal bests", (
     entities: ["number.b_goal", "sensor.b_today", "sensor.b_streak", "sensor.b_best"],
   });
 });
+
+test("rows leave out the board and the section they sit in", () => {
+  const entities = [
+    entity("select.b_game", "practice_game", "dev1"),
+    entity("number.b_players", "practice_players", "dev1"),
+    entity("switch.b_routes", "practice_personal_routes", "dev1"),
+    entity("button.b_leg", "practice_new_leg", "dev1"),
+    entity("text.b_player_1", "practice_player", "dev1"),
+    entity("number.b_goal", "training_daily_goal", "dev1"),
+    entity("sensor.b_darts", "training_darts", "dev1"),
+    entity("update.b_software", "board_software", "dev1"),
+    entity("switch.b_custom", "auto_calibrate", "dev1"),
+  ];
+  const names = {
+    "select.b_game": "Autodarts Board Übungsspiel",
+    "number.b_players": "Autodarts Board Übungsspiel Spieler",
+    "switch.b_routes": "Autodarts Board Übungsspiel persönliche Checkout-Wege",
+    "button.b_leg": "Autodarts Board Neues Übungsleg",
+    "text.b_player_1": "Autodarts Board Übungsspiel Spieler 1",
+    "number.b_goal": "Autodarts Board Tagesziel",
+    "sensor.b_darts": "Autodarts Board Training: Darts",
+    "update.b_software": "Autodarts Board Board-Software",
+    // A name of the user's own stays as it is.
+    "switch.b_custom": "Nachkalibrieren im Keller",
+  };
+  const config = dashboardStrategy({
+    locale: { language: "de" },
+    entities: Object.fromEntries(entities.map((item) => [item.entity_id, item])),
+    devices: { dev1: { name: "Autodarts Board" } },
+    states: Object.fromEntries(
+      Object.entries(names).map(([id, name]) => [id, { entity_id: id, state: "on", attributes: { friendly_name: name } }])
+    ),
+  });
+  const [live, , training, maintenance] = config.views;
+  const [, practice, players] = live.sections[1].cards;
+  assert.deepEqual(practice.entities, [
+    { entity: "select.b_game", name: "Spiel" },
+    { entity: "number.b_players", name: "Spieler" },
+    { entity: "switch.b_routes", name: "Persönliche Checkout-Wege" },
+    { entity: "button.b_leg", name: "Neues Übungsleg" },
+  ]);
+  assert.deepEqual(players.entities, [{ entity: "text.b_player_1", name: "Spieler 1" }]);
+  const [goals, darts] = training.sections[1].cards;
+  assert.deepEqual(goals.entities, [{ entity: "number.b_goal", name: "Tagesziel" }]);
+  assert.deepEqual(darts.entities, [{ entity: "sensor.b_darts", name: "Training: Darts" }]);
+  const [, settings, software] = maintenance.sections[1].cards;
+  assert.deepEqual(settings.entities, [{ entity: "switch.b_custom", name: "Nachkalibrieren im Keller" }]);
+  assert.deepEqual(software, { type: "tile", entity: "update.b_software", name: "Board-Software" });
+});
+
+test("a renamed board is left out of the row names too", () => {
+  const config = dashboardStrategy({
+    locale: { language: "en" },
+    entities: { "number.b_players": entity("number.b_players", "practice_players", "dev1") },
+    devices: { dev1: { name: "Autodarts Board", name_by_user: "Garage" } },
+    states: { "number.b_players": { state: "2", attributes: { friendly_name: "Garage Practice players" } } },
+  });
+  assert.deepEqual(config.views[0].sections[1].cards[1].entities, [{ entity: "number.b_players", name: "Players" }]);
+});
