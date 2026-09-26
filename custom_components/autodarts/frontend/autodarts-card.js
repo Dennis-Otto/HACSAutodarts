@@ -170,6 +170,7 @@ const TEXT = {
     score_legs: "Legs",
     score_sets: "Sets",
     practice_names: "Player names",
+    practice_game_row: "Game",
     practice_legs_per_day: "Practice legs per day",
     practice_trend: "First 9 & checkout rate",
     streak_day: "day in a row",
@@ -381,6 +382,7 @@ const TEXT = {
     score_legs: "Legs",
     score_sets: "Sätze",
     practice_names: "Spielernamen",
+    practice_game_row: "Spiel",
     practice_legs_per_day: "Übungslegs pro Tag",
     practice_trend: "First 9 & Checkout-Quote",
     streak_day: "Tag in Folge",
@@ -1774,6 +1776,18 @@ const SETTING_KEYS = [
   "select.standby_minutes",
 ];
 
+// An entity's name without its board and without the section it sits in, so
+// "Autodarts Board Practice players" reads "Players" under "Practice".
+function rowName(hass, entityId, prefixes) {
+  let name = hass?.states?.[entityId]?.attributes?.friendly_name;
+  if (typeof name !== "string") return null;
+  for (const prefix of prefixes) {
+    if (prefix && name.toLowerCase().startsWith(`${prefix.toLowerCase()} `)) name = name.slice(prefix.length + 1);
+  }
+  name = name.trim();
+  return name ? name[0].toUpperCase() + name.slice(1) : null;
+}
+
 // A complete dashboard for every board: live play, training and maintenance.
 function dashboardStrategy(hass, config = {}) {
   const t = (key) => translate(hass, key);
@@ -1795,21 +1809,31 @@ function dashboardStrategy(hass, config = {}) {
     const slug = devices.length > 1 ? `-${number + 1}` : "";
     const board = { device_id: deviceId };
     const full = { grid_options: { columns: "full" } };
+    // Rows and graphs name their entities briefly, the board is the view's.
+    const row = (entity, section) => {
+      const text = rowName(hass, entity, [name, section]);
+      if (!text) return entity;
+      // The game select is the practice section itself.
+      return { entity, name: section && text.toLowerCase() === section.toLowerCase() ? t("practice_game_row") : text };
+    };
+    const rows = (keys, section) => keys.map(id).filter(Boolean).map((entity) => row(entity, section));
 
-    const practice = [
-      "select.practice_game",
-      "number.practice_players",
-      "number.practice_legs",
-      "number.practice_sets",
-      "switch.practice_double_out",
-      "switch.practice_double_in",
-      "switch.practice_bull_off",
-      "button.practice_new_leg",
-      "button.practice_new_match",
-    ]
-      .map(id)
-      .filter(Boolean);
-    const names = index["text.practice_player"] ?? [];
+    const practice = rows(
+      [
+        "select.practice_game",
+        "number.practice_players",
+        "number.practice_legs",
+        "number.practice_sets",
+        "switch.practice_double_out",
+        "switch.practice_double_in",
+        "switch.practice_bull_off",
+        "switch.practice_personal_routes",
+        "button.practice_new_leg",
+        "button.practice_new_match",
+      ],
+      t("practice")
+    );
+    const names = (index["text.practice_player"] ?? []).map((entity) => row(entity, t("practice")));
     views.push({
       title: `${t("view_live")}${suffix}`,
       path: `live${slug}`,
@@ -1848,7 +1872,7 @@ function dashboardStrategy(hass, config = {}) {
       trends.push({
         type: "statistics-graph",
         title: t("darts_per_day"),
-        entities: [id("sensor.training_darts")],
+        entities: rows(["sensor.training_darts"]),
         stat_types: ["change"],
         period: "day",
         chart_type: "bar",
@@ -1859,7 +1883,7 @@ function dashboardStrategy(hass, config = {}) {
       trends.push({
         type: "history-graph",
         title: t("average_trend"),
-        entities: [id("sensor.training_average")],
+        entities: rows(["sensor.training_average"]),
         hours_to_show: 168,
       });
     }
@@ -1867,20 +1891,21 @@ function dashboardStrategy(hass, config = {}) {
       trends.push({
         type: "statistics-graph",
         title: t("practice_legs_per_day"),
-        entities: [id("sensor.practice_legs_played")],
+        entities: rows(["sensor.practice_legs_played"]),
         stat_types: ["change"],
         period: "day",
         chart_type: "bar",
         days_to_show: 30,
       });
     }
-    const goals = ["number.training_daily_goal", "sensor.darts_today", "sensor.training_streak", "sensor.personal_best"]
-      .map(id)
-      .filter(Boolean);
+    const goals = rows([
+      "number.training_daily_goal",
+      "sensor.darts_today",
+      "sensor.training_streak",
+      "sensor.personal_best",
+    ]);
     if (goals.length) trends.unshift({ type: "entities", title: t("goals_and_bests"), entities: goals });
-    const practiceTrend = ["sensor.practice_first_9_average", "sensor.practice_checkout_rate"]
-      .map(id)
-      .filter(Boolean);
+    const practiceTrend = rows(["sensor.practice_first_9_average", "sensor.practice_checkout_rate"]);
     if (practiceTrend.length) {
       trends.push({
         type: "history-graph",
@@ -1915,10 +1940,11 @@ function dashboardStrategy(hass, config = {}) {
       });
     }
 
-    const settings = SETTING_KEYS.map(id).filter(Boolean);
+    const settings = rows(SETTING_KEYS);
     const maintenance = [{ type: "heading", heading: t("board_settings") }];
     if (settings.length) maintenance.push({ type: "entities", entities: settings });
-    if (id("update.board_software")) maintenance.push({ type: "tile", entity: id("update.board_software") });
+    const [software] = rows(["update.board_software"]);
+    if (software) maintenance.push({ type: "tile", ...(typeof software === "string" ? { entity: software } : software) });
     views.push({
       title: `${t("view_board")}${suffix}`,
       path: `board${slug}`,
