@@ -5,7 +5,13 @@ from typing import Final
 DOMAIN: Final = "autodarts"
 
 DEFAULT_PORT: Final = 3180
-DEFAULT_SCAN_INTERVAL: Final = 5  # seconds
+DEFAULT_SCAN_INTERVAL: Final = 5  # seconds, cloud polling during a match
+IDLE_SCAN_INTERVAL: Final = 60  # seconds, cloud polling without a match
+
+# Autodarts has not issued the public OAuth client ID for this integration yet.
+# Until it does, setup offers no cloud link and entries without a client ID run
+# locally instead of asking for a login that cannot be completed.
+CLOUD_LINK_AVAILABLE = False
 
 # Config entry keys
 CONF_TOKEN: Final = "token"

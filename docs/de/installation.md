@@ -38,7 +38,7 @@ Neue Versionen zeigt HACS als Update unter **Einstellungen → Updates** an, sam
 
 Es gibt drei Wege; alle führen zum selben, vollständig lokalen Board.
 
-<img src="../images/de/setup-menu.png" alt="Das Einrichtungsmenü: Boards im Netzwerk suchen, Board-Adresse eingeben oder Cloud-Konto verknüpfen" width="520">
+<img src="../images/de/setup-menu.png" alt="Das Einrichtungsmenü: Boards im Netzwerk suchen oder Board-Adresse eingeben" width="520">
 
 ### 1. Automatische Erkennung (Board Manager 2)
 
@@ -70,14 +70,13 @@ Home Assistant legt ein Gerät mit dem Namen deines Boards und allen [Entitäten
 
 Mit einem verknüpften Autodarts-Konto kommen Spieldaten aus der Cloud dazu: Spielmodus, Spielstatus, Runde, Punkte der Aufnahme und geworfene Darts. Die lokale Steuerung hängt nicht davon ab. Sie funktioniert weiter, wenn die Cloud nicht erreichbar ist oder die Anmeldung abläuft.
 
-> **Stand:** Für die Verknüpfung braucht es eine öffentliche OAuth-Client-ID mit Geräteanmeldung, die Autodarts für diese Integration vergibt. Sie ist beantragt, aber noch nicht enthalten. Bis dahin lässt sich die Verknüpfung nicht abschließen. Alles Lokale funktioniert ohne sie.
+> **Stand:** Für die Verknüpfung braucht es eine öffentliche OAuth-Client-ID mit Geräteanmeldung, die Autodarts für diese Integration vergibt. Sie ist beantragt, aber noch nicht enthalten. Bis dahin bieten Einrichtung und **Neu konfigurieren** die Cloud-Verknüpfung nicht an. Alles Lokale funktioniert ohne sie.
 
-So läuft es mit einer Client-ID ab:
+So wird es ablaufen, sobald die Client-ID verfügbar ist:
 
 1. Wähle bei der Einrichtung **Cloud-Konto verknüpfen**. Bei einem bestehenden Board wählst du **Neu konfigurieren → Cloud-Konto verknüpfen**.
-2. Trage die Client-ID ein, optional auch die lokale Adresse des Boards.
-3. Home Assistant zeigt einen Code wie `ABCD-EFGH` und einen Link. Öffne den Link auf einem beliebigen Gerät, melde dich bei Autodarts an und bestätige den Code.
-4. Home Assistant macht selbstständig weiter. Hat dein Konto mehrere Boards, wählst du eines aus.
+2. Home Assistant zeigt einen Code wie `ABCD-EFGH` und einen Link. Öffne den Link auf einem beliebigen Gerät, melde dich bei Autodarts an und bestätige den Code.
+3. Home Assistant macht selbstständig weiter. Hat dein Konto mehrere Boards, wählst du eines aus.
 
 Dein Passwort sieht Home Assistant nie. Die Token erneuern sich automatisch. Läuft eine Anmeldung ab oder wird sie widerrufen, bittet Home Assistant um eine **erneute Anmeldung**; die lokale Steuerung läuft währenddessen weiter.
 
@@ -86,7 +85,7 @@ Dein Passwort sieht Home Assistant nie. Die Token erneuern sich automatisch. Lä
 Öffne **Einstellungen → Geräte & Dienste → Autodarts** und im Menü des Boards (⋮) **Neu konfigurieren**. Du kannst dort:
 
 - das Board neu suchen oder eine neue Adresse eintragen, etwa nach einer Netzwerkänderung;
-- die Cloud-Verknüpfung hinzufügen oder erneuern.
+- die Cloud-Verknüpfung hinzufügen oder erneuern, sobald sie verfügbar ist.
 
 Board, Entitäten, Verlauf und Dashboards bleiben erhalten. Eine Adresse oder ein Konto, das zu einem anderen Board gehört, lehnt die Integration ab.
 
@@ -107,7 +106,7 @@ Diese Integration nutzt dieselbe Domain `autodarts` wie [Trkal/HACSAutodarts](ht
 1. Entferne in HACS das ursprüngliche Repository und füge dieses hinzu, wie unter [Installieren](#mit-hacs-empfohlen) beschrieben. Alternativ ersetzt du `config/custom_components/autodarts` von Hand.
 2. Starte Home Assistant neu und behalte den bestehenden Eintrag unter **Geräte & Dienste**.
 
-Einträge der ersten Version, die eine Adresse oder ein Kontopasswort gespeichert hatten, werden automatisch umgestellt; das Passwort wird dabei gelöscht. Ist das Board während des Updates aus, wird die Umstellung beim nächsten Start wiederholt. Einträge mit der alten Autodarts-Anmeldung bitten um eine erneute Anmeldung; die lokale Steuerung funktioniert solange weiter.
+Einträge der ersten Version, die eine Adresse oder ein Kontopasswort gespeichert hatten, werden automatisch umgestellt; das Passwort wird dabei gelöscht. Ist das Board während des Updates aus, wird die Umstellung beim nächsten Start wiederholt. Einträge mit der alten Autodarts-Anmeldung laufen lokal weiter. Fehlt einem solchen Eintrag die Board-Adresse, bittet Home Assistant dich, sie über **Neu konfigurieren** einzutragen.
 
 ## Entfernen
 

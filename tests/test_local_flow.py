@@ -114,6 +114,7 @@ async def test_reconfigure_keeps_board_and_cloud_data(
         assert entry.data == data
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_add_cloud_to_local_entry_keeps_identity(hass):
     entry = MockConfigEntry(
         domain="autodarts", version=2, unique_id="board-1", data=local_entry_data()
@@ -134,3 +135,17 @@ async def test_add_cloud_to_local_entry_keeps_identity(hass):
     assert entry.data["host"] == "192.0.2.10"
     assert entry.unique_id == "board-1"
     assert len(hass.config_entries.async_entries("autodarts")) == 1
+
+
+async def test_menus_offer_no_cloud_link_without_a_client_id(hass):
+    """Autodarts has not issued a client ID yet, so no menu leads to a dead end."""
+    entry = MockConfigEntry(
+        domain="autodarts", version=2, unique_id="board-1", data=local_entry_data()
+    )
+    entry.add_to_hass(hass)
+    for context in (
+        {"source": SOURCE_USER},
+        {"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    ):
+        result = await hass.config_entries.flow.async_init("autodarts", context=context)
+        assert result["menu_options"] == ["discover", "local"]

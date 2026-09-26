@@ -16,7 +16,7 @@ from .api import (
     AutodartsAuthError,
     AutodartsCloudClient,
 )
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, IDLE_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +66,10 @@ class AutodartsDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # 2. Cloud: if a match is active, fetch match data + live state
         match_id = board.get("matchId")
+        # Poll quickly only during a match, to go easy on the cloud API.
+        self.update_interval = timedelta(
+            seconds=DEFAULT_SCAN_INTERVAL if match_id else IDLE_SCAN_INTERVAL
+        )
         if match_id:
             try:
                 match = await self.cloud.get_match(match_id)

@@ -17,6 +17,7 @@ from homeassistant.config_entries import (
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
+from . import const
 from .api import (
     AutodartsAuthError,
     AutodartsCloudClient,
@@ -52,6 +53,14 @@ def _valid_host(host: str) -> bool:
     return True
 
 
+def _menu_options() -> list[str]:
+    """Offer the cloud link only while a client ID can actually be obtained."""
+    options = ["discover", "local"]
+    if const.CLOUD_LINK_AVAILABLE:
+        options.append("cloud")
+    return options
+
+
 def _auth_error(error: AutodartsAuthError) -> str:
     """Map server errors to translated, actionable messages."""
     if error.code in ("invalid_client", "unauthorized_client"):
@@ -80,9 +89,7 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Search the network, enter a board address or link a cloud account."""
-        return self.async_show_menu(
-            step_id="user", menu_options=["discover", "local", "cloud"]
-        )
+        return self.async_show_menu(step_id="user", menu_options=_menu_options())
 
     async def _async_identify(self, host: str, port: int) -> dict[str, Any]:
         client = AutodartsLocalClient(host, port, async_get_clientsession(self.hass))
@@ -194,9 +201,7 @@ class AutodartsConfigFlow(ConfigFlow, domain=DOMAIN):
             for key in (CONF_HOST, CONF_PORT, CONF_CLIENT_ID)
             if key in entry.data
         }
-        return self.async_show_menu(
-            step_id="reconfigure", menu_options=["discover", "local", "cloud"]
-        )
+        return self.async_show_menu(step_id="reconfigure", menu_options=_menu_options())
 
     async def async_step_local(
         self, user_input: dict[str, Any] | None = None, error: str | None = None

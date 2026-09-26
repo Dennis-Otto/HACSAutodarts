@@ -23,7 +23,7 @@ A board is one config entry with up to two independent connections:
 | Fallback without realtime events | HTTP read | Every 2 seconds |
 | Board Manager 2 | One combined read of `/api/system` per interval | As above |
 | Board Manager 1 settings and version | HTTP read | Every 30 seconds, and after every action |
-| Cloud match data | Autodarts API | Every 5 seconds |
+| Cloud match data | Autodarts API | Every 5 seconds during a match, otherwise every minute |
 
 Further details:
 

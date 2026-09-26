@@ -130,7 +130,7 @@ These sensors are *off* while the detection is stopped, starting, stopping or ca
 
 ## Cloud match data (optional)
 
-These entities exist only with a [linked Autodarts account](installation.md#link-the-autodarts-cloud-optional) and are read every 5 seconds.
+These entities exist only with a [linked Autodarts account](installation.md#link-the-autodarts-cloud-optional) and are read every 5 seconds during a match, otherwise once a minute.
 
 | Entity | Type | Description |
 | --- | --- | --- |

@@ -31,3 +31,10 @@ def local_stream():
         "custom_components.autodarts.local_api.AutodartsLocalClient.events", idle_stream
     ):
         yield
+
+
+@pytest.fixture
+def cloud_link():
+    """Offer the cloud link, as once Autodarts has issued a client ID."""
+    with patch("custom_components.autodarts.const.CLOUD_LINK_AVAILABLE", True):
+        yield

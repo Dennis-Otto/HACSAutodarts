@@ -73,6 +73,7 @@ async def complete_link(hass, result, future, boards):
     return result
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_device_login_creates_board_entry(hass):
     future = asyncio.get_running_loop().create_future()
     result = await init_cloud_flow(hass)
@@ -87,6 +88,7 @@ async def test_device_login_creates_board_entry(hass):
     assert result["result"].unique_id == "board-1"
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_multiple_boards(hass):
     future = asyncio.get_running_loop().create_future()
     result = await init_cloud_flow(hass)
@@ -106,6 +108,7 @@ async def test_multiple_boards(hass):
 @pytest.mark.parametrize(
     "boards,reason", [([], "no_boards"), ([BOARD], "already_configured")]
 )
+@pytest.mark.usefixtures("cloud_link")
 async def test_no_boards_and_legacy_duplicates(hass, boards, reason):
     if reason == "already_configured":
         entry = MockConfigEntry(
@@ -163,6 +166,7 @@ async def test_legacy_reauth_preserves_entry_and_local_settings(hass, boards, re
         (AutodartsConnectionError(), "cannot_connect"),
     ],
 )
+@pytest.mark.usefixtures("cloud_link")
 async def test_code_request_errors(hass, error, translation):
     result = await init_cloud_flow(hass)
     with patch(
@@ -175,6 +179,7 @@ async def test_code_request_errors(hass, error, translation):
     assert result["errors"] == {"base": translation}
 
 
+@pytest.mark.usefixtures("cloud_link")
 @pytest.mark.parametrize("code", ["expired_token", "access_denied"])
 async def test_device_error_can_restart(hass, code):
     future = asyncio.get_running_loop().create_future()
@@ -189,6 +194,7 @@ async def test_device_error_can_restart(hass, code):
     assert result["step_id"] == "cloud"
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_abort_cancels_device_polling(hass):
     future = asyncio.get_running_loop().create_future()
     result = await init_cloud_flow(hass)
@@ -198,6 +204,7 @@ async def test_abort_cancels_device_polling(hass):
     assert future.cancelled()
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_board_outage_retries_without_new_device_code(hass):
     future = asyncio.get_running_loop().create_future()
     result = await init_cloud_flow(hass)
@@ -225,6 +232,7 @@ async def test_board_outage_retries_without_new_device_code(hass):
     assert result["type"] == FlowResultType.CREATE_ENTRY
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_setup_requests_registered_client_id(hass):
     """Do not send users to the retired Keycloak client/redirect flow."""
     result = await init_cloud_flow(hass)

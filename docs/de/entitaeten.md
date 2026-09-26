@@ -130,7 +130,7 @@ Während die Erkennung gestoppt ist, startet, stoppt oder kalibriert, sind diese
 
 ## Cloud-Spieldaten (optional)
 
-Diese Entitäten gibt es nur mit [verknüpftem Autodarts-Konto](installation.md#autodarts-cloud-verknüpfen-optional). Sie werden alle 5 Sekunden gelesen.
+Diese Entitäten gibt es nur mit [verknüpftem Autodarts-Konto](installation.md#autodarts-cloud-verknüpfen-optional). Sie werden während eines Matches alle 5 Sekunden gelesen, sonst einmal pro Minute.
 
 | Entität | Typ | Beschreibung |
 | --- | --- | --- |

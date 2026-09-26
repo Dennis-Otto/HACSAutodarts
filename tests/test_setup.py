@@ -1,5 +1,6 @@
 """Exercise setup, credential persistence and reauthentication in Home Assistant."""
 
+from datetime import timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -25,6 +26,7 @@ def entry_data():
     }
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_old_entry_requests_reauthentication(hass):
     data = entry_data()
     del data["client_id"]
@@ -97,3 +99,16 @@ async def test_auth_errors_from_all_cloud_reads_require_reauth(hass, method):
     coordinator = AutodartsDataUpdateCoordinator(hass, cloud, "board-1")
     with pytest.raises(ConfigEntryAuthFailed):
         await coordinator._async_update_data()
+
+
+async def test_cloud_is_polled_quickly_only_during_a_match(hass):
+    cloud = AsyncMock()
+    cloud.get_board.return_value = {"id": "board-1"}
+    coordinator = AutodartsDataUpdateCoordinator(hass, cloud, "board-1")
+    await coordinator._async_update_data()
+    assert coordinator.update_interval == timedelta(seconds=60)
+    cloud.get_board.return_value = {"id": "board-1", "matchId": "match-1"}
+    cloud.get_match.return_value = {"id": "match-1"}
+    cloud.get_match_state.return_value = {"round": 1}
+    await coordinator._async_update_data()
+    assert coordinator.update_interval == timedelta(seconds=5)

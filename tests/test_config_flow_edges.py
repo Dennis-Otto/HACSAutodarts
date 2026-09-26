@@ -3,6 +3,7 @@
 import asyncio
 from unittest.mock import patch
 
+import pytest
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -63,6 +64,7 @@ async def test_local_board_without_version_is_added(hass, aioclient_mock):
     assert "api_generation" not in result["data"]
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_cloud_form_rejects_an_invalid_board_address(hass):
     result = await init_cloud_flow(hass)
     result = await hass.config_entries.flow.async_configure(
@@ -72,6 +74,7 @@ async def test_cloud_form_rejects_an_invalid_board_address(hass):
     assert result["errors"] == {"host": "invalid_host"}
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_cloud_entry_can_include_the_local_board(hass):
     result = await init_cloud_flow(hass)
     result, future = await link_with(
@@ -84,6 +87,7 @@ async def test_cloud_entry_can_include_the_local_board(hass):
     assert result["data"]["port"] == 3181
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_unexpected_login_error_and_lost_connection(hass):
     future = asyncio.get_running_loop().create_future()
     result = await init_cloud_flow(hass)
@@ -103,6 +107,7 @@ async def test_unexpected_login_error_and_lost_connection(hass):
     assert result["errors"] == {"base": "cannot_connect"}
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_rejected_token_while_listing_boards_asks_to_retry(hass):
     future = asyncio.get_running_loop().create_future()
     result = await init_cloud_flow(hass)
@@ -115,6 +120,7 @@ async def test_rejected_token_while_listing_boards_asks_to_retry(hass):
     assert result["errors"] == {"base": "invalid_auth"}
 
 
+@pytest.mark.usefixtures("cloud_link")
 async def test_token_refreshed_while_listing_boards_is_stored(hass):
     refreshed = {**TOKEN, "access_token": "refreshed"}
     future = asyncio.get_running_loop().create_future()
