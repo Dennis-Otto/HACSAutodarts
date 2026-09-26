@@ -222,6 +222,18 @@
       },
       "practice_target": {
         "default": "mdi:bullseye"
+      },
+      "practice_first_9_average": {
+        "default": "mdi:numeric-9-box-outline"
+      },
+      "practice_checkout_rate": {
+        "default": "mdi:flag-checkered"
+      },
+      "practice_doubles_rate": {
+        "default": "mdi:percent-circle-outline"
+      },
+      "practice_legs": {
+        "default": "mdi:counter"
       }
     },
     "switch": {

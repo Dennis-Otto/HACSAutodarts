@@ -46,6 +46,7 @@ async def async_get_config_entry_diagnostics(
                 "legs_to_win": local.practice.legs_to_win,
                 "sets_to_win": local.practice.sets_to_win,
                 "stored_legs": len(local.practice.legs),
+                "legs_total": local.practice.legs_total,
             }
             if local
             else None

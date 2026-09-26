@@ -10,11 +10,14 @@ from homeassistant.util import dt as dt_util
 from .checkout import checkout
 from .drills import DRILLS, Drill, make_drill
 from .scoring import average as _average
-from .scoring import evaluate_visit
+from .scoring import evaluate_visit, finishable, rate, score
 from .training import hit_key
 
 GAMES = (301, 501, 701)
 LEG_HISTORY = 10
+# The statistics cover the last ten legs.
+STATS_LEGS = 10
+STATS_KEYS = ("first9_points", "first9_darts", "at_double", "checkouts")
 MAX_PLAYERS = 4
 MAX_LEGS = 11
 MAX_SETS = 7
@@ -36,6 +39,14 @@ class Player:
     sets: int = 0
     match_darts: int = 0
     match_points: int = 0
+    # Points of the first nine darts and darts thrown at a double, per leg.
+    first9_points: int = 0
+    first9_darts: int = 0
+    at_double: int = 0
+
+    def new_leg(self, game: int) -> None:
+        self.remaining, self.darts, self.points = game, 0, 0
+        self.first9_points, self.first9_darts, self.at_double = 0, 0, 0
 
     @classmethod
     def restored(cls, saved: object, game: int) -> Player:
@@ -44,7 +55,7 @@ class Player:
             **{key: _count(data.get(key), 0, 10**6, 0) for key in asdict(cls())}
         )
         if player.remaining > game:
-            player.remaining, player.darts, player.points = game, 0, 0
+            player.new_leg(game)
         return player
 
 
@@ -69,6 +80,8 @@ class PracticeGame:
         self.starter = 0
         self.winner: int | None = None
         self.legs: list[dict[str, Any]] = []
+        self.leg_stats: list[dict[str, int]] = []
+        self.legs_total = 0
         # The training game played instead of X01, if any.
         self.drill: str | None = None
         self.drills: dict[str, Drill] = {kind: make_drill(kind) for kind in DRILLS}
@@ -113,7 +126,18 @@ class PracticeGame:
         for index, player in enumerate(self.players):
             # Only the winner of a finished match has nothing left to score.
             if self.game and not player.remaining and index != self.winner:
-                player.remaining, player.darts, player.points = self.game, 0, 0
+                player.new_leg(self.game)
+        stats = saved.get("leg_stats")
+        self.leg_stats = [
+            {key: record[key] for key in STATS_KEYS}
+            for record in (stats if isinstance(stats, list) else [])
+            if isinstance(record, dict)
+            and all(
+                type(record.get(key)) is int and record[key] >= 0 for key in STATS_KEYS
+            )
+        ][:STATS_LEGS]
+        total = saved.get("legs_total")
+        self.legs_total = total if type(total) is int and total >= 0 else 0
         drills = saved.get("drills")
         for kind, drill in self.drills.items():
             state = drills.get(kind) if isinstance(drills, dict) else None
@@ -144,6 +168,8 @@ class PracticeGame:
             "starter": self.starter,
             "winner": self.winner,
             "legs": [dict(leg) for leg in self.legs],
+            "leg_stats": [dict(record) for record in self.leg_stats],
+            "legs_total": self.legs_total,
             "drill": self.drill,
             "drills": {kind: drill.stored() for kind, drill in self.drills.items()},
         }
@@ -182,7 +208,7 @@ class PracticeGame:
         if self.drill:
             self.drills[self.drill].reset(len(self._visit))
         for player in self.players:
-            player.remaining, player.darts, player.points = self.game, 0, 0
+            player.new_leg(self.game)
         self.current = self.starter
         self._skip = len(self._visit)
         self._announced = None
@@ -275,6 +301,7 @@ class PracticeGame:
         elif self.game and self.winner is None and self._thrown():
             remaining, outcome, darts = self._evaluate()
             player = self.players[self.current]
+            self._count_visit(player, outcome, darts)
             scored = player.remaining - remaining
             player.darts += darts
             player.points += scored
@@ -296,7 +323,61 @@ class PracticeGame:
         self._visit, self._skip, self._announced = [], 0, None
         return events
 
+    def _count_visit(self, player: Player, outcome: str | None, darts: int) -> None:
+        """First nine darts and darts at a double of the visit being booked."""
+        running = player.remaining
+        for dart in self._thrown()[:darts]:
+            if self.double_out and finishable(running):
+                player.at_double += 1
+            if player.first9_darts < 9:
+                player.first9_darts += 1
+                # A bust visit scores nothing, not even its early darts.
+                player.first9_points += 0 if outcome == "bust" else score(dart)
+            running -= score(dart)
+
+    def _book_stats(self) -> None:
+        """One record per leg for everybody at the board, then a fresh count."""
+        self.leg_stats.insert(
+            0,
+            {
+                "first9_points": sum(player.first9_points for player in self.players),
+                "first9_darts": sum(player.first9_darts for player in self.players),
+                "at_double": sum(player.at_double for player in self.players),
+                "checkouts": int(self.double_out),
+            },
+        )
+        del self.leg_stats[STATS_LEGS:]
+        self.legs_total += 1
+        for player in self.players:
+            player.first9_points, player.first9_darts, player.at_double = 0, 0, 0
+
+    def statistics(self) -> dict[str, Any]:
+        """Averages and rates of the last ten legs and the double drills."""
+        totals = {
+            key: sum(record[key] for record in self.leg_stats) for key in STATS_KEYS
+        }
+        drill_darts, drill_hits = 0, 0
+        for kind in ("doubles", "bobs_27"):
+            for result in self.drills[kind].results:
+                darts, hits = result.get("darts"), result.get("hits")
+                if type(darts) is int and type(hits) is int and 0 <= hits <= darts:
+                    drill_darts += darts
+                    drill_hits += hits
+        return {
+            "first_9_average": _average(
+                totals["first9_points"], totals["first9_darts"]
+            ),
+            "checkout_rate": rate(totals["checkouts"], totals["at_double"]),
+            "doubles_rate": rate(
+                totals["checkouts"] + drill_hits, totals["at_double"] + drill_darts
+            ),
+            "legs": self.legs_total,
+            "legs_counted": len(self.leg_stats),
+            "darts_at_double": totals["at_double"] + drill_darts,
+        }
+
     def _book_leg(self) -> None:
+        self._book_stats()
         winner = self.players[self.current]
         self.legs.insert(
             0,
@@ -320,7 +401,7 @@ class PracticeGame:
                 player.legs = 0
         self.starter = (self.starter + 1) % len(self.players)
         for player in self.players:
-            player.remaining, player.darts, player.points = self.game, 0, 0
+            player.new_leg(self.game)
         self.current = self.starter
 
     # -- state -----------------------------------------------------------------

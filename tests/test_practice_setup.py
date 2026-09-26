@@ -218,3 +218,21 @@ async def test_training_games_show_their_target(hass, aioclient_mock, hass_stora
     assert state(hass, "sensor", "practice_target") == "unknown"
     saved = hass_storage[f"autodarts.{entry.entry_id}.training"]["data"]["practice"]
     assert saved["drills"]["bobs_27"]["results"][0]["score"] == -1
+
+
+async def test_practice_statistics_follow_the_legs(hass, aioclient_mock):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    assert state(hass, "sensor", "practice_first_9_average") == "unknown"
+    assert state(hass, "sensor", "practice_legs") == "0"
+    await select_game(hass, "301")
+    coordinator.practice.players[0].remaining = 36
+    await throw(hass, coordinator, D18)
+    assert state(hass, "sensor", "practice_legs") == "1"
+    assert state(hass, "sensor", "practice_checkout_rate") == "100.0"
+    first_nine = hass.states.get(entity_id(hass, "sensor", "practice_first_9_average"))
+    assert float(first_nine.state) == 108.0
+    assert first_nine.attributes["legs_counted"] == 1
+    registry = er.async_get(hass)
+    legs = registry.async_get(entity_id(hass, "sensor", "practice_legs"))
+    assert legs.capabilities == {"state_class": "total_increasing"}

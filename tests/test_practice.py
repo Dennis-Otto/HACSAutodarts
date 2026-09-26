@@ -150,6 +150,9 @@ def test_restore_keeps_valid_data_only():
             "sets": 0,
             "match_darts": 0,
             "match_points": 0,
+            "first9_points": 0,
+            "first9_darts": 0,
+            "at_double": 0,
         }
     ]
     assert stored["double_out"] is False and stored["names"] == [""] * MAX_PLAYERS

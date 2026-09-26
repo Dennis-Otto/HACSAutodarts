@@ -317,6 +317,10 @@ async def async_setup_entry(
             for key in ("remaining", "checkout", "target")
         )
         entities.extend(
+            AutodartsPracticeStatistic(runtime.local, key)
+            for key in PRACTICE_STATISTICS
+        )
+        entities.extend(
             AutodartsLocalSensor(runtime.local, description)
             for description in STATIC_SENSORS
             if description.key in local_keys
@@ -709,4 +713,46 @@ class AutodartsPracticeSensor(AutodartsLocalEntity, SensorEntity):
             key: value
             for key, value in game.items()
             if key not in ("remaining", "drill")
+        }
+
+
+# Practice statistic -> unit; legs only grow, like a meter.
+PRACTICE_STATISTICS = {
+    "first_9_average": "points",
+    "checkout_rate": PERCENTAGE,
+    "doubles_rate": PERCENTAGE,
+    "legs": None,
+}
+
+
+class AutodartsPracticeStatistic(AutodartsLocalEntity, SensorEntity):
+    """First-9 average, checkout and doubles rate of the last ten legs."""
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
+        super().__init__(coordinator, f"practice_{key}")
+        self._key = key
+        self._attr_native_unit_of_measurement = PRACTICE_STATISTICS[key]
+        if key == "legs":
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        else:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 1
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> float | int | None:
+        value: float | int | None = self.coordinator.practice.statistics()[self._key]
+        return value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self._key == "legs":
+            return None
+        statistics = self.coordinator.practice.statistics()
+        return {
+            "legs_counted": statistics["legs_counted"],
+            "darts_at_double": statistics["darts_at_double"],
         }

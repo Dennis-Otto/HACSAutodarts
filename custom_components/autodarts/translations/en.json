@@ -246,6 +246,18 @@
       },
       "practice_target": {
         "name": "Practice target"
+      },
+      "practice_first_9_average": {
+        "name": "Practice first 9 average"
+      },
+      "practice_checkout_rate": {
+        "name": "Practice checkout rate"
+      },
+      "practice_doubles_rate": {
+        "name": "Practice doubles rate"
+      },
+      "practice_legs": {
+        "name": "Practice legs"
       }
     },
     "button": {
