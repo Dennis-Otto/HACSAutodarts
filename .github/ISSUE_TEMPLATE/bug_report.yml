@@ -2,6 +2,7 @@ name: Bug report
 description: Something in the integration, a card or a blueprint does not work as documented.
 labels:
   - bug
+  - needs-triage
 body:
   - type: markdown
     attributes:
@@ -31,14 +32,24 @@ body:
     attributes:
       label: Area
       options:
-        - Setup or reconfiguration
+        - Setup, discovery or reconfiguration
+        - Connection to the board
         - Entities or board events
-        - Training statistics
+        - Training sessions and statistics
+        - X01 practice game or match
+        - Cricket
+        - Party games (Shanghai, Halve-It, Killer)
+        - Training games (Around the Clock, doubles, checkout, Bob's 27)
+        - Player profiles, personal bests or doubles analysis
         - Live card
         - Training card
         - Board status card
+        - Scoreboard card or caller
+        - Players or doubles card
+        - Automatic dashboard
+        - Actions (start_game, delete_player)
         - Blueprints
-        - Cloud link
+        - Documentation
         - Other
     validations:
       required: true
@@ -46,9 +57,15 @@ body:
     id: integration_version
     attributes:
       label: Integration version
-      placeholder: "1.0.0"
+      placeholder: "1.6.0"
     validations:
       required: true
+  - type: input
+    id: last_working_version
+    attributes:
+      label: Last version that worked
+      description: Leave empty if it never worked or you don't know.
+      placeholder: "1.5.0"
   - type: input
     id: home_assistant_version
     attributes:
@@ -57,11 +74,23 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: installation
+    attributes:
+      label: Home Assistant installation type
+      options:
+        - Home Assistant OS
+        - Home Assistant Container
+        - Home Assistant Supervised
+        - Home Assistant Core
+    validations:
+      required: true
+  - type: dropdown
     id: board_manager
     attributes:
-      label: Board Manager
+      label: Autodarts software on the board PC
       options:
         - Board Manager 2 (headless)
+        - Autodarts Desktop
         - Board Manager 1 (classic app)
         - I don't know
     validations:
@@ -69,7 +98,7 @@ body:
   - type: input
     id: board_manager_version
     attributes:
-      label: Board Manager version
+      label: Board Manager or Autodarts Desktop version
       description: Shown on the device page in Home Assistant.
       placeholder: "2.0.0"
   - type: textarea

@@ -48,9 +48,12 @@ jobs:
             *) wanted=(maintenance) ;;
           esac
           if [[ "$scope" == "(deps)" || "$scope" == "(deps-dev)" ]]; then wanted=(dependencies); fi
+          if [[ "$scope" == "(security)" ]]; then wanted=(security); fi
+          if [[ "$scope" == "(i18n)" ]]; then wanted=(translations); fi
+          if [[ "$scope" == "(release)" ]]; then wanted=(release); fi
           if [[ "$BRANCH" == release/* ]]; then wanted=(release); fi
           if [[ -n "$breaking" ]]; then wanted+=(breaking-change); fi
-          managed=(enhancement bug documentation maintenance dependencies release breaking-change)
+          managed=(enhancement bug documentation maintenance dependencies release breaking-change security translations)
           current="$(gh pr view "$NUMBER" --json labels --jq '.labels[].name')"
           for label in "${managed[@]}"; do
             want=false

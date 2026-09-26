@@ -1,0 +1,18 @@
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask anything about setting up or using the integration. Please check the [documentation](https://github.com/Dennis-Otto/ha-autodarts/blob/main/docs/README.md) first. English and German are both welcome.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Integration, Home Assistant and Board Manager, if relevant.
+      placeholder: "1.6.0, 2026.9.3, Board Manager 2.0.0"
