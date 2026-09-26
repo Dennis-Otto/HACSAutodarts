@@ -2,7 +2,7 @@
 
 [← Documentation](README.md) · [Deutsch](de/karten.md)
 
-The integration includes four cards. Home Assistant loads them automatically, so no dashboard resource and no separate HACS download are needed. Each card:
+The integration includes five cards. Home Assistant loads them automatically, so no dashboard resource and no separate HACS download are needed. Each card:
 
 - has a visual editor and follows your theme (light or dark) and language (English or German);
 - adapts to its width, from a phone to a wall tablet;
@@ -202,6 +202,22 @@ type: custom:autodarts-scoreboard-card
 full_height: true
 ```
 
+## Players card
+
+`custom:autodarts-players-card` shows the [player profiles](entities.md#player-profiles): a tile for every named player with legs and matches won, 3-dart average, first 9, checkout rate, marks per round, highest visit and checkout and the fewest darts per start score. Below, the head-to-head records with a balance bar and the recent matches with their winner.
+
+<img src="images/en/players-card.png" alt="Players card with the profiles of Alex, Sam and Kim, their averages and personal bests, the head-to-head record of Alex and Sam, and the recent matches" width="760">
+
+### Options
+
+| Option | Values | Default | Description |
+| --- | --- | --- | --- |
+| `device_id` | device | first board | The board to show |
+| `title` | text | *Players* | Card title |
+| `show_head_to_head` | boolean | `true` | Show the head-to-head records |
+| `show_matches` | boolean | `true` | Show the recent matches |
+| `accent_color` | CSS colour | theme primary colour | Labels and the balance bars |
+
 ## Automatic dashboard
 
 Instead of arranging the cards yourself, let the integration build a whole dashboard:
@@ -209,13 +225,14 @@ Instead of arranging the cards yourself, let the integration build a whole dashb
 1. Go to **Settings → Dashboards → Add dashboard**.
 2. Choose **Autodarts**.
 
-For every board, the dashboard gets four views, which update themselves when you add a board or enable entities:
+For every board, the dashboard gets up to five views, which update themselves when you add a board or enable entities:
 
 | View | Contents |
 | --- | --- |
 | **Live** | The live card across the full width, the practice game controls and the player names |
 | **Scoreboard** | The [scoreboard card](#scoreboard-card) across the whole screen, for a tablet or TV at the board |
 | **Training** | The training card, the daily goal with darts today, the streak and the last personal best, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly), the 3-dart average of the last 7 days, practice legs per day, and the first 9 average and checkout rate of the practice game |
+| **Players** | The [players card](#players-card), once the first named player has a profile |
 | **Board** | The board status card, the board settings and the Board Manager update |
 
 <img src="images/en/dashboard-strategy.png" alt="The training view of the automatic dashboard" width="760">

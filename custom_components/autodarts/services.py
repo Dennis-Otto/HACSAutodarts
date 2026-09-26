@@ -16,6 +16,7 @@ from .party import PARTY_GAMES
 from .practice import GAMES, MAX_LEGS, MAX_PLAYERS, MAX_SETS, NAME_LENGTH
 
 SERVICE_START_GAME = "start_game"
+SERVICE_DELETE_PLAYER = "delete_player"
 GAME_OPTIONS = [*(str(game) for game in GAMES), "cricket", *PARTY_GAMES, *DRILLS]
 
 START_GAME_SCHEMA = vol.Schema(
@@ -32,6 +33,14 @@ START_GAME_SCHEMA = vol.Schema(
         vol.Optional("double_out"): cv.boolean,
         vol.Optional("double_in"): cv.boolean,
         vol.Optional("bull_off"): cv.boolean,
+    }
+)
+
+
+DELETE_PLAYER_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+        vol.Required("name"): vol.All(cv.string, vol.Length(min=1, max=NAME_LENGTH)),
     }
 )
 
@@ -80,6 +89,18 @@ def async_setup_services(hass: HomeAssistant) -> None:
             bull_off=call.data.get("bull_off"),
         )
 
+    async def delete_player(call: ServiceCall) -> None:
+        coordinator = _coordinator(hass, call.data.get(ATTR_CONFIG_ENTRY_ID))
+        if not await coordinator.async_delete_player(call.data["name"]):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="unknown_player",
+                translation_placeholders={"name": call.data["name"]},
+            )
+
     hass.services.async_register(
         DOMAIN, SERVICE_START_GAME, start_game, schema=START_GAME_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DELETE_PLAYER, delete_player, schema=DELETE_PLAYER_SCHEMA
     )

@@ -270,6 +270,12 @@
       },
       "training_streak": {
         "name": "Training streak"
+      },
+      "player_profiles": {
+        "name": "Player profiles"
+      },
+      "last_match": {
+        "name": "Last match"
       }
     },
     "button": {
@@ -493,6 +499,9 @@
     },
     "several_boards": {
       "message": "Several Autodarts boards are set up. Choose the board."
+    },
+    "unknown_player": {
+      "message": "There is no player profile named {name}."
     }
   },
   "issues": {
@@ -556,6 +565,20 @@
         "bull_off": {
           "name": "Bull-off",
           "description": "Players throw at the bull first; the closest starts the match."
+        }
+      }
+    },
+    "delete_player": {
+      "name": "Delete player profile",
+      "description": "Forgets a player's statistics, personal bests and head-to-head records. The match history keeps the name.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Board",
+          "description": "Only needed with more than one board."
+        },
+        "name": {
+          "name": "Name",
+          "description": "The player name, in any upper and lower case."
         }
       }
     }

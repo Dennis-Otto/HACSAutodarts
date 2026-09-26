@@ -689,6 +689,13 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.practice.new_leg()
         await self._async_training([])
 
+    async def async_delete_player(self, name: str) -> bool:
+        """Forget a player profile; False when there is none by that name."""
+        deleted = self.practice.profiles.delete(name)
+        if deleted:
+            await self._async_training([])
+        return deleted
+
     async def async_set_practice_option(self, option: str, enabled: bool) -> None:
         """Double out applies from now on; double in and the bull-off start a new match."""
         setattr(self.practice, option, enabled)

@@ -2,7 +2,7 @@
 
 [← Übersicht](README.md) · [English](../cards.md)
 
-Die Integration bringt vier Karten mit. Home Assistant lädt sie automatisch; eine Dashboard-Ressource oder ein eigener HACS-Download ist nicht nötig. Jede Karte:
+Die Integration bringt fünf Karten mit. Home Assistant lädt sie automatisch; eine Dashboard-Ressource oder ein eigener HACS-Download ist nicht nötig. Jede Karte:
 
 - hat einen visuellen Editor und folgt deinem Design (hell oder dunkel) und deiner Sprache;
 - passt sich ihrer Breite an, vom Handy bis zum Wandtablet;
@@ -188,6 +188,22 @@ type: custom:autodarts-scoreboard-card
 full_height: true
 ```
 
+## Spielerkarte
+
+`custom:autodarts-players-card` zeigt die [Spielerprofile](entitaeten.md#spielerprofile): eine Kachel pro benanntem Spieler mit gewonnenen Legs und Matches, 3-Dart-Average, First 9, Checkout-Quote, Treffern pro Runde, höchster Aufnahme und höchstem Checkout sowie den wenigsten Darts pro Startwert. Darunter die direkten Vergleiche mit Balken und die letzten Matches mit ihrem Sieger.
+
+<img src="../images/de/players-card.png" alt="Spielerkarte mit den Profilen von Alex, Sam und Kim, ihren Averages und Bestleistungen, dem direkten Vergleich von Alex und Sam und den letzten Matches" width="760">
+
+### Optionen
+
+| Option | Werte | Standard | Beschreibung |
+| --- | --- | --- | --- |
+| `device_id` | Gerät | erstes Board | Das anzuzeigende Board |
+| `title` | Text | *Spieler* | Kartentitel |
+| `show_head_to_head` | Wahrheitswert | `true` | Direkte Vergleiche anzeigen |
+| `show_matches` | Wahrheitswert | `true` | Letzte Matches anzeigen |
+| `accent_color` | CSS-Farbe | Primärfarbe des Designs | Beschriftungen und Balken |
+
 ## Automatisches Dashboard
 
 Statt die Karten selbst anzuordnen, kann die Integration ein komplettes Dashboard erzeugen:
@@ -195,13 +211,14 @@ Statt die Karten selbst anzuordnen, kann die Integration ein komplettes Dashboar
 1. Öffne **Einstellungen → Dashboards → Dashboard hinzufügen**.
 2. Wähle **Autodarts**.
 
-Pro Board entstehen vier Ansichten. Sie aktualisieren sich selbst, wenn du ein Board hinzufügst oder Entitäten aktivierst:
+Pro Board entstehen bis zu fünf Ansichten. Sie aktualisieren sich selbst, wenn du ein Board hinzufügst oder Entitäten aktivierst:
 
 | Ansicht | Inhalt |
 | --- | --- |
 | **Live** | Die Live-Karte über die volle Breite, die Steuerung des Übungsspiels und die Spielernamen |
 | **Anzeigetafel** | Die [Anzeigetafel](#anzeigetafel) über den ganzen Bildschirm, für ein Tablet oder einen Fernseher am Board |
 | **Training** | Die Trainingskarte, das Tagesziel mit den Darts von heute, die Serie und die letzte Bestleistung, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet), der 3-Dart-Average der letzten 7 Tage, Übungslegs pro Tag sowie First-9-Average und Checkout-Quote des Übungsspiels |
+| **Spieler** | Die [Spielerkarte](#spielerkarte), sobald der erste benannte Spieler ein Profil hat |
 | **Board** | Der Board-Status, die Board-Einstellungen und das Board-Manager-Update |
 
 <img src="../images/de/dashboard-strategy.png" alt="Die Trainingsansicht des automatischen Dashboards" width="760">

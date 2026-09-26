@@ -1,0 +1,261 @@
+"""Player profiles: statistics and personal bests per name, matches and head-to-head.
+
+Profiles exist for named players only; a name is the same player regardless of
+upper and lower case. Legs count in every game; X01 legs add the averages and
+the checkout rate, Cricket legs the marks per round.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
+from homeassistant.util import dt as dt_util
+
+MATCH_HISTORY = 20
+NAME_LENGTH = 20
+
+
+def _key(name: str) -> str:
+    return name.strip().casefold()
+
+
+def _ratio(part: int, whole: int, factor: int, digits: int) -> float | None:
+    return round(part * factor / whole, digits) if whole else None
+
+
+def _count(value: object) -> int:
+    return value if type(value) is int and value >= 0 else 0
+
+
+@dataclass
+class Profile:
+    """Lifetime numbers of one player."""
+
+    name: str
+    legs_played: int = 0
+    legs_won: int = 0
+    matches_played: int = 0
+    matches_won: int = 0
+    x01_darts: int = 0
+    x01_points: int = 0
+    first9_points: int = 0
+    first9_darts: int = 0
+    at_double: int = 0
+    checkouts: int = 0
+    cricket_darts: int = 0
+    cricket_marks: int = 0
+    highest_visit: int = 0
+    highest_checkout: int = 0
+    best_mpr: float = 0.0
+    # Start score -> fewest darts for a won X01 leg.
+    fewest_darts: dict[str, int] = field(default_factory=dict)
+    last_played: str | None = None
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "legs_played": self.legs_played,
+            "legs_won": self.legs_won,
+            "matches_played": self.matches_played,
+            "matches_won": self.matches_won,
+            "average": _ratio(self.x01_points, self.x01_darts, 3, 2),
+            "first_9_average": _ratio(self.first9_points, self.first9_darts, 3, 2),
+            "checkout_rate": _ratio(self.checkouts, self.at_double, 100, 1),
+            "mpr": _ratio(self.cricket_marks, self.cricket_darts, 3, 2),
+            "highest_visit": self.highest_visit or None,
+            "highest_checkout": self.highest_checkout or None,
+            "best_mpr": self.best_mpr or None,
+            "fewest_darts": dict(self.fewest_darts),
+            "last_played": self.last_played,
+        }
+
+    @classmethod
+    def restored(cls, saved: dict[str, Any]) -> Profile | None:
+        name = saved.get("name")
+        if not isinstance(name, str) or not name.strip():
+            return None
+        profile = cls(name=name.strip()[:NAME_LENGTH])
+        for key, value in asdict(cls(name="")).items():
+            if type(value) is int:
+                setattr(profile, key, _count(saved.get(key)))
+        mpr = saved.get("best_mpr")
+        if isinstance(mpr, int | float) and not isinstance(mpr, bool) and mpr >= 0:
+            profile.best_mpr = float(mpr)
+        fewest = saved.get("fewest_darts")
+        if isinstance(fewest, dict):
+            profile.fewest_darts = {
+                str(game): darts
+                for game, darts in fewest.items()
+                if str(game).isdigit() and type(darts) is int and darts > 0
+            }
+        if isinstance(saved.get("last_played"), str):
+            profile.last_played = saved["last_played"]
+        return profile
+
+
+class Profiles:
+    """Every named player, the last matches and who beat whom."""
+
+    def __init__(self) -> None:
+        self.players: dict[str, Profile] = {}
+        self.matches: list[dict[str, Any]] = []
+        # "a\x00b" with names in a fixed order -> wins of a and of b.
+        self.head_to_head: dict[str, list[int]] = {}
+
+    def _profile(self, name: str | None) -> Profile | None:
+        if not name or not name.strip():
+            return None
+        key = _key(name)
+        if key not in self.players:
+            self.players[key] = Profile(name=name.strip()[:NAME_LENGTH])
+        profile = self.players[key]
+        profile.last_played = dt_util.utcnow().isoformat()
+        return profile
+
+    # -- recording -------------------------------------------------------------
+
+    def visit(self, name: str | None, points: int) -> None:
+        """An X01 visit of up to three darts."""
+        if profile := self._profile(name):
+            profile.highest_visit = max(profile.highest_visit, points)
+
+    def leg(self, game: int | str, players: list[dict[str, Any]]) -> None:
+        """A finished leg, with every player's numbers of that leg."""
+        for entry in players:
+            profile = self._profile(entry.get("name"))
+            if profile is None:
+                continue
+            won = entry.get("won") is True
+            profile.legs_played += 1
+            profile.legs_won += int(won)
+            darts = _count(entry.get("darts"))
+            if isinstance(game, int):
+                profile.x01_darts += darts
+                profile.x01_points += _count(entry.get("points"))
+                profile.first9_points += _count(entry.get("first9_points"))
+                profile.first9_darts += _count(entry.get("first9_darts"))
+                profile.at_double += _count(entry.get("at_double"))
+                if won and entry.get("double_out") is True:
+                    profile.checkouts += 1
+                if won and darts:
+                    best = profile.fewest_darts.get(str(game))
+                    profile.fewest_darts[str(game)] = min(best or darts, darts)
+                    checkout = _count(entry.get("checkout"))
+                    profile.highest_checkout = max(profile.highest_checkout, checkout)
+            elif game == "cricket":
+                marks = _count(entry.get("marks"))
+                profile.cricket_darts += darts
+                profile.cricket_marks += marks
+                if won and darts:
+                    profile.best_mpr = max(
+                        profile.best_mpr, round(marks * 3 / darts, 2)
+                    )
+
+    def match(
+        self,
+        game: int | str,
+        players: list[dict[str, Any]],
+        winner: int,
+        legs_to_win: int,
+        sets_to_win: int,
+    ) -> None:
+        """A finished match of several players: history and head-to-head."""
+        for index, entry in enumerate(players):
+            if profile := self._profile(entry.get("name")):
+                profile.matches_played += 1
+                profile.matches_won += int(index == winner)
+        self.matches.insert(
+            0,
+            {
+                "ended": dt_util.utcnow().isoformat(),
+                "game": game,
+                "legs_to_win": legs_to_win,
+                "sets_to_win": sets_to_win,
+                "winner": winner + 1,
+                "players": [dict(entry) for entry in players],
+            },
+        )
+        del self.matches[MATCH_HISTORY:]
+        champion = players[winner].get("name")
+        for index, entry in enumerate(players):
+            other = entry.get("name")
+            if index == winner or not champion or not other:
+                continue
+            first, second = sorted((champion.strip(), other.strip()), key=_key)
+            pair = f"{_key(first)}\x00{_key(second)}"
+            wins = self.head_to_head.setdefault(pair, [0, 0])
+            wins[0 if _key(first) == _key(champion) else 1] += 1
+
+    def delete(self, name: str) -> bool:
+        """Forget a player and their head-to-head records; matches stay."""
+        key = _key(name)
+        if key not in self.players:
+            return False
+        del self.players[key]
+        for pair in [pair for pair in self.head_to_head if key in pair.split("\x00")]:
+            del self.head_to_head[pair]
+        return True
+
+    # -- storage ---------------------------------------------------------------
+
+    def stored(self) -> dict[str, Any]:
+        return {
+            "players": [asdict(profile) for profile in self.players.values()],
+            "matches": [dict(match) for match in self.matches],
+            "head_to_head": {
+                pair: list(wins) for pair, wins in self.head_to_head.items()
+            },
+        }
+
+    def restore(self, saved: object) -> None:
+        if not isinstance(saved, dict):
+            return
+        players = saved.get("players")
+        self.players = {}
+        for entry in players if isinstance(players, list) else []:
+            if isinstance(entry, dict) and (profile := Profile.restored(entry)):
+                self.players[_key(profile.name)] = profile
+        matches = saved.get("matches")
+        self.matches = [
+            dict(match)
+            for match in (matches if isinstance(matches, list) else [])
+            if isinstance(match, dict)
+            and isinstance(match.get("ended"), str)
+            and isinstance(match.get("players"), list)
+        ][:MATCH_HISTORY]
+        pairs = saved.get("head_to_head")
+        self.head_to_head = {
+            pair: list(wins)
+            for pair, wins in (pairs if isinstance(pairs, dict) else {}).items()
+            if isinstance(pair, str)
+            and pair.count("\x00") == 1
+            and isinstance(wins, list)
+            and len(wins) == 2
+            and all(type(win) is int and win >= 0 for win in wins)
+        }
+
+    # -- state -----------------------------------------------------------------
+
+    def snapshot(self) -> dict[str, Any]:
+        names = {key: profile.name for key, profile in self.players.items()}
+        return {
+            "players": [
+                profile.summary()
+                for profile in sorted(
+                    self.players.values(),
+                    key=lambda profile: profile.last_played or "",
+                    reverse=True,
+                )
+            ],
+            "matches": [dict(match) for match in self.matches],
+            "head_to_head": [
+                {
+                    "players": [names.get(key, key) for key in pair.split("\x00")],
+                    "wins": list(wins),
+                }
+                for pair, wins in sorted(
+                    self.head_to_head.items(), key=lambda item: -sum(item[1])
+                )
+            ],
+        }

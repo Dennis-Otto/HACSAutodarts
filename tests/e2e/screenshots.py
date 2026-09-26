@@ -474,6 +474,18 @@ def killer_animation(page: Page) -> None:
     game(page, "off")
 
 
+def players_card(page: Page) -> None:
+    """The players card after the matches of the animations."""
+    page.goto(f"{HA}/autodarts-auto/players")
+    page.wait_for_function(
+        f"() => ({find('autodarts-players-card')})().some((c) =>"
+        " c.shadowRoot.querySelectorAll('.profile').length >= 2)",
+        timeout=60000,
+    )
+    page.wait_for_timeout(1200)
+    card_shot(page, "players-card", tag="autodarts-players-card")
+
+
 def scoreboard_page(page: Page) -> Page:
     """The scoreboard view of the generated dashboard, as on a tablet at the board."""
     board = page.context.new_page()
@@ -738,6 +750,15 @@ def main() -> None:
         scoreboard_animation(page)
         killer_animation(page)
         games.close()
+
+        people = browser.new_context(
+            viewport={"width": 1280, "height": 1000},
+            device_scale_factor=2,
+            locale=LOCALE,
+            color_scheme="dark",
+        )
+        players_card(people.new_page())
+        people.close()
         browser.close()
 
 

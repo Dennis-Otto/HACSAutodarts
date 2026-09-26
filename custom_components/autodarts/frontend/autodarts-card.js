@@ -19,6 +19,8 @@ const TRAINING_EDITOR_TYPE = "autodarts-training-card-editor";
 const STATUS_TYPE = "autodarts-status-card";
 const STATUS_EDITOR_TYPE = "autodarts-status-card-editor";
 const SCOREBOARD_TYPE = "autodarts-scoreboard-card";
+const PLAYERS_TYPE = "autodarts-players-card";
+const PLAYERS_EDITOR_TYPE = "autodarts-players-card-editor";
 const SCOREBOARD_EDITOR_TYPE = "autodarts-scoreboard-card-editor";
 const STRATEGY_TYPE = "autodarts";
 const STRATEGY_ELEMENT = `ll-strategy-dashboard-${STRATEGY_TYPE}`;
@@ -201,6 +203,19 @@ const TEXT = {
     out: "out",
     // Scoreboard card
     view_scoreboard: "Scoreboard",
+    view_players: "Players",
+    players_title: "Players",
+    no_profiles: "No player profiles yet. Give the players of a practice game a name, and every leg counts for them.",
+    profile_legs: "Legs",
+    profile_matches: "Matches",
+    first_9: "First 9",
+    checkout_short: "Checkout",
+    highest_checkout: "Highest checkout",
+    best_leg: "Best",
+    head_to_head: "Head-to-head",
+    recent_matches: "Recent matches",
+    show_head_to_head: "Show head-to-head",
+    show_matches: "Show recent matches",
     full_height: "Fill the screen",
     show_visit: "Show the current visit",
     show_status: "Show the board status",
@@ -379,6 +394,19 @@ const TEXT = {
     double_in_needed: "Mit einem Double beginnen",
     out: "raus",
     view_scoreboard: "Anzeigetafel",
+    view_players: "Spieler",
+    players_title: "Spieler",
+    no_profiles: "Noch keine Spielerprofile. Gib den Spielern eines Übungsspiels einen Namen, dann zählt jedes Leg für sie.",
+    profile_legs: "Legs",
+    profile_matches: "Matches",
+    first_9: "First 9",
+    checkout_short: "Checkout",
+    highest_checkout: "Höchster Checkout",
+    best_leg: "Bestes",
+    head_to_head: "Direkter Vergleich",
+    recent_matches: "Letzte Matches",
+    show_head_to_head: "Direkten Vergleich anzeigen",
+    show_matches: "Letzte Matches anzeigen",
     full_height: "Bildschirm füllen",
     show_visit: "Aktuelle Aufnahme anzeigen",
     show_status: "Board-Status anzeigen",
@@ -484,6 +512,11 @@ const STATUS_DEFAULTS = {
   show_controls: true,
 };
 
+const PLAYERS_DEFAULTS = {
+  show_head_to_head: true,
+  show_matches: true,
+};
+
 const SCOREBOARD_DEFAULTS = {
   full_height: false,
   show_visit: true,
@@ -557,6 +590,11 @@ const STATUS_KEYS = {
   hostOs: "sensor.host_os",
   processor: "sensor.host_processor",
   vision: "sensor.vision_version",
+};
+
+const PLAYERS_KEYS = {
+  profiles: "sensor.player_profiles",
+  lastMatch: "sensor.last_match",
 };
 
 const SCOREBOARD_KEYS = {
@@ -1361,6 +1399,120 @@ function scoreboardHtml(view, ui) {
   };
 }
 
+// Players -------------------------------------------------------------------
+
+// Profiles, head-to-head records and recent matches from their two sensors.
+function playersView(profiles, lastMatch) {
+  const number = (value) => (Number.isFinite(value) ? value : null);
+  const name = (value) => (typeof value === "string" && value ? value : null);
+  const players = (Array.isArray(profiles?.attributes?.players) ? profiles.attributes.players : [])
+    .filter((player) => player && name(player.name))
+    .map((player) => ({
+      name: player.name,
+      legsPlayed: number(player.legs_played) ?? 0,
+      legsWon: number(player.legs_won) ?? 0,
+      matchesPlayed: number(player.matches_played) ?? 0,
+      matchesWon: number(player.matches_won) ?? 0,
+      average: number(player.average),
+      first9: number(player.first_9_average),
+      checkoutRate: number(player.checkout_rate),
+      mpr: number(player.mpr),
+      highestVisit: number(player.highest_visit),
+      highestCheckout: number(player.highest_checkout),
+      fewestDarts: Object.entries(
+        player.fewest_darts && typeof player.fewest_darts === "object" ? player.fewest_darts : {}
+      )
+        .filter(([game, darts]) => /^\d+$/.test(game) && Number.isInteger(darts))
+        .map(([game, darts]) => ({ game: Number(game), darts }))
+        .sort((a, b) => a.game - b.game),
+    }));
+  const attributes = lastMatch?.attributes || {};
+  const headToHead = (Array.isArray(attributes.head_to_head) ? attributes.head_to_head : []).filter(
+    (item) =>
+      item &&
+      Array.isArray(item.players) &&
+      item.players.length === 2 &&
+      Array.isArray(item.wins) &&
+      item.wins.length === 2 &&
+      item.wins.every(Number.isInteger)
+  );
+  const matches = (Array.isArray(attributes.matches) ? attributes.matches : [])
+    .filter((match) => match && typeof match.ended === "string" && Array.isArray(match.players))
+    .map((match) => ({
+      ended: match.ended,
+      game: match.game,
+      winner: number(match.winner),
+      players: match.players.filter((player) => player && typeof player === "object"),
+    }));
+  return { players, headToHead, matches };
+}
+
+// A game as players call it: 501, Cricket, Killer.
+function gameName(t, game) {
+  if (Number.isInteger(game)) return String(game);
+  if (game === "cricket") return t("cricket");
+  if (PARTY_GAMES.includes(game)) return t(`party_${game}`);
+  return String(game ?? "");
+}
+
+function playersHtml(view, ui) {
+  const { t, format, date } = ui;
+  const value = (number, digits = 0) => (number === null ? "–" : format(number, digits));
+  const players = view.players
+    .map((player) => {
+      const rows = [
+        [t("average"), value(player.average, 1)],
+        [t("first_9"), value(player.first9, 1)],
+        [t("checkout_short"), player.checkoutRate === null ? "–" : `${format(player.checkoutRate, 1)} %`],
+        ...(player.mpr === null ? [] : [["MPR", value(player.mpr, 2)]]),
+        [t("highest"), value(player.highestVisit)],
+        [t("highest_checkout"), value(player.highestCheckout)],
+        ...player.fewestDarts.map((best) => [
+          `${t("best_leg")} ${best.game}`,
+          `${best.darts} ${t("leg_darts")}`,
+        ]),
+      ];
+      return (
+        `<div class="profile"><div class="profile-name">${escapeHtml(player.name)}</div>` +
+        `<div class="muted">${escapeHtml(
+          `${t("profile_legs")} ${player.legsWon}/${player.legsPlayed} · ` +
+            `${t("profile_matches")} ${player.matchesWon}/${player.matchesPlayed}`
+        )}</div><dl>${rows
+          .map(([name, shown]) => `<dt>${escapeHtml(name)}</dt><dd>${escapeHtml(shown)}</dd>`)
+          .join("")}</dl></div>`
+      );
+    })
+    .join("");
+  const headToHead = view.headToHead
+    .map((item) => {
+      const total = item.wins[0] + item.wins[1];
+      const share = total ? Math.round((item.wins[0] * 100) / total) : 50;
+      return (
+        `<div class="versus"><span class="who">${escapeHtml(item.players[0])}</span>` +
+        `<span class="tally">${item.wins[0]} : ${item.wins[1]}</span>` +
+        `<span class="who right">${escapeHtml(item.players[1])}</span>` +
+        `<div class="balance"><i style="width:${share}%"></i></div></div>`
+      );
+    })
+    .join("");
+  const matches = view.matches
+    .map((match) => {
+      const players = match.players
+        .map((player, index) => {
+          const shown = `${player.name || `${t("score_player")} ${index + 1}`} ${player.sets || player.legs || 0}`;
+          const tag = index + 1 === match.winner ? "b" : "span";
+          return `<${tag}>${escapeHtml(shown)}</${tag}>`;
+        })
+        .join(" · ");
+      return (
+        `<div class="match"><span class="muted">${escapeHtml(date(match.ended))}</span>` +
+        `<span class="game">${escapeHtml(gameName(t, match.game))}</span><span>${players}</span></div>`
+      );
+    })
+    .join("");
+  return { players, headToHead, matches };
+}
+
 // Board status shared by the live and status cards.
 function boardStatus(stateOf) {
   const on = (name) => stateOf(name)?.state === "on";
@@ -1514,6 +1666,17 @@ function dashboardStrategy(hass, config = {}) {
         ...(trends.length ? [{ type: "grid", column_span: 2, cards: trends }] : []),
       ],
     });
+
+    if (id("sensor.player_profiles")) {
+      views.push({
+        title: `${t("view_players")}${suffix}`,
+        path: `players${slug}`,
+        icon: "mdi:account-group",
+        type: "sections",
+        max_columns: 2,
+        sections: [{ type: "grid", column_span: 2, cards: [{ type: `custom:${PLAYERS_TYPE}`, ...board, ...full }] }],
+      });
+    }
 
     const settings = SETTING_KEYS.map(id).filter(Boolean);
     const maintenance = [{ type: "heading", heading: t("board_settings") }];
@@ -2003,6 +2166,38 @@ const SCOREBOARD_CSS = `${BASE_CSS}
   .sum { min-width: 4.5em; color: var(--text-primary-color, #fff); background: var(--ad-accent); }
   .sum .muted { color: inherit; opacity: .85; }
   .sum .value { font-size: clamp(22px, 4.2cqi, 56px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+`;
+
+const PLAYERS_CSS = `${BASE_CSS}
+  .players-card { display: flex; flex-direction: column; gap: 16px; padding: 18px; box-sizing: border-box; }
+  .profiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .profile {
+    display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; min-width: 0;
+    background: color-mix(in srgb, var(--primary-text-color) 5%, transparent);
+  }
+  .profile-name {
+    font-size: 17px; font-weight: 800; color: var(--primary-text-color);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .profile dl { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; margin: 4px 0 0; }
+  .profile dt { font-size: 12px; color: var(--secondary-text-color); }
+  .profile dd { margin: 0; font-size: 13px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+  .versus { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 4px 10px; padding: 6px 0; }
+  .versus .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .versus .right { text-align: right; }
+  .versus .tally { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .balance {
+    grid-column: 1 / -1; height: 5px; border-radius: 999px; overflow: hidden;
+    background: color-mix(in srgb, var(--primary-text-color) 12%, transparent);
+  }
+  .balance i { display: block; height: 100%; background: var(--ad-accent); }
+  .match {
+    display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 10px; align-items: baseline;
+    padding: 6px 0; border-top: 1px solid var(--divider-color, rgba(127,127,127,.2)); font-size: 13px;
+  }
+  .match .game { font-weight: 700; }
+  .match b { color: ${STATUS_COLORS.ready}; }
+  .players-card [hidden] { display: none; }
 `;
 
 // Elements ------------------------------------------------------------------
@@ -3730,6 +3925,97 @@ function createElements(Base) {
     }
   }
 
+  // Players card ----------------------------------------------------------------
+
+  class AutodartsPlayersCard extends CardBase {
+    static keys = PLAYERS_KEYS;
+
+    static defaults = PLAYERS_DEFAULTS;
+
+    static getConfigElement() {
+      return document.createElement(PLAYERS_EDITOR_TYPE);
+    }
+
+    getCardSize() {
+      return 6;
+    }
+
+    _css() {
+      return PLAYERS_CSS;
+    }
+
+    _build() {
+      const c = this._config;
+      const t = (key) => escapeHtml(this._t(key));
+      this.shadowRoot.innerHTML = `
+        <style>${PLAYERS_CSS}</style>
+        <ha-card>
+          <div class="root">
+            <div class="players-card">
+              <header>
+                <div class="title"></div>
+                <div class="muted count"></div>
+              </header>
+              <div class="message empty" hidden>${t("no_profiles")}</div>
+              <div class="profiles"></div>
+              ${
+                c.show_head_to_head
+                  ? `<div class="h2h-section" hidden><div class="section-label">${t("head_to_head")}</div><div class="h2h"></div></div>`
+                  : ""
+              }
+              ${
+                c.show_matches
+                  ? `<div class="matches-section" hidden><div class="section-label">${t("recent_matches")}</div><div class="matches"></div></div>`
+                  : ""
+              }
+            </div>
+          </div>
+        </ha-card>
+      `;
+      const root = this.shadowRoot;
+      this._el = {
+        title: root.querySelector(".title"),
+        count: root.querySelector(".count"),
+        empty: root.querySelector(".empty"),
+        profiles: root.querySelector(".profiles"),
+        h2hSection: root.querySelector(".h2h-section"),
+        h2h: root.querySelector(".h2h"),
+        matchesSection: root.querySelector(".matches-section"),
+        matches: root.querySelector(".matches"),
+      };
+    }
+
+    _update() {
+      const c = this._config;
+      const el = this._el;
+      this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
+      el.title.textContent = c.title || this._t("players_title");
+      const view = playersView(this._state("profiles"), this._state("lastMatch"));
+      el.count.textContent = view.players.length ? String(view.players.length) : "";
+      el.empty.hidden = view.players.length > 0;
+      const locale = this._hass.locale?.language || this._hass.language;
+      const html = playersHtml(view, {
+        t: (key) => this._t(key),
+        format: (value, digits) => this._format(value, digits),
+        date: (value) => {
+          const moment = new Date(value);
+          return Number.isNaN(moment.getTime())
+            ? ""
+            : new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(moment);
+        },
+      });
+      this._setHtml(el.profiles, html.players);
+      if (el.h2hSection) {
+        el.h2hSection.hidden = !view.headToHead.length;
+        this._setHtml(el.h2h, html.headToHead);
+      }
+      if (el.matchesSection) {
+        el.matchesSection.hidden = !view.matches.length;
+        this._setHtml(el.matches, html.matches);
+      }
+    }
+  }
+
   // Editors ---------------------------------------------------------------------
 
   class CardEditor extends Base {
@@ -3875,6 +4161,14 @@ function createElements(Base) {
     }
   }
 
+  class AutodartsPlayersCardEditor extends CardEditor {
+    static defaults = PLAYERS_DEFAULTS;
+
+    _schema() {
+      return [device, title, toggles(["show_head_to_head", "show_matches"])];
+    }
+  }
+
   class AutodartsDashboardStrategy extends Base {
     static async generate(config, hass) {
       return dashboardStrategy(hass, config);
@@ -3891,6 +4185,8 @@ function createElements(Base) {
     [STATUS_EDITOR_TYPE]: AutodartsStatusCardEditor,
     [SCOREBOARD_TYPE]: AutodartsScoreboardCard,
     [SCOREBOARD_EDITOR_TYPE]: AutodartsScoreboardCardEditor,
+    [PLAYERS_TYPE]: AutodartsPlayersCard,
+    [PLAYERS_EDITOR_TYPE]: AutodartsPlayersCardEditor,
   };
 }
 
@@ -3916,6 +4212,11 @@ const CARDS = [
     name: "Autodarts scoreboard",
     description:
       "Large scoreboard for a tablet or TV at the board: scores, checkout, Cricket marks, training games and the visit.",
+  },
+  {
+    type: PLAYERS_TYPE,
+    name: "Autodarts players",
+    description: "Statistics and personal bests of every named player, head-to-head records and recent matches.",
   },
 ];
 
@@ -3979,6 +4280,8 @@ export {
   partyBeds,
   partyView,
   bullOffView,
+  playersHtml,
+  playersView,
   scoreboardHtml,
   scoreboardView,
   cricketBeds,

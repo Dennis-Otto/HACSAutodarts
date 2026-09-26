@@ -157,6 +157,17 @@ Wähle `cricket` in *Übungsspiel*, allein oder als Match mit bis zu vier Spiele
 
 Die Karte zeigt eine Kreidetafel mit den Treffern aller Spieler (`/`, `X`, `Ⓧ`), den Punkten und der MPR. *Übungsspiel Restpunkte* bleibt bei Cricket *unbekannt*; seine Attribute tragen das Spiel: `game` ist `cricket`, dazu `points`, `mpr`, `target`, `numbers` (20 bis 15 und 25) und `scores` mit `marks`, `points`, `legs`, `sets` und `mpr` jedes Spielers. Cricket-Legs zählen nicht für die X01-Statistik.
 
+## Spielerprofile
+
+Jeder Spieler eines Übungsspiels mit Namen bekommt ein Profil mit Gesamtwerten. Ein Name ist derselbe Spieler, gleich ob groß oder klein geschrieben; Spieler ohne Namen zählen für niemanden. Jedes Leg von X01, Cricket und den Partyspielen zählt; X01-Legs ergänzen Averages und Checkout-Quote, Cricket-Legs die Treffer pro Runde.
+
+| Entität | Typ | Beschreibung |
+| --- | --- | --- |
+| Spielerprofile | Sensor, Spieler | Die Zahl der Profile. Attribut `players` mit, für jeden Spieler: `name`, `legs_played`, `legs_won`, `matches_played`, `matches_won`, `average`, `first_9_average`, `checkout_rate`, `mpr`, `highest_visit`, `highest_checkout`, `best_mpr`, `fewest_darts` (Startwert → wenigste Darts für ein gewonnenes Leg) und `last_played`. Der Recorder speichert die Liste nicht. |
+| Letztes Match | Sensor, Zeitstempel | Wann das letzte Match mehrerer Spieler endete. Attribute: `game` und `winner` dieses Matches, `matches` mit den letzten 20 Matches (`ended`, `game`, `legs_to_win`, `sets_to_win`, `winner` und `name`, `legs`, `sets` sowie `average`, `mpr` oder `points` jedes Spielers) und `head_to_head` mit den Siegen jedes Paars benannter Spieler. Der Recorder speichert keine der Listen. |
+
+Die [Spielerkarte](karten.md#spielerkarte) zeigt alles davon. Um ein Profil zu entfernen, etwa nach einem Tippfehler im Namen, nutze [`autodarts.delete_player`](#spielerprofil-löschen-autodartsdelete_player).
+
 ## Partyspiele
 
 <img src="../images/de/killer.webp" alt="Animation: Killer für Alex, Sam und Kim auf der Anzeigetafel. Alle werfen für eine Zahl, Alex wird Killer und nimmt Sam die Leben, Kim wird ebenfalls Killer, und Alex nimmt das letzte Leben zum Sieg" width="760">
@@ -294,6 +305,17 @@ data:
 ```
 
 Die Aktion bricht mit einer klaren Meldung ab, wenn kein Board geladen ist oder mehrere Boards eingerichtet sind und keines gewählt ist.
+
+### Spielerprofil löschen: `autodarts.delete_player`
+
+Vergisst Statistik, Bestleistungen und direkte Vergleiche eines Spielers. Der Match-Verlauf behält den Namen.
+
+| Feld | Werte | Beschreibung |
+| --- | --- | --- |
+| `name` | Text | Der Spielername, in beliebiger Groß- und Kleinschreibung; Pflichtfeld |
+| `config_entry_id` | Autodarts-Eintrag | Nur bei mehreren Boards nötig |
+
+Die Aktion bricht mit einer klaren Meldung ab, wenn es kein Profil mit diesem Namen gibt.
 
 ## Verfügbarkeit
 

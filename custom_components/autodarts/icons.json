@@ -249,6 +249,12 @@
       },
       "training_streak": {
         "default": "mdi:fire"
+      },
+      "player_profiles": {
+        "default": "mdi:account-group"
+      },
+      "last_match": {
+        "default": "mdi:trophy-variant"
       }
     },
     "switch": {
@@ -301,6 +307,9 @@
   "services": {
     "start_game": {
       "service": "mdi:play-circle-outline"
+    },
+    "delete_player": {
+      "service": "mdi:account-remove"
     }
   }
 }
