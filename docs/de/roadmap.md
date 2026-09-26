@@ -35,6 +35,16 @@ Enthalten, alles ohne Autodarts-Cloud:
 - Übungsstatistik: First-9-Average, Checkout-Quote, Doppelquote und Legs pro Tag.
 - Zwei Blueprints: ein Übungs-Caller und ein Highlight-Foto nach einer 180 oder einem Checkout.
 
+## Als Nächstes: 1.4
+
+| Thema | Was es bringt |
+| --- | --- |
+| **Lokales Cricket** | Cricket für einen bis vier Spieler mit Marks, geschlossenen Zahlen und Punkten sowie einer Anzeigetafel in der Live-Karte |
+| **Scoreboard-Ansicht** | Eine Vollbild-Ansicht für einen Bildschirm am Board, aus der Wurfdistanz lesbar: Restpunkte, Checkout-Weg und der Spieler am Board |
+| **Bestleistungen und Serien** | Ein Ereignis für eine neue Bestleistung, etwa den höchsten Checkout oder die wenigsten Darts für ein Leg, eine Trainingsserie in Tagen und ein Tagesziel |
+| **Spiel mit einer Aktion starten** | `autodarts.start_game` mit Spiel, Spielern, Namen und Format, für Automationen und Sprachsteuerung |
+| **Erkennungsqualität** | Der Anteil korrigierter Darts, mit einem Reparaturhinweis zum Nachkalibrieren, wenn er steigt |
+
 ## Später
 
 | Thema | Voraussetzung |
