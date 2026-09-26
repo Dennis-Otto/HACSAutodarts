@@ -124,6 +124,7 @@ def test_darts_already_thrown_do_not_count_for_a_new_leg():
         "legs_to_win": 1,
         "sets_to_win": 1,
         "legs": [],
+        "drill": None,
     }
     game.play(501)
     game.track([dart("T20"), dart("T19")])

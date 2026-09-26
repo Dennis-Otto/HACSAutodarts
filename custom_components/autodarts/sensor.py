@@ -314,7 +314,7 @@ async def async_setup_entry(
         entities.append(AutodartsLastSessionSensor(runtime.local))
         entities.extend(
             AutodartsPracticeSensor(runtime.local, key)
-            for key in ("remaining", "checkout")
+            for key in ("remaining", "checkout", "target")
         )
         entities.extend(
             AutodartsLocalSensor(runtime.local, description)
@@ -677,10 +677,10 @@ class AutodartsLastSessionSensor(AutodartsLocalEntity, SensorEntity):
 
 
 class AutodartsPracticeSensor(AutodartsLocalEntity, SensorEntity):
-    """The remaining score and the checkout route of the practice leg."""
+    """Remaining score and checkout of X01, and the target of a training game."""
 
-    # Darts, scores and past legs are for cards; the recorder keeps the score.
-    _unrecorded_attributes = frozenset({"visit", "legs", "scores"})
+    # Darts, scores and results are for cards; the recorder keeps the state.
+    _unrecorded_attributes = frozenset({"visit", "legs", "scores", "results"})
 
     def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
         super().__init__(coordinator, f"practice_{key}")
@@ -693,11 +693,20 @@ class AutodartsPracticeSensor(AutodartsLocalEntity, SensorEntity):
     @property
     def native_value(self) -> int | str | None:
         game = self.coordinator.practice.snapshot()
+        if self._key == "target":
+            return (game["drill"] or {}).get("target")
         return game.get(self._key)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        game = self.coordinator.practice.snapshot()
+        if self._key == "target":
+            drill = game["drill"] or {}
+            return {key: value for key, value in drill.items() if key != "target"}
         if self._key != "remaining":
             return None
-        game = self.coordinator.practice.snapshot()
-        return {key: value for key, value in game.items() if key != "remaining"}
+        return {
+            key: value
+            for key, value in game.items()
+            if key not in ("remaining", "drill")
+        }

@@ -219,6 +219,9 @@
       },
       "practice_checkout": {
         "default": "mdi:flag-checkered"
+      },
+      "practice_target": {
+        "default": "mdi:bullseye"
       }
     },
     "switch": {

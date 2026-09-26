@@ -73,6 +73,7 @@ ENTITIES = {
     "practice_new_leg": "button",
     "practice_remaining": "sensor",
     "practice_checkout": "sensor",
+    "practice_target": "sensor",
     "practice_players": "number",
     "practice_legs": "number",
     "practice_sets": "number",

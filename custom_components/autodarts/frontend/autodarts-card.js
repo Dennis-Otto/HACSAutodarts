@@ -164,6 +164,18 @@ const TEXT = {
     score_legs: "Legs",
     score_sets: "Sets",
     practice_names: "Player names",
+    drill_around_the_clock: "Around the Clock",
+    drill_doubles: "Doubles training",
+    drill_checkout: "Checkout training",
+    drill_bobs_27: "Bob's 27",
+    drill_hits: "hits",
+    drill_round: "Round",
+    drill_points: "points",
+    drill_visit: "Visit",
+    drill_checked: "checked out",
+    drill_done: "Done in",
+    drill_bobs_done: "Done with",
+    drill_bobs_lost: "Below zero – the next dart starts again",
     // Training card
     training: "Training",
     average_long: "3-dart average",
@@ -302,6 +314,18 @@ const TEXT = {
     score_legs: "Legs",
     score_sets: "Sätze",
     practice_names: "Spielernamen",
+    drill_around_the_clock: "Around the Clock",
+    drill_doubles: "Doppeltraining",
+    drill_checkout: "Checkout-Training",
+    drill_bobs_27: "Bob's 27",
+    drill_hits: "Treffer",
+    drill_round: "Runde",
+    drill_points: "Punkte",
+    drill_visit: "Aufnahme",
+    drill_checked: "gecheckt",
+    drill_done: "Geschafft in",
+    drill_bobs_done: "Geschafft mit",
+    drill_bobs_lost: "Unter null – der nächste Dart startet neu",
     training: "Training",
     average_long: "3-Dart-Average",
     visits: "Aufnahmen",
@@ -431,6 +455,7 @@ const KEYS = {
   max: "sensor.training_scores_180",
   started: "sensor.training_started",
   practice: "sensor.practice_remaining",
+  drill: "sensor.practice_target",
 };
 
 const TRAINING_KEYS = {
@@ -830,6 +855,46 @@ function practiceView(state) {
     setsToWin: number(attributes.sets_to_win) ?? 1,
     scores,
   };
+}
+
+const DRILLS = ["around_the_clock", "doubles", "checkout", "bobs_27"];
+
+// The training game of the target sensor; a finished game has no target.
+function drillView(state) {
+  const attributes = state?.attributes || {};
+  if (!state || state.state === "unavailable" || !DRILLS.includes(attributes.drill)) return null;
+  const number = (value) => (Number.isFinite(value) ? value : null);
+  const route = typeof attributes.checkout === "string" ? attributes.checkout.split(/\s+/) : [];
+  return {
+    kind: attributes.drill,
+    target: usable(state) ? String(state.state) : null,
+    finished: attributes.finished === true,
+    progress: number(attributes.progress) ?? 0,
+    targets: number(attributes.targets) ?? 21,
+    darts: number(attributes.darts) ?? 0,
+    hitRate: number(attributes.hit_rate),
+    score: number(attributes.score),
+    remaining: number(attributes.remaining),
+    route: route.filter((bed) => hitBeds(bed).length),
+    bust: attributes.bust === true,
+    won: attributes.won === true,
+    visit: number(attributes.attempt_visit),
+    visits: number(attributes.attempt_visits),
+    attempts: number(attributes.attempts) ?? 0,
+    successes: number(attributes.successes) ?? 0,
+    rate: number(attributes.rate),
+    completed: Array.isArray(attributes.results) ? attributes.results[0]?.completed === true : false,
+  };
+}
+
+// Beds to aim at in a training game: every bed of the number in Around the Clock.
+function drillBeds(drill) {
+  if (!drill || drill.finished) return [];
+  if (drill.kind === "checkout") return hitBeds(drill.route[0] ?? "");
+  const target = drill.target ?? "";
+  if (drill.kind !== "around_the_clock") return hitBeds(target);
+  if (target === "BULL") return [...hitBeds("BULL"), ...hitBeds("25")];
+  return ["S", "T", "D"].flatMap((bed) => hitBeds(`${bed}${target}`));
 }
 
 // Board status shared by the live and status cards.
@@ -1700,18 +1765,65 @@ function createElements(Base) {
         value.textContent = `${dart.number * dart.multiplier} ${t("points")}`;
       });
 
-      const practice = c.show_practice ? practiceView(this._state("practice")) : null;
-      this._updatePractice(practice);
-      this._updateBoard(darts, practice);
+      const drill = c.show_practice ? drillView(this._state("drill")) : null;
+      const practice = c.show_practice && !drill ? practiceView(this._state("practice")) : null;
+      this._updatePractice(practice, drill);
+      this._updateBoard(darts, practice, drill);
       this._updateStats();
       this._updateChips();
       this._updateControls(status);
     }
 
-    _updatePractice(practice) {
+    _updateDrill(drill) {
+      const el = this._el;
+      const t = (key) => this._t(key);
+      const percent = (value) => (value === null ? "" : `${this._format(value, 0)} %`);
+      el.practiceTitle.textContent = t(`drill_${drill.kind}`);
+      if (el.scoreboard) el.scoreboard.hidden = true;
+      let big = drill.finished ? "✓" : hitLabel(this._hass, drill.target ?? "–");
+      let meta = drill.darts ? `${drill.darts} ${t("leg_darts")} · ${percent(drill.hitRate)} ${t("drill_hits")}` : "";
+      let html = drill.finished
+        ? `<span class="practice-note won">${escapeHtml(`${t("drill_done")} ${drill.darts} ${t("leg_darts")}`)}</span>`
+        : `<span class="muted">${drill.progress} / ${drill.targets}</span>`;
+      if (drill.kind === "bobs_27") {
+        meta = `${drill.score ?? "–"} ${t("drill_points")} · ${t("drill_round")} ${Math.min(
+          drill.progress + 1,
+          drill.targets
+        )}/${drill.targets}`;
+        if (drill.finished) {
+          html = drill.completed
+            ? `<span class="practice-note won">${escapeHtml(`${t("drill_bobs_done")} ${drill.score} ${t("drill_points")}`)}</span>`
+            : `<span class="practice-note bust">${escapeHtml(t("drill_bobs_lost"))}</span>`;
+        }
+      } else if (drill.kind === "checkout") {
+        big = drill.remaining ?? drill.target ?? "–";
+        meta =
+          `${t("drill_visit")} ${drill.visit ?? 1}/${drill.visits ?? 3} · ` +
+          `${drill.successes}/${drill.attempts} ${t("drill_checked")}` +
+          (drill.rate === null ? "" : ` (${percent(drill.rate)})`);
+        const route = drill.route
+          .map((bed) => `<span class="route-bed">${escapeHtml(hitLabel(this._hass, bed))}</span>`)
+          .join("");
+        html = drill.won
+          ? `<span class="practice-note won">${escapeHtml(t("game_shot"))}</span>`
+          : drill.bust
+            ? `<span class="practice-note bust">${escapeHtml(t("bust"))}</span>${route}`
+            : route;
+      }
+      el.practiceMeta.textContent = meta;
+      el.practiceRemaining.textContent = big;
+      el.practiceRoute.title = "";
+      this._setHtml(el.practiceRoute, html);
+    }
+
+    _updatePractice(practice, drill = null) {
       const el = this._el;
       if (!el.practice) return;
-      el.practice.hidden = !practice;
+      el.practice.hidden = !practice && !drill;
+      if (drill) {
+        this._updateDrill(drill);
+        return;
+      }
       if (!practice) return;
       const t = (key) => this._t(key);
       const who = (number, name) => name || `${t("score_player")} ${number}`;
@@ -1773,7 +1885,7 @@ function createElements(Base) {
       this._setHtml(el.practiceRoute, html);
     }
 
-    _updateBoard(darts, practice = null) {
+    _updateBoard(darts, practice = null, drill = null) {
       const c = this._config;
       const latest = darts.length - 1;
       const highlighted =
@@ -1792,7 +1904,11 @@ function createElements(Base) {
           .join("")
       );
       // The next bed of the checkout route, where the player aims now.
-      const aim = practice && !practice.won && practice.winner === null ? hitBeds(practice.route[0] ?? "") : [];
+      const aim = drill
+        ? drillBeds(drill)
+        : practice && !practice.won && practice.winner === null
+          ? hitBeds(practice.route[0] ?? "")
+          : [];
       this._setHtml(
         this._el.aim,
         aim
@@ -2860,6 +2976,8 @@ export {
   parseSegment,
   pastSessions,
   practiceView,
+  drillBeds,
+  drillView,
   R,
   recentVisits,
   sectorAt,

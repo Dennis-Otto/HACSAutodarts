@@ -181,3 +181,40 @@ async def test_a_match_of_two_players_with_names_turns_and_a_winner(
     ]
     saved = hass_storage[f"autodarts.{entry.entry_id}.training"]["data"]["practice"]
     assert saved["names"][0] == "Dennis" and len(saved["players"]) == 2
+
+
+async def test_training_games_show_their_target(hass, aioclient_mock, hass_storage):
+    entry = await setup_local(hass, aioclient_mock, state=board())
+    coordinator = entry.runtime_data.local
+    events = record(hass, coordinator)
+    assert state(hass, "sensor", "practice_target") == "unknown"
+    await select_game(hass, "around_the_clock")
+    assert state(hass, "select", "practice_game") == "around_the_clock"
+    assert state(hass, "sensor", "practice_remaining") == "unknown"
+    target = hass.states.get(entity_id(hass, "sensor", "practice_target"))
+    assert target.state == "1" and target.attributes["drill"] == "around_the_clock"
+    assert target.attributes["targets"] == 21
+
+    one = ("S1", 1, 1)
+    two = ("D2", 2, 2)
+    await throw(hass, coordinator, one, two, T20)
+    target = hass.states.get(entity_id(hass, "sensor", "practice_target"))
+    assert target.state == "3" and target.attributes["hits"] == 2
+    assert target.attributes["darts"] == 3
+
+    await select_game(hass, "bobs_27")
+    target = hass.states.get(entity_id(hass, "sensor", "practice_target"))
+    assert target.state == "D1" and target.attributes["score"] == 27
+    coordinator.practice.drills["bobs_27"].score = 1
+    await throw(hass, coordinator, T20)
+    finished = [attributes for kind, attributes in events if kind == "drill_finished"]
+    assert finished and finished[0]["drill"] == "bobs_27"
+    assert finished[0]["completed"] is False
+
+    await select_game(hass, "checkout")
+    target = hass.states.get(entity_id(hass, "sensor", "practice_target"))
+    assert int(target.state) == target.attributes["remaining"]
+    await select_game(hass, "off")
+    assert state(hass, "sensor", "practice_target") == "unknown"
+    saved = hass_storage[f"autodarts.{entry.entry_id}.training"]["data"]["practice"]
+    assert saved["drills"]["bobs_27"]["results"][0]["score"] == -1

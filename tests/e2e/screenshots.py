@@ -239,6 +239,31 @@ def practice_card(page: Page) -> None:
     page.evaluate(
         CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
     )
+
+    # Around the Clock after the first six numbers, with all beds of the 7 to aim at.
+    takeout()
+    service("around_the_clock")
+    for start in (1, 4):
+        visit = [
+            {
+                "segment": {"name": f"S{number}", "number": number, "multiplier": 1},
+                "coords": {"x": 0.0, "y": 0.0},
+            }
+            for number in range(start, start + 3)
+        ]
+        for count in range(1, 4):
+            control({"event": "Throw detected", "throws": visit[:count]})
+            page.wait_for_timeout(300)
+        takeout()
+    control({"event": "Throw detected", "throws": [S5]})
+    page.wait_for_function(
+        f"() => ({FIND_CARDS})().some((c) => "
+        "c.shadowRoot.querySelector('.practice-remaining')?.textContent === '7')",
+        timeout=15000,
+    )
+    page.wait_for_timeout(800)
+    peak(page)
+    card_shot(page, "card-training-game")
     service("off")
 
 

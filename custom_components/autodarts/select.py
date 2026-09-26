@@ -1,10 +1,11 @@
-"""Camera standby of the Board Manager and the X01 practice game."""
+"""Camera standby of the Board Manager and the practice game."""
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .drills import DRILLS
 from .entity import AutodartsLocalEntity
 from .local_api import STANDBY_MINUTES
 from .local_coordinator import AutodartsLocalCoordinator
@@ -48,9 +49,9 @@ class AutodartsStandbySelect(AutodartsLocalEntity, SelectEntity):
 
 
 class AutodartsPracticeGame(AutodartsLocalEntity, SelectEntity):
-    """Play X01 on the local board; choosing a game starts a new leg."""
+    """X01 or a training game on the local board; a choice starts it anew."""
 
-    _attr_options = ["off", *(str(game) for game in GAMES)]
+    _attr_options = ["off", *(str(game) for game in GAMES), *DRILLS]
 
     def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
         super().__init__(coordinator, "practice_game")
@@ -62,8 +63,15 @@ class AutodartsPracticeGame(AutodartsLocalEntity, SelectEntity):
 
     @property
     def current_option(self) -> str:
-        game = self.coordinator.practice.game
-        return str(game) if game else "off"
+        practice = self.coordinator.practice
+        if practice.drill:
+            return practice.drill
+        return str(practice.game) if practice.game else "off"
 
     async def async_select_option(self, option: str) -> None:
-        await self.coordinator.async_play(0 if option == "off" else int(option))
+        if option == "off":
+            await self.coordinator.async_play(0)
+        elif option.isdigit():
+            await self.coordinator.async_play(int(option))
+        else:
+            await self.coordinator.async_play(option)
