@@ -83,6 +83,26 @@
       <p align="center"><b>Device page</b>: controls, sensors and diagnostics</p>
     </td>
   </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/images/en/scoreboard.webp" alt="Animation: the scoreboard during a 501 match; the turn passes after every visit and Alex checks out 141 to win">
+      <p align="center"><b>Scoreboard</b>: a 501 match on the screen at the board</p>
+    </td>
+    <td width="50%">
+      <img src="docs/images/en/cricket.webp" alt="Animation: Cricket between Alex and Sam on the chalkboard of the live card">
+      <p align="center"><b>Cricket</b>: marks, points and the next number</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/images/en/practice-checkout.webp" alt="Animation: a 141 checkout with the route and the outlined bed after every dart">
+      <p align="center"><b>Practice game</b>: the checkout route follows every dart</p>
+    </td>
+    <td width="50%">
+      <img src="docs/images/en/training-game.webp" alt="Animation: Around the Clock, each hit moves the target and its outlined beds">
+      <p align="center"><b>Training game</b>: Around the Clock</p>
+    </td>
+  </tr>
 </table>
 
 ## Quick start

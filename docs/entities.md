@@ -111,6 +111,8 @@ Home Assistant keeps your best values, the days you trained and your darts per d
 
 Play X01 or [Cricket](#cricket) on the local board without an Autodarts game. Home Assistant counts down, recognises busts and shows the checkout route. The game needs no cloud and survives restarts.
 
+<img src="images/en/practice-checkout.webp" alt="Animation: a 141 checkout in a 501 leg. After each dart the remaining score, the route and the outlined bed change: T20 T15 D18, then game shot and a new leg" width="620">
+
 - **Start:** choose 301, 501 or 701 in *Practice game*. Darts already on the board do not count. *New practice leg* starts the leg again from the full score.
 - **Visits:** a visit ends when you pull the darts. After a bust, the score of the visit start stays. Darts after a bust or after the winning dart do not count.
 - **Checkout:** the route for the darts left in the visit, for example `T20 T20 BULL` for 170. [How the route is chosen](how-it-works.md#practice-game).
@@ -140,6 +142,8 @@ Play X01 or [Cricket](#cricket) on the local board without an Autodarts game. Ho
 
 Choose `cricket` in *Practice game*, alone or as a match of up to four players with legs and sets, like X01.
 
+<img src="images/en/cricket.webp" alt="Animation: Cricket between Alex and Sam. Alex closes the 20, scores 60 and hits a 19; after the takeout Sam closes the 19, scores 57 and hits a double 18" width="620">
+
 - **Marks:** only 20 to 15 and the bull count. A single is one mark, a double two, a treble three; the outer bull is one mark, the bullseye two. Three marks close a number.
 - **Points:** marks on a closed number score its value (25 for the bull) as long as another player still has it open.
 - **Win:** close every number with at least as many points as everybody else. Alone, closing every number wins the leg.
@@ -151,6 +155,8 @@ The card shows a chalkboard with the marks of every player (`/`, `X`, `Ⓧ`), th
 ## Training games
 
 Four classic drills, chosen in *Practice game*. Each follows the darts of the current visit and books the visit when you pull the darts. Darts already on the board when a game starts do not count. A finished game stays on the card until the next dart starts it again; *New practice leg* starts it again at once. Every game keeps its last 10 results.
+
+<img src="images/en/training-game.webp" alt="Animation: Around the Clock. Each hit moves the target from 1 to 6 and outlines every bed of the next number on the board" width="620">
 
 | Game | Goal |
 | --- | --- |

@@ -1,4 +1,4 @@
-"""Capture documentation screenshots and the visit animation from the demo instance.
+"""Capture documentation screenshots and animations from the demo instance.
 
 Runs in the Playwright container on the demo's Compose network (see screenshots.sh).
 Every image shows the synthetic demo board, so no personal data can appear.
@@ -149,17 +149,53 @@ def page_shot(page: Page, name: str) -> None:
     print(f"saved {OUTPUT / name}.png")
 
 
+class Recorder:
+    """Frames of one element and how long each shows, for an animated WebP."""
+
+    def __init__(self, page: Page, tag: str = "autodarts-card") -> None:
+        self.page = page
+        self.element = page.locator(tag).first
+        self.frames: list[Image.Image] = []
+        self.durations: list[int] = []
+
+    def shot(self, duration: int) -> None:
+        image = self.element.screenshot(animations="allow")
+        self.frames.append(Image.open(io.BytesIO(image)))
+        self.durations.append(duration)
+
+    def blink(self, count: int = 1, step: int = 100, hold: int | None = None) -> None:
+        """The blinking beds of the live card, frame by frame; the last frame holds."""
+        for index in range(count):
+            self.page.evaluate(SEEK, index * step)
+            self.shot(hold if hold and index == count - 1 else step)
+
+    def save(self, name: str, width: int = 760) -> None:
+        # Animated WebP keeps the colours of every frame at a fraction of a GIF's size.
+        resized = [
+            frame.convert("RGB").resize(
+                (width, round(frame.height * width / frame.width)),
+                Image.Resampling.LANCZOS,
+            )
+            for frame in self.frames
+        ]
+        target = OUTPUT / f"{name}.webp"
+        resized[0].save(
+            target,
+            save_all=True,
+            append_images=resized[1:],
+            duration=self.durations,
+            loop=0,
+            quality=85,
+            method=6,
+        )
+        size = target.stat().st_size // 1024
+        print(f"saved {target} ({size} KiB, {len(self.frames)} frames)")
+
+
 def visit_animation(page: Page) -> None:
     """Darts landing one by one, then the takeout, as an animation."""
-    frames: list[Image.Image] = []
-    durations: list[int] = []
-    card = page.locator("autodarts-card").first
-
-    def capture(count: int, step: int = 100, hold: int | None = None) -> None:
-        for index in range(count):
-            page.evaluate(SEEK, index * step)
-            frames.append(Image.open(io.BytesIO(card.screenshot(animations="allow"))))
-            durations.append(hold if hold and index == count - 1 else step)
+    recorder = Recorder(page)
+    capture = recorder.blink
 
     control({"status": "Throw", "event": "Takeout finished", "throws": []})
     wait_for_score(page, "0")
@@ -175,32 +211,211 @@ def visit_animation(page: Page) -> None:
     control({"status": "Throw", "event": "Takeout finished", "throws": []})
     wait_for_score(page, "0")
     capture(1, hold=1200)
-
-    # The documentation shows the animation at 760 pixels. Animated WebP keeps the
-    # colours of every frame at a fraction of the size of a GIF.
-    width = 760
-    resized = [
-        frame.convert("RGB").resize(
-            (width, round(frame.height * width / frame.width)),
-            Image.Resampling.LANCZOS,
-        )
-        for frame in frames
-    ]
-    target = OUTPUT / "card-visit.webp"
-    resized[0].save(
-        target,
-        save_all=True,
-        append_images=resized[1:],
-        duration=durations,
-        loop=0,
-        quality=85,
-        method=6,
-    )
-    print(f"saved {target} ({target.stat().st_size // 1024} KiB, {len(frames)} frames)")
+    recorder.save("card-visit")
     # Restore the demo visit for the remaining screenshots.
     for darts in ([T20], [T20, S5], [T20, S5, BULL]):
         control({"event": "Throw detected", "throws": darts})
     wait_for_score(page, "115")
+
+
+# Animations of the games -----------------------------------------------------------
+
+
+def game(page: Page, option: str) -> None:
+    page.evaluate(
+        CALL_SERVICE, ["select", "select_option", "practice_game", {"option": option}]
+    )
+
+
+def players(page: Page, count: int) -> None:
+    page.evaluate(
+        CALL_SERVICE, ["number", "set_value", "practice_players", {"value": count}]
+    )
+
+
+def pull_darts() -> None:
+    control({"status": "Takeout in progress", "event": "Takeout started"})
+    control({"status": "Throw", "event": "Takeout finished", "throws": []})
+
+
+def wait_card(
+    page: Page, condition: str, tag: str = "autodarts-card", timeout: int = 15000
+) -> None:
+    """Wait until the card's shadow root `r` meets a JavaScript condition."""
+    page.wait_for_function(
+        f"() => ({find(tag)})().some((c) => {{ const r = c.shadowRoot; return {condition}; }})",
+        timeout=timeout,
+    )
+
+
+def big(value: str) -> str:
+    return f"r.querySelector('.practice-remaining')?.textContent === '{value}'"
+
+
+def visit(page: Page, names: list[str]) -> None:
+    """Throw a whole visit without recording it."""
+    darts = [at(name) for name in names]
+    for count in range(1, len(darts) + 1):
+        control({"event": "Throw detected", "throws": darts[:count]})
+        page.wait_for_timeout(250)
+    pull_darts()
+    page.wait_for_timeout(600)
+
+
+def checkout_animation(page: Page) -> None:
+    """A 141 checkout: the route and the outlined bed follow every dart."""
+    pull_darts()
+    players(page, 1)
+    game(page, "501")
+    wait_card(page, big("501"))
+    for _ in range(2):
+        visit(page, ["T20", "T20", "T20"])
+    wait_card(page, big("141"))
+    recorder = Recorder(page)
+    recorder.blink(1, hold=1400)
+    thrown: list[dict] = []
+    for name, remaining in (("T20", "81"), ("T15", "36"), ("D18", "0")):
+        thrown.append(at(name))
+        control({"event": "Throw detected", "throws": thrown})
+        wait_card(page, big(remaining))
+        recorder.blink(10, hold=1100)
+    recorder.blink(1, hold=1400)
+    pull_darts()
+    wait_card(page, big("501"))
+    recorder.blink(1, hold=1400)
+    recorder.save("practice-checkout")
+
+
+def cricket_animation(page: Page) -> None:
+    """Two players close numbers and score on the chalkboard."""
+    pull_darts()
+    page.evaluate(SET_NAME, [0, "Alex"])
+    page.evaluate(SET_NAME, [1, "Sam"])
+    players(page, 2)
+    game(page, "cricket")
+    cell = (
+        "r.querySelectorAll('.cricket-grid tbody tr')[{row}]"
+        "?.children[{column}]?.textContent === '{mark}'"
+    )
+    wait_card(page, "!!r.querySelector('.cricket-grid')")
+    recorder = Recorder(page)
+    recorder.blink(1, hold=1200)
+    # Each dart with what the card shows once it counted.
+    visits = [
+        [
+            ("T20", cell.format(row=0, column=1, mark="Ⓧ")),
+            ("T20", big("60")),
+            ("S19", cell.format(row=1, column=1, mark="/")),
+        ],
+        [
+            ("T19", cell.format(row=1, column=2, mark="Ⓧ")),
+            ("T19", big("57")),
+            ("D18", cell.format(row=2, column=2, mark="X")),
+        ],
+    ]
+    for darts in visits:
+        thrown: list[dict] = []
+        for name, shown in darts:
+            thrown.append(at(name))
+            control({"event": "Throw detected", "throws": thrown})
+            wait_card(page, shown)
+            recorder.blink(6, step=120, hold=900)
+        pull_darts()
+        page.wait_for_timeout(900)
+        recorder.blink(1, hold=1300)
+    recorder.save("cricket")
+    players(page, 1)
+
+
+def training_game_animation(page: Page) -> None:
+    """Around the Clock: every hit moves the target and its outlined beds."""
+    pull_darts()
+    game(page, "around_the_clock")
+    wait_card(page, big("1"))
+    recorder = Recorder(page)
+    recorder.blink(1, hold=1200)
+    for darts in (
+        (("S1", "2"), ("S17", "2"), ("D2", "3")),
+        (("T3", "4"), ("S4", "5"), ("S5", "6")),
+    ):
+        thrown: list[dict] = []
+        for name, target in darts:
+            thrown.append(at(name))
+            control({"event": "Throw detected", "throws": thrown})
+            wait_card(
+                page,
+                big(target)
+                + " && r.querySelectorAll('.slot:not(.empty)').length === "
+                + str(len(thrown)),
+            )
+            recorder.blink(6, step=120, hold=800)
+        pull_darts()
+        page.wait_for_timeout(600)
+        recorder.blink(1, hold=900)
+    recorder.save("training-game")
+    game(page, "off")
+
+
+def scoreboard_animation(page: Page) -> None:
+    """A 501 match on the scoreboard: turns pass, and Alex checks out 141."""
+    pull_darts()
+    page.evaluate(SET_NAME, [0, "Alex"])
+    page.evaluate(SET_NAME, [1, "Sam"])
+    players(page, 2)
+    # One leg decides the match, so the checkout brings the winner banner.
+    for key in ("practice_legs", "practice_sets"):
+        page.evaluate(CALL_SERVICE, ["number", "set_value", key, {"value": 1}])
+    game(page, "501")
+    board = page.context.new_page()
+    board.set_viewport_size({"width": 1280, "height": 800})
+    board.goto(f"{HA}/autodarts-auto/scoreboard")
+    tag = "autodarts-scoreboard-card"
+    # The first load of the dashboard takes a while.
+    wait_card(board, "r.querySelectorAll('.player').length === 2", tag, 60000)
+    board.wait_for_timeout(1500)
+    recorder = Recorder(board, tag)
+    recorder.shot(1400)
+    active = "r.querySelector('.player.active .name')?.textContent === '{name}'"
+    visits = [
+        ("Alex", ["T20", "T20", "T20"], "Sam"),
+        ("Sam", ["T20", "S5", "T20"], "Alex"),
+        ("Alex", ["T20", "T20", "T20"], "Sam"),
+        ("Sam", ["S20", "T20", "S20"], "Alex"),
+    ]
+    for _, names, following in visits:
+        darts = [at(name) for name in names]
+        for count in range(1, 4):
+            control({"event": "Throw detected", "throws": darts[:count]})
+            board.wait_for_timeout(350)
+        wait_card(
+            board, "r.querySelectorAll('.visit .dart:not(.empty)').length === 3", tag
+        )
+        recorder.shot(900)
+        pull_darts()
+        wait_card(board, active.format(name=following), tag)
+        board.wait_for_timeout(300)
+        recorder.shot(1000)
+    thrown: list[dict] = []
+    for name in ("T20", "T15", "D18"):
+        thrown.append(at(name))
+        control({"event": "Throw detected", "throws": thrown})
+        wait_card(
+            board,
+            f"r.querySelectorAll('.visit .dart:not(.empty)').length === {len(thrown)}",
+            tag,
+        )
+        board.wait_for_timeout(300)
+        recorder.shot(1100)
+    # The game shot shows at once; pulling the darts books the leg and the match.
+    recorder.shot(900)
+    pull_darts()
+    wait_card(board, "!r.querySelector('.banner').hidden", tag)
+    board.wait_for_timeout(300)
+    recorder.shot(2600)
+    recorder.save("scoreboard")
+    board.close()
+    players(page, 1)
+    game(page, "off")
 
 
 def scoreboard_page(page: Page) -> Page:
@@ -218,7 +433,7 @@ def scoreboard_page(page: Page) -> Page:
 
 
 def practice_card(page: Page) -> None:
-    """A 501 practice leg with the checkout route and the bed to aim at."""
+    """A 501 match in the live card, and the scoreboard in Cricket."""
 
     def service(option: str) -> None:
         page.evaluate(
@@ -231,26 +446,9 @@ def practice_card(page: Page) -> None:
         control({"status": "Throw", "event": "Takeout finished", "throws": []})
         wait_for_score(page, "0")
 
-    takeout()
-    service("501")
-    for _ in range(2):
-        for count in range(1, 4):
-            control({"event": "Throw detected", "throws": [T20] * count})
-            page.wait_for_timeout(300)
-        wait_for_score(page, "180")
-        takeout()
-    control({"event": "Throw detected", "throws": [T20]})
-    page.wait_for_function(
-        f"() => ({FIND_CARDS})().some((c) => "
-        "c.shadowRoot.querySelector('.practice-remaining')?.textContent === '81')",
-        timeout=15000,
-    )
-    page.wait_for_timeout(800)
-    peak(page)
-    card_shot(page, "card-practice")
-
     # A 501 match of two players, three legs to win.
     takeout()
+    service("501")
     page.evaluate(SET_NAME, [0, "Alex"])
     page.evaluate(SET_NAME, [1, "Sam"])
     for key, value in (("practice_players", 2), ("practice_legs", 3)):
@@ -270,7 +468,6 @@ def practice_card(page: Page) -> None:
     peak(page)
     card_shot(page, "card-match")
     scoreboard = scoreboard_page(page)
-    page_shot(scoreboard, "scoreboard")
 
     # Cricket between the same two players, Alex aiming at the 19.
     takeout()
@@ -292,12 +489,6 @@ def practice_card(page: Page) -> None:
         ".querySelectorAll('.cricket-grid tbody tr')[4]?.children[1]?.textContent === 'Ⓧ')",
         timeout=15000,
     )
-    # The chalkboard makes the card taller than the window; the header must not cover it.
-    page.set_viewport_size({"width": 1280, "height": 1100})
-    page.wait_for_timeout(800)
-    peak(page)
-    card_shot(page, "card-cricket")
-    page.set_viewport_size({"width": 1280, "height": 820})
     scoreboard.wait_for_function(
         f"() => ({find('autodarts-scoreboard-card')})().some((c) => c.shadowRoot"
         ".querySelectorAll('.cricket tbody tr')[4]?.children[1]?.textContent === 'Ⓧ')",
@@ -309,31 +500,6 @@ def practice_card(page: Page) -> None:
     page.evaluate(
         CALL_SERVICE, ["number", "set_value", "practice_players", {"value": 1}]
     )
-
-    # Around the Clock after the first six numbers, with all beds of the 7 to aim at.
-    takeout()
-    service("around_the_clock")
-    for start in (1, 4):
-        visit = [
-            {
-                "segment": {"name": f"S{number}", "number": number, "multiplier": 1},
-                "coords": {"x": 0.0, "y": 0.0},
-            }
-            for number in range(start, start + 3)
-        ]
-        for count in range(1, 4):
-            control({"event": "Throw detected", "throws": visit[:count]})
-            page.wait_for_timeout(300)
-        takeout()
-    control({"event": "Throw detected", "throws": [S5]})
-    page.wait_for_function(
-        f"() => ({FIND_CARDS})().some((c) => "
-        "c.shadowRoot.querySelector('.practice-remaining')?.textContent === '7')",
-        timeout=15000,
-    )
-    page.wait_for_timeout(800)
-    peak(page)
-    card_shot(page, "card-training-game")
     service("off")
 
 
@@ -500,6 +666,21 @@ def main() -> None:
         open_dashboard(page, "board")
         practice_card(page)
         practice.close()
+
+        # The games as animations, at the size the documentation shows them.
+        games = browser.new_context(
+            viewport={"width": 1100, "height": 1100},
+            device_scale_factor=1,
+            locale=LOCALE,
+            color_scheme="dark",
+        )
+        page = games.new_page()
+        open_dashboard(page, "board")
+        checkout_animation(page)
+        cricket_animation(page)
+        training_game_animation(page)
+        scoreboard_animation(page)
+        games.close()
         browser.close()
 
 

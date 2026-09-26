@@ -31,13 +31,13 @@ Ein Tipp auf die Scheibe, oder die Eingabetaste darauf, öffnet die Details der 
 
 <img src="../images/de/card-visit.webp" alt="Animation: drei Darts landen, ihre Felder blinken, die Punkte zählen mit; die Entnahme leert die Scheibe" width="620">
 
-<img src="../images/de/card-practice.png" alt="Live-Karte in einem 501-Übungsleg: 81 Rest nach einer Triple 20, der Checkout-Weg T15 D18 und die umrandete Triple 15 auf der Scheibe" width="760">
+<img src="../images/de/practice-checkout.webp" alt="Animation: ein 141er-Checkout in einem 501-Leg. Nach jedem Dart ändern sich Rest, Weg und umrandetes Feld: T20 T15 D18, dann Game shot und ein neues Leg" width="620">
 
 <img src="../images/de/card-match.png" alt="Live-Karte in einem 501-Match von Alex und Sam: Alex am Board mit 81 Rest und dem Weg T15 D18, Sam mit 361 Rest" width="760">
 
-<img src="../images/de/card-cricket.png" alt="Live-Karte bei Cricket zwischen Alex und Sam: die Kreidetafel mit den Treffern beider Spieler, Alex am Board mit 60 Punkten und der 19 als Ziel" width="760">
+<img src="../images/de/cricket.webp" alt="Animation: Cricket zwischen Alex und Sam. Alex schließt die 20, punktet 60 und trifft eine 19; nach der Entnahme schließt Sam die 19, punktet 57 und trifft eine Doppel-18" width="620">
 
-<img src="../images/de/card-training-game.png" alt="Live-Karte in Around the Clock: Ziel 7 nach sechs Zahlen, alle Felder der 7 auf der Scheibe umrandet" width="760">
+<img src="../images/de/training-game.webp" alt="Animation: Around the Clock. Jeder Treffer bringt das Ziel von 1 bis 6 weiter und umrandet alle Felder der nächsten Zahl" width="620">
 
 ### Optionen
 
@@ -156,7 +156,7 @@ show_reset: false
 
 `custom:autodarts-scoreboard-card` ist für ein Tablet oder einen Fernseher neben dem Board gemacht: groß genug, um sie vom Abwurf aus zu lesen, und sie zeigt immer, was gerade gespielt wird.
 
-<img src="../images/de/scoreboard.png" alt="Anzeigetafel in einem 501-Match: Alex am Board mit 81 Rest und dem Weg T15 D18, Sam mit 361, darunter die Darts der aktuellen Aufnahme" width="760">
+<img src="../images/de/scoreboard.webp" alt="Animation: die Anzeigetafel in einem 501-Match. Nach jeder Aufnahme wechselt der Wurf zwischen Alex und Sam, und Alex checkt 141 mit T20 T15 D18 zum Matchgewinn" width="760">
 
 - **X01:** eine Kachel pro Spieler mit Restpunkten, Legs, Sätzen und Average. Der Spieler am Board ist hervorgehoben und bekommt den Checkout-Weg, das Überwerfen oder das Game shot.
 - **Cricket:** eine große Kreidetafel mit den Treffern aller Spieler, den Punkten und den Treffern pro Runde; darunter steht die nächste offene Zahl.
