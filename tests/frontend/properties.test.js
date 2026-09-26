@@ -12,6 +12,8 @@ import {
   heatRatio,
   NUMBERS,
   parseSegment,
+  pastSessions,
+  recentVisits,
   sectorAt,
   topHits,
   visitBucket,
@@ -133,6 +135,24 @@ test("any recorder history is read without errors", () => {
       for (const visit of visitsFromHistory(rows, since)) {
         assert.ok(Number.isFinite(visit.score) && visit.time >= since);
         assert.ok(Array.isArray(visit.segments));
+      }
+    }),
+    RUNS
+  );
+});
+
+test("session and visit lists from hostile attributes stay finite and textual", () => {
+  fc.assert(
+    fc.property(fc.anything(), fc.anything(), (visits, sessions) => {
+      for (const visit of recentVisits(visits)) {
+        assert.ok(Number.isInteger(visit.score) && visit.score >= 0);
+        assert.ok(visit.segments.every((segment) => typeof segment === "string"));
+      }
+      for (const session of pastSessions(sessions)) {
+        assert.ok(Number.isFinite(session.ended) && session.darts > 0);
+        for (const key of ["minutes", "average", "best"]) {
+          assert.ok(session[key] === null || Number.isFinite(session[key]));
+        }
       }
     }),
     RUNS

@@ -20,6 +20,7 @@ To add one, edit a dashboard, select **Add card** and search for **Autodarts**.
 </picture>
 
 - **Visit:** score, the three dart slots and a progress indicator. The latest dart is outlined.
+- **Last visits:** the scores of your last five visits, coloured like the training card's chart. Hover one for its darts.
 - **Board:**
   - Hit beds blink in the highlight colour.
   - Numbered markers show where each dart landed.
@@ -45,6 +46,7 @@ Tap the board, or press Enter on it, to open the visit details.
 | `show_markers` | boolean | `true` | Show dart positions |
 | `show_numbers` | boolean | `true` | Show the numbers around the board |
 | `show_stats` | boolean | `true` | Show the training statistics |
+| `show_recent` | boolean | `true` | Show the last visits |
 | `show_connection` | boolean | `true` | Show the connection chips |
 | `show_controls` | boolean | `true` | Show the controls |
 | `accent_color` | CSS colour | theme primary colour | Labels and main button |
@@ -88,7 +90,11 @@ highlight_color: "#00e5ff"
 - **Recent visits:** a bar chart of your last visits with the session average as a dashed line.
   - Bars are coloured grey below 60, accent colour from 60, green for 100+, orange for 140+ and gold for 180.
   - The visits come from the recorder, so the chart survives page reloads.
-- **New session** starts a new session after a second tap to confirm.
+- **Past sessions:** end time, duration, darts, 3-dart average and best visit of your last five finished sessions.
+- **Session controls:**
+  - *Start session* and *End session* switch the [training session](entities.md#training-session) on and off. Ending needs a second tap to confirm.
+  - *New session* ends the running session and starts the next one, also after a second tap.
+  - The line next to the buttons tells whether a session is running or when the last one ended.
 
 ### Options
 
@@ -103,7 +109,8 @@ highlight_color: "#00e5ff"
 | `show_stats` | boolean | `true` | Show the statistics tiles |
 | `show_top` | boolean | `true` | Show the most hit beds |
 | `show_history` | boolean | `true` | Show the recent visits |
-| `show_reset` | boolean | `true` | Show the *New session* button |
+| `show_sessions` | boolean | `true` | Show the past sessions |
+| `show_reset` | boolean | `true` | Show the session controls |
 | `accent_color` | CSS colour | theme primary colour | Labels and 60+ visits |
 
 ```yaml

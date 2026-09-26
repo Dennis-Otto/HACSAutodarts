@@ -64,6 +64,10 @@ ENTITIES = {
     "training_visits": "sensor",
     "training_average": "sensor",
     "training_highest_visit": "sensor",
+    "training_session": "switch",
+    "training_auto_start": "switch",
+    "training_idle_timeout": "number",
+    "training_last_session": "sensor",
 }
 if GENERATION >= 2:
     # Board Manager 2 reports its cloud link, load and updates, and has no toggle.

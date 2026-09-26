@@ -34,6 +34,7 @@ cd "${SCRIPT_DIR}"
 
 bash "${SCRIPT_DIR}/demo.sh"
 "${DOCKER_BIN}" run --rm --network "${PROJECT_NAME}_default" \
+	--env "BOARD_MANAGER=${BOARD_MANAGER:-1}" \
 	--volume "${ROOT_MOUNT}:/repo:ro" \
 	--workdir /repo/tests/e2e \
 	"${PLAYWRIGHT_IMAGE}" \

@@ -47,6 +47,11 @@ HISTORY = [
     [BULL, S20, S20],
 ]
 CURRENT = [T20, S5, BULL]
+# Earlier, finished sessions for the training card's list of past sessions.
+EARLIER = [
+    [[T20, T20_LEFT, S20], [S20, S1, S5]],
+    [[T19, S20, S20], [BULL, OUTER_BULL, S20], [T20, S5, S1]],
+]
 
 CARDS = {
     "board": [{"type": "custom:autodarts-card", "grid_options": {"columns": "full"}}],
@@ -93,6 +98,23 @@ async def throw(demo: Scenario, darts: list[dict]) -> None:
         await asyncio.sleep(0.4)
 
 
+async def play(demo: Scenario, visits: list[list[dict]]) -> None:
+    """Throw each visit and pull the darts, as a player does."""
+    for visit in visits:
+        await throw(demo, visit)
+        await demo.board(
+            "POST",
+            "/control/state",
+            json={"status": "Takeout in progress", "event": "Takeout started"},
+        )
+        await demo.board(
+            "POST",
+            "/control/state",
+            json={"status": "Throw", "event": "Takeout finished", "throws": []},
+        )
+        await asyncio.sleep(0.4)
+
+
 async def main() -> None:
     timeout = aiohttp.ClientTimeout(total=60)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -107,19 +129,13 @@ async def main() -> None:
         await demo.registries(entry_id)
         await demo.service("button", "press", "start")
         await demo.expect_states({"detection": "on", "realtime_connected": "on"})
-        for visit in HISTORY:
-            await throw(demo, visit)
-            await demo.board(
-                "POST",
-                "/control/state",
-                json={"status": "Takeout in progress", "event": "Takeout started"},
-            )
-            await demo.board(
-                "POST",
-                "/control/state",
-                json={"status": "Throw", "event": "Takeout finished", "throws": []},
-            )
-            await asyncio.sleep(0.4)
+        for session in EARLIER:
+            await play(demo, session)
+            await demo.service("switch", "turn_off", "training_session")
+            await demo.expect_states({"training_session": "off"})
+        await demo.service("switch", "turn_on", "training_session")
+        await demo.expect_states({"training_session": "on", "training_darts": "0"})
+        await play(demo, HISTORY)
         await throw(demo, CURRENT)
         await demo.expect_states({"local_visit_score": "115"})
 

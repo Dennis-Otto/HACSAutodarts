@@ -6,6 +6,7 @@ Runs in the Playwright container on the demo's Compose network (see browser.sh).
 from __future__ import annotations
 
 import json
+import os
 import urllib.request
 
 from playwright.sync_api import Browser, Page, sync_playwright
@@ -13,6 +14,8 @@ from playwright.sync_api import Browser, Page, sync_playwright
 HA = "http://homeassistant:8123"
 BOARD = "http://board-mock:3180"
 LOADS = 5
+# Board Manager generation of the demo board, passed on by browser.sh.
+GENERATION = int(os.environ.get("BOARD_MANAGER", "1"))
 
 
 def find(tag: str) -> str:
@@ -48,6 +51,7 @@ CARD_STATE = f"""
     toggle: root.querySelector('[data-action="toggle"]').textContent,
     numbers: root.querySelectorAll('.numbers text').length,
     beds: root.querySelectorAll('.face path').length,
+    recent: [...root.querySelectorAll('.recent-visit')].map((el) => el.textContent),
   }};
 }}
 """
@@ -63,6 +67,11 @@ TRAINING_STATE = f"""
     top: [...root.querySelectorAll('.top-row .key')].map((el) => el.textContent),
     history: root.querySelectorAll('.history-chart .visit-bar:not(.empty)').length,
     highest: root.querySelector('[data-tile="highest"] .value')?.textContent,
+    sessions: [...root.querySelectorAll('.session-table tbody tr')].map(
+      (row) => [...row.children].slice(2).map((cell) => cell.textContent)
+    ),
+    session: text('[data-action="session"]'),
+    state: text('.session-state'),
   }};
 }}
 """
@@ -76,6 +85,7 @@ STATUS_STATE = f"""
     detection: root.querySelector('.toggle')?.getAttribute('aria-checked'),
     chips: root.querySelectorAll('.chip').length,
     system: !root.querySelector('.system-tile')?.hidden,
+    info: root.querySelector('.system-info')?.hidden ? '' : root.querySelector('.system-info')?.textContent,
   }};
 }}
 """
@@ -176,6 +186,8 @@ def visit(browser: Browser) -> None:
         "toggle": "Stop detection",
         "numbers": 20,
         "beds": 80,
+        # The last completed visits, newest first.
+        "recent": ["90", "112", "102", "125", "81"],
     }
     check(state == expected, f"Card state {state} != {expected}")
 
@@ -228,8 +240,26 @@ def training(browser: Browser) -> None:
         "top": ["S20", "T20", "Bull", "S5", "25"],
         "history": 5,
         "highest": "125",
+        # Darts, average and best visit of the two earlier sessions, newest first.
+        "sessions": [["9", "86.0", "97"], ["6", "83.0", "140"]],
+        "session": "End session",
+        "state": "Session running",
     }
     check(state == expected, f"Training card state {state} != {expected}")
+
+    # Ending a session needs a second tap; starting one does not.
+    toggle = page.locator("autodarts-training-card button[data-action='session']")
+    toggle.click()
+    check(toggle.text_content() == "Confirm?", "Ending did not ask for confirmation")
+    toggle.click()
+    page.wait_for_function(
+        f"() => ({TRAINING_STATE})().session === 'Start session'", timeout=30000
+    )
+    ended = page.evaluate(TRAINING_STATE)
+    check(ended["state"].startswith("Session ended"), f"Session state {ended}")
+    check(len(ended["sessions"]) == 3, f"Ended session missing: {ended['sessions']}")
+    toggle.click()
+    page.wait_for_function(f"() => ({TRAINING_STATE})().darts === '0'", timeout=30000)
     errors = page_errors(page, problems)
     check(not errors, f"Console problems: {errors}")
     page.close()
@@ -242,6 +272,11 @@ def status(browser: Browser) -> None:
     check(state["version"].startswith("Version "), f"Status card version: {state}")
     check(state["detection"] == "true", f"Status card detection: {state}")
     check(state["chips"] == 3, f"Status card connections: {state}")
+    # Board Manager 2 describes its PC; the classic Board Manager does not.
+    expected_info = (
+        "Debian 13 · Intel Core i3-9100T · Detection 2.0.0" if GENERATION >= 2 else ""
+    )
+    check(state["info"] == expected_info, f"Status card board PC: {state}")
 
     commands = len(board_requests()["commands"])
     toggle = page.locator("autodarts-status-card .toggle")
@@ -331,34 +366,47 @@ def light_theme(browser: Browser) -> None:
 def main() -> None:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        fresh_loads(browser)
-        # The training card reads the demo session before any control changes it.
-        training(browser)
-        visit(browser)
-        status(browser)
-        strategy(browser)
-        editor(browser)
-        editor(
-            browser,
-            "training",
-            TRAINING_CARDS,
-            ".heat-layer",
-            "autodarts-training-card-editor",
-            5,
-        )
-        editor(
-            browser,
-            "status",
-            STATUS_CARDS,
-            ".toggle",
-            "autodarts-status-card-editor",
-            3,
-        )
-        light_theme(browser)
+        steps = [
+            ("fresh loads", lambda: fresh_loads(browser)),
+            # The training card reads the demo session before any control changes it.
+            ("training card", lambda: training(browser)),
+            ("live card", lambda: visit(browser)),
+            ("status card", lambda: status(browser)),
+            ("automatic dashboard", lambda: strategy(browser)),
+            ("live card editor", lambda: editor(browser)),
+            (
+                "training card editor",
+                lambda: editor(
+                    browser,
+                    "training",
+                    TRAINING_CARDS,
+                    ".heat-layer",
+                    "autodarts-training-card-editor",
+                    5,
+                ),
+            ),
+            (
+                "status card editor",
+                lambda: editor(
+                    browser,
+                    "status",
+                    STATUS_CARDS,
+                    ".toggle",
+                    "autodarts-status-card-editor",
+                    3,
+                ),
+            ),
+            ("light theme", lambda: light_theme(browser)),
+        ]
+        for name, step in steps:
+            # A failure then names the step, not only a timeout deep in Playwright.
+            print(f"Browser step: {name}", flush=True)
+            step()
         browser.close()
     print(
         "Browser check passed: card registration on every load, visit, highlights, "
-        "controls with confirmation, training heatmap and history, board status, "
+        "controls with confirmation, last visits, training heatmap, history and "
+        "sessions, board status, "
         "the generated dashboard, all three editors and light theme."
     )
 

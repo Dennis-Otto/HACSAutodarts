@@ -17,6 +17,7 @@ Zum Hinzufügen bearbeitest du ein Dashboard, wählst **Karte hinzufügen** und 
 <img src="../images/de/card.png" alt="Live-Karte mit Aufnahmepunkten, Dart-Feldern, der Scheibe mit blinkenden Treffern, Statistik, Verbindungen und Steuerung" width="760">
 
 - **Aufnahme:** Punkte, die drei Dart-Felder und der Fortschritt. Der jüngste Dart ist hervorgehoben.
+- **Vorige Aufnahmen:** die Punkte deiner letzten fünf Aufnahmen, eingefärbt wie im Diagramm der Trainingskarte. Mit dem Mauszeiger siehst du die Darts.
 - **Scheibe:**
   - Getroffene Felder blinken in der Hervorhebungsfarbe.
   - Nummerierte Markierungen zeigen, wo jeder Dart steckt.
@@ -42,6 +43,7 @@ Ein Tipp auf die Scheibe, oder die Eingabetaste darauf, öffnet die Details der 
 | `show_markers` | Wahrheitswert | `true` | Dart-Positionen anzeigen |
 | `show_numbers` | Wahrheitswert | `true` | Zahlen um die Scheibe anzeigen |
 | `show_stats` | Wahrheitswert | `true` | Trainingsstatistik anzeigen |
+| `show_recent` | Wahrheitswert | `true` | Vorige Aufnahmen anzeigen |
 | `show_connection` | Wahrheitswert | `true` | Verbindungen anzeigen |
 | `show_controls` | Wahrheitswert | `true` | Steuerung anzeigen |
 | `accent_color` | CSS-Farbe | Primärfarbe des Designs | Beschriftungen und Haupttaste |
@@ -82,7 +84,11 @@ highlight_color: "#00e5ff"
 - **Letzte Aufnahmen:** ein Balkendiagramm deiner letzten Aufnahmen mit dem Schnitt der Session als gestrichelter Linie.
   - Farben: grau unter 60, Akzentfarbe ab 60, grün ab 100, orange ab 140 und gold für 180.
   - Die Aufnahmen kommen aus dem Recorder und bleiben daher auch nach dem Neuladen der Seite erhalten.
-- **Neue Session** startet nach einem zweiten Tipp eine neue Session.
+- **Vergangene Sessions:** Ende, Dauer, Darts, 3-Dart-Schnitt und beste Aufnahme deiner letzten fünf beendeten Sessions.
+- **Session-Steuerung:**
+  - *Session starten* und *Session beenden* schalten die [Trainingssession](entitaeten.md#trainingssession) ein und aus. Das Beenden braucht einen zweiten Tipp zur Bestätigung.
+  - *Neue Session* beendet die laufende Session und startet die nächste, ebenfalls nach einem zweiten Tipp.
+  - Die Zeile neben den Tasten zeigt, ob eine Session läuft oder wann die letzte endete.
 
 ### Optionen
 
@@ -97,7 +103,8 @@ highlight_color: "#00e5ff"
 | `show_stats` | Wahrheitswert | `true` | Statistik anzeigen |
 | `show_top` | Wahrheitswert | `true` | Häufigste Felder anzeigen |
 | `show_history` | Wahrheitswert | `true` | Letzte Aufnahmen anzeigen |
-| `show_reset` | Wahrheitswert | `true` | Taste *Neue Session* anzeigen |
+| `show_sessions` | Wahrheitswert | `true` | Vergangene Sessions anzeigen |
+| `show_reset` | Wahrheitswert | `true` | Session-Steuerung anzeigen |
 | `accent_color` | CSS-Farbe | Primärfarbe des Designs | Beschriftungen und Aufnahmen ab 60 |
 
 ```yaml
