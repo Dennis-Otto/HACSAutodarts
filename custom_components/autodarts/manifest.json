@@ -6,8 +6,7 @@
     "http"
   ],
   "codeowners": [
-    "@Dennis-Otto",
-    "@Trkal"
+    "@Dennis-Otto"
   ],
   "config_flow": true,
   "documentation": "https://github.com/Dennis-Otto/HACSAutodarts",
@@ -15,7 +14,7 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Dennis-Otto/HACSAutodarts/issues",
   "requirements": [],
-  "version": "1.0.0",
+  "version": "1.0.1",
   "zeroconf": [
     "_autodarts-board._tcp.local."
   ]

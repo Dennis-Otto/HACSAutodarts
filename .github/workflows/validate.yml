@@ -39,8 +39,6 @@ jobs:
         with:
           category: integration
           comment: false
-          # HACS reads the default-branch license; the preceding step checks this revision.
-          ignore: license
 
   hassfest:
     runs-on: ubuntu-latest
