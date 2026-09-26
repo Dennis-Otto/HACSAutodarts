@@ -1,7 +1,13 @@
-"""Optional camera snapshots. Viewing never starts/stops detection or streaming."""
+"""Board cameras: live streams from Board Manager 2, otherwise snapshots.
 
+To show a camera, the integration never starts or stops the detection or the
+camera streams.
+"""
+
+from aiohttp import hdrs, web
 from homeassistant.components.camera import Camera
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_aiohttp_proxy_stream
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .entity import AutodartsLocalEntity
@@ -59,3 +65,24 @@ class AutodartsCamera(AutodartsLocalEntity, Camera):
             return await self.coordinator.client.get_camera_image(self._index)
         except AutodartsApiError:
             return None
+
+    async def handle_async_mjpeg_stream(
+        self, request: web.Request
+    ) -> web.StreamResponse | None:
+        """Relay the live stream of Board Manager 2; fall back to snapshots."""
+        if self.coordinator.board_manager_2:
+            try:
+                stream = await self.coordinator.client.open_camera_stream(self._index)
+            except AutodartsApiError:
+                pass
+            else:
+                try:
+                    return await async_aiohttp_proxy_stream(
+                        self.hass,
+                        request,
+                        stream.content,
+                        stream.headers.get(hdrs.CONTENT_TYPE),
+                    )
+                finally:
+                    stream.close()
+        return await super().handle_async_mjpeg_stream(request)
