@@ -225,6 +225,9 @@
       },
       "memory_usage": {
         "name": "Speichernutzung"
+      },
+      "training_last_session": {
+        "name": "Schnitt der letzten Session"
       }
     },
     "button": {
@@ -259,7 +262,7 @@
         "name": "Kamera {number} kalibrieren"
       },
       "reset_training": {
-        "name": "Trainingsstatistik zurücksetzen"
+        "name": "Neue Trainingssession"
       }
     },
     "switch": {
@@ -277,11 +280,22 @@
       },
       "auto_distortion": {
         "name": "Automatische Verzerrungskorrektur"
+      },
+      "training_session": {
+        "name": "Trainingssession"
+      },
+      "training_auto_start": {
+        "name": "Sessions automatisch starten"
       }
     },
     "select": {
       "standby_minutes": {
         "name": "Kamera-Standby (Minuten)"
+      }
+    },
+    "number": {
+      "training_idle_timeout": {
+        "name": "Session beenden nach einer Pause von"
       }
     },
     "binary_sensor": {
@@ -335,7 +349,9 @@
               "takeout_started": "Entnahme begonnen",
               "takeout_finished": "Entnahme abgeschlossen",
               "status_changed": "Status geändert",
-              "visit_completed": "Aufnahme abgeschlossen"
+              "visit_completed": "Aufnahme abgeschlossen",
+              "session_started": "Session gestartet",
+              "session_ended": "Session beendet"
             }
           }
         }

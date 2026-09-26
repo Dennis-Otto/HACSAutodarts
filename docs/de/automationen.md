@@ -157,6 +157,55 @@ actions:
 mode: single
 ```
 
+### Das Board zum Start einer Trainingssession vorbereiten
+
+Schalte beim Start einer Session das Boardlicht ein, starte die Erkennung und kalibriere die Kameras; beim Ende schaltest du alles wieder aus. Schalte *Sessions automatisch starten* aus und starte Sessions mit dem Schalter *Trainingssession*, zum Beispiel über die Trainingskarte.
+
+```yaml
+alias: Darts – Ablauf der Trainingssession
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: event.autodarts_board_board_events
+    options:
+      event_type:
+        - session_started
+    id: started
+  - trigger: event.received
+    target:
+      entity_id: event.autodarts_board_board_events
+    options:
+      event_type:
+        - session_ended
+    id: ended
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: started
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.dart_board
+          - action: switch.turn_on
+            target:
+              entity_id: switch.autodarts_board_detection
+          - action: button.press
+            target:
+              entity_id: button.autodarts_board_start_automatic_calibration
+      - conditions:
+          - condition: trigger
+            id: ended
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.autodarts_board_detection
+          - action: light.turn_off
+            target:
+              entity_id: light.dart_board
+mode: queued
+```
+
 ### Jeden Montag eine neue Trainingssession
 
 ```yaml
@@ -170,7 +219,7 @@ conditions:
 actions:
   - action: button.press
     target:
-      entity_id: button.autodarts_board_reset_training_statistics
+      entity_id: button.autodarts_board_new_training_session
 mode: single
 ```
 

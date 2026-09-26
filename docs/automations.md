@@ -157,6 +157,55 @@ actions:
 mode: single
 ```
 
+### Prepare the board when a training session starts
+
+Switch on the board light, start the detection and calibrate the cameras when a session starts, and switch everything off when it ends. Turn off *Start sessions automatically* and start sessions with the *Training session* switch, for example from the training card.
+
+```yaml
+alias: Darts - training session routine
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: event.autodarts_board_board_events
+    options:
+      event_type:
+        - session_started
+    id: started
+  - trigger: event.received
+    target:
+      entity_id: event.autodarts_board_board_events
+    options:
+      event_type:
+        - session_ended
+    id: ended
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: started
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.dart_board
+          - action: switch.turn_on
+            target:
+              entity_id: switch.autodarts_board_detection
+          - action: button.press
+            target:
+              entity_id: button.autodarts_board_start_automatic_calibration
+      - conditions:
+          - condition: trigger
+            id: ended
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.autodarts_board_detection
+          - action: light.turn_off
+            target:
+              entity_id: light.dart_board
+mode: queued
+```
+
 ### Start a new training session every Monday
 
 ```yaml
@@ -170,7 +219,7 @@ conditions:
 actions:
   - action: button.press
     target:
-      entity_id: button.autodarts_board_reset_training_statistics
+      entity_id: button.autodarts_board_new_training_session
 mode: single
 ```
 

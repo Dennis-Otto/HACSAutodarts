@@ -44,17 +44,20 @@ Die Generation wird bei jedem Lesen geprüft. Nach einem Update des Boards lädt
 
 ## Trainingssession
 
-Die Trainingssession berechnet Home Assistant aus dem, was das Board erkennt. Sie folgt diesen Regeln:
+Trainingssessions berechnet Home Assistant aus dem, was das Board erkennt. Sie folgen diesen Regeln:
 
+- **Sessions bestimmen, was zählt.** Nur Darts, die während einer laufenden Session geworfen werden, zählen. Darts, die beim Start einer Session schon im Board stecken, gehören zu keiner Session; Darts, die beim Ende noch stecken, bleiben bei der beendeten Session.
+- **Ereignisse hängen nicht von Sessions ab.** Dart-, Korrektur-, Entnahme- und Aufnahme-Ereignisse kommen mit und ohne laufende Session.
+- **Pausen beenden Sessions.** Mit eingestellter Pause endet eine Session so viele Minuten nach ihrem letzten Dart; als Ende gilt die Zeit dieses Darts. Wurde das Ende fällig, während Home Assistant aus war, wird es beim nächsten Start nachgeholt.
 - **Jeder Dart zählt einmal.** Wiederholte Nachrichten, Kamerazittern und Neuverbindungen zählen keinen Dart doppelt.
 - **Korrekturen überarbeiten.** Korrigiert das Board einen Dart der aktuellen Aufnahme, folgen die Summen der Korrektur, etwa wenn aus einer 180 eine 140 wird.
 - **Die Entnahme beendet die Aufnahme.** Die entfernten Darts behalten ihre Punkte. Dasselbe gilt, wenn neue Darts ohne leeres Board dazwischen erscheinen (verpasste Entnahme) und wenn die Erkennung stoppt.
 - **Darts beim Start zählen nicht.** Darts, die beim Start von Home Assistant oder der Verbindung schon im Board stecken, werden nicht mitgezählt.
 - **Zurückgezogene Erkennungen.** Nimmt das Board außerhalb einer Entnahme eine Erkennung zurück, verschwindet der Dart wieder aus den Summen.
 - **Punktstufen.** 100+ zählt Aufnahmen mit 100–139 Punkten, 140+ mit 140–179, 180 genau drei Triple 20. Zusammengelegte Aufnahmen mit mehr als drei Darts (nach verpasster Entnahme) zählen in keine Stufe.
-- **Speicherung.** Die Session liegt im Ordner `.storage` von Home Assistant. Sie wird höchstens alle fünf Sekunden und beim Beenden gespeichert und zusammen mit der Integration gelöscht.
+- **Speicherung.** Session, Einstellungen, die letzten 20 Sessions und die letzten 10 Aufnahmen liegen im Ordner `.storage` von Home Assistant. Sie werden höchstens alle fünf Sekunden gespeichert, sofort beim Start oder Ende einer Session und beim Beenden von Home Assistant, und zusammen mit der Integration gelöscht.
 
-Spieler und Spiele kennt die Session nicht. Sie zählt jeden erkannten Dart, egal ob du X01, Cricket oder freies Training spielst.
+Spieler und Spiele kennen die Sessions nicht. Eine laufende Session zählt jeden erkannten Dart, egal ob du X01, Cricket oder freies Training spielst.
 
 ## Kamerazustand
 

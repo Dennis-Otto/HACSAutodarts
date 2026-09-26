@@ -109,4 +109,4 @@ class AutodartsTrainingReset(AutodartsLocalEntity, ButtonEntity):
         return True
 
     async def async_press(self) -> None:
-        await self.coordinator.async_reset_training()
+        await self.coordinator.async_new_session()

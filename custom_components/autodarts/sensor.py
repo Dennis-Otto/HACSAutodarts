@@ -310,6 +310,7 @@ async def async_setup_entry(
             )(runtime.local, key)
             for key in (*COUNTERS, *TRAINING_MEASUREMENTS, "started")
         )
+        entities.append(AutodartsLastSessionSensor(runtime.local))
         entities.extend(
             AutodartsLocalSensor(runtime.local, description)
             for description in STATIC_SENSORS
@@ -505,8 +506,9 @@ class AutodartsCameraSensor(AutodartsLocalSensor):
 class AutodartsVisitSensor(AutodartsLocalSensor):
     """The detected visit, with each dart's segment and position for cards."""
 
-    # Live positions are for display only and must not grow the recorder database.
-    _unrecorded_attributes = frozenset({"throws"})
+    # Live positions and recent visits are for display only and must not grow
+    # the recorder database.
+    _unrecorded_attributes = frozenset({"throws", "recent_visits"})
 
     def __init__(
         self,
@@ -538,7 +540,10 @@ class AutodartsVisitSensor(AutodartsLocalSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"throws": self._throws}
+        return {
+            "throws": self._throws,
+            "recent_visits": self.coordinator.training.stored()["recent_visits"],
+        }
 
 
 class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
@@ -583,3 +588,38 @@ class AutodartsTrainingDartsSensor(AutodartsTrainingSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"hits": self.coordinator.training.snapshot()["hits"]}
+
+
+class AutodartsLastSessionSensor(AutodartsLocalEntity, SensorEntity):
+    """The 3-dart average of the last finished session, one value per session.
+
+    Its history shows the progress from session to session; the attributes
+    hold the details and the recent sessions for cards.
+    """
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "points"
+    _attr_suggested_display_precision = 1
+    # The session list is for cards; the recorder keeps one value per session.
+    _unrecorded_attributes = frozenset({"sessions"})
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "training_last_session")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> float | None:
+        history = self.coordinator.training.history
+        return history[0]["average"] if history else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        history = self.coordinator.training.stored()["history"]
+        last = history[0] if history else {}
+        return {
+            **{key: value for key, value in last.items() if key != "average"},
+            "sessions": history,
+        }

@@ -28,6 +28,16 @@ async def async_get_config_entry_diagnostics(
         "cloud_available": bool(runtime.cloud and runtime.cloud.last_update_success),
         "realtime_connected": bool(local and local.stream_connected),
         "board_manager_generation": local.generation if local else None,
+        "training_sessions": (
+            {
+                "active": local.training.active,
+                "auto_start": local.training.auto_start,
+                "idle_minutes": local.training.idle_minutes,
+                "stored_sessions": len(local.training.history),
+            }
+            if local
+            else None
+        ),
         "poll_interval_seconds": (
             local.update_interval.total_seconds()
             if local and local.update_interval

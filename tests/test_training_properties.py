@@ -125,3 +125,34 @@ def test_hit_keys_match_their_value(darts):
     }
     for dart in segments(state) or []:
         assert value(hit_key(dart)) == dart["number"] * dart["multiplier"]
+
+
+@PROPERTIES
+@given(histories)
+def test_sessions_only_decide_what_counts(history):
+    """Dart and visit events are the same with or without a running session."""
+    running, paused = TrainingSession(), TrainingSession()
+    paused.auto_start = False
+    paused.end("manual")
+    frozen = paused.snapshot()
+    for state in history:
+        assert running.observe(state) == paused.observe(state)
+        check_consistent(running.snapshot())
+    assert paused.snapshot() == frozen
+
+
+@PROPERTIES
+@given(histories, st.integers(min_value=0, max_value=40))
+def test_restarting_keeps_sessions_history_and_settings(history, cut):
+    session = TrainingSession()
+    for index, state in enumerate(history):
+        session.observe(state)
+        if index == cut:
+            session.new_session()
+    restored = TrainingSession()
+    restored.restore(session.stored())
+    assert restored.stored() == session.stored()
+    for summary in session.history:
+        assert 0 < summary["darts"] <= 3 * summary["visits"]
+        assert summary["average"] == round(summary["points"] / summary["darts"] * 3, 2)
+        assert summary["duration_minutes"] >= 0

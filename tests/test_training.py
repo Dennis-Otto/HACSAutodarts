@@ -152,7 +152,7 @@ def test_reset_ignores_darts_already_on_the_board():
     session = TrainingSession()
     session.observe(board())
     session.observe(board(T20, T20))
-    session.reset(board(T20, T20))
+    session.new_session()
     assert all(session.snapshot()[key] == 0 for key in COUNTERS)
     assert session.observe(board(T20, T20)) == []
     session.observe(board(T20, T20, T20))
@@ -263,6 +263,142 @@ def test_average_inputs_and_restore_of_analytics():
     assert restored.snapshot()["hits"] == {"S1": 2}
     restored.restore({"darts": 3})
     assert restored.snapshot()["hits"] == {}
-    restored.reset(board())
+    restored.new_session()
     assert restored.snapshot()["highest_visit"] == 0
     assert restored.snapshot()["hits"] == {}
+
+
+def ended_session(auto_start=False):
+    session = TrainingSession()
+    session.auto_start = auto_start
+    session.observe(board())
+    session.observe(board(T20))
+    session.observe(board())
+    kind, summary = session.end("manual")
+    assert kind == "session_ended"
+    assert summary["darts"] == 1 and summary["reason"] == "manual"
+    return session
+
+
+def test_darts_without_a_session_are_announced_but_not_counted():
+    session = ended_session()
+    before = session.snapshot()
+    assert [kind for kind, _ in session.observe(board(T20, S20))] == [
+        "dart_detected",
+        "dart_detected",
+    ]
+    assert session.observe(board()) == [
+        ("visit_completed", {"score": 80, "darts": 2, "segments": ["T20", "S20"]})
+    ]
+    assert session.snapshot() == before
+    assert session.recent_visits[0]["score"] == 80
+    assert session.start() == ("session_started", {"started": session.started})
+    assert session.start() is None
+    assert all(session.snapshot()[key] == 0 for key in COUNTERS)
+
+
+def test_the_first_dart_starts_a_session_automatically():
+    session = ended_session(auto_start=True)
+    events = session.observe(board(BULL))
+    assert [kind for kind, _ in events] == ["session_started", "dart_detected"]
+    assert session.active and session.snapshot()["darts"] == 1
+    assert session.snapshot()["bulls"] == 1
+
+
+def test_a_session_ignores_darts_already_on_the_board_but_announces_the_visit():
+    session = ended_session()
+    session.observe(board(T20, T20))
+    session.start()
+    session.observe(board(T20, T20, T20))
+    assert session.snapshot()["darts"] == 1
+    assert session.observe(board()) == [
+        ("visit_completed", {"score": 180, "darts": 3, "segments": ["T20"] * 3})
+    ]
+    assert session.snapshot()["scores_180"] == 0
+
+
+def test_darts_on_the_board_stay_with_the_ended_session():
+    session = TrainingSession()
+    session.observe(board())
+    session.observe(board(T20, T20))
+    _, summary = session.end("manual")
+    assert summary["darts"] == 2 and summary["points"] == 120
+    assert summary["visits"] == 1 and summary["highest_visit"] == 120
+    session.observe(board())
+    assert session.snapshot()["darts"] == 2
+    kinds = [kind for kind, _ in session.new_session()]
+    assert kinds == ["session_started"]
+    assert session.end("manual")[1]["darts"] == 0
+    assert len(session.history) == 1
+    assert session.end("manual") is None
+
+
+def test_new_session_ends_the_running_one_and_history_keeps_twenty():
+    session = TrainingSession()
+    session.observe(board())
+    for _ in range(25):
+        session.observe(board(T20, S20, S1))
+        session.observe(board())
+        kinds = [kind for kind, _ in session.new_session()]
+        assert kinds == ["session_ended", "session_started"]
+    assert len(session.history) == 20
+    summary = session.history[0]
+    assert summary["darts"] == 3 and summary["points"] == 81
+    assert summary["average"] == 81.0
+    assert summary["duration_minutes"] >= 0
+    assert session.recent_visits[0]["segments"] == ["T20", "S20", "S1"]
+    assert len(session.recent_visits) == 10
+
+
+def test_version_1_storage_keeps_counting_and_everything_round_trips():
+    session = TrainingSession()
+    session.restore({"darts": 3, "points": 60, "started": "2026-09-01T10:00:00+00:00"})
+    assert session.active and session.auto_start and session.idle_minutes == 0
+    session.observe(board())
+    session.observe(board(T20, S20))
+    session.observe(board())
+    session.end("manual")
+    session.auto_start, session.idle_minutes = False, 15
+    restored = TrainingSession()
+    restored.restore(session.stored())
+    assert restored.stored() == session.stored()
+    assert not restored.active and restored.ended == session.ended
+
+
+def test_malformed_session_storage_is_sanitized():
+    session = TrainingSession()
+    valid = {
+        "started": "2026-09-01T10:00:00+00:00",
+        "ended": "2026-09-01T10:30:00+00:00",
+        "darts": 3,
+        "points": 60,
+    }
+    session.restore(
+        {
+            "active": "yes",
+            "auto_start": 1,
+            "idle_minutes": 999,
+            "ended": "2026-09-01T10:30:00+00:00",
+            "last_activity": "yesterday",
+            "history": [valid, {"started": "bad", "ended": "bad"}, "junk"],
+            "recent_visits": [
+                {"time": "2026-09-01T10:10:00+00:00", "score": 60, "segments": ["T20"]},
+                {"time": "2026-09-01T10:11:00+00:00", "segments": [1]},
+                {"time": "bad", "segments": []},
+                None,
+            ],
+        }
+    )
+    assert session.active and session.auto_start and session.idle_minutes == 0
+    assert session.ended is None and session.last_activity is None
+    assert len(session.history) == 1
+    assert session.history[0]["average"] == 60.0
+    assert session.history[0]["duration_minutes"] == 30.0
+    assert session.recent_visits == [
+        {
+            "time": "2026-09-01T10:10:00+00:00",
+            "score": 60,
+            "darts": 0,
+            "segments": ["T20"],
+        }
+    ]

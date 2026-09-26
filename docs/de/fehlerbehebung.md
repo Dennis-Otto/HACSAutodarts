@@ -51,7 +51,7 @@ Unter **Einstellungen → Reparaturen** kann Home Assistant diese Hinweise anzei
 - Wird eine Entnahme nicht erkannt und folgen neue Darts, schließt die Integration die vorige Aufnahme und zählt die neuen Darts.
 - Das Training zählt, was das Board erkennt. Korrigierst du ein falsch erkanntes Feld in Autodarts, übernimmt das Training die Korrektur nur, wenn das Board sie meldet.
 
-Neu beginnen: **Trainingsstatistik zurücksetzen** oder *Neue Session* auf der Trainingskarte.
+Neu beginnen: **Neue Trainingssession** oder *Neue Session* auf der Trainingskarte. Soll nichts mehr gezählt werden, schalte **Trainingssession** und *Sessions automatisch starten* aus.
 
 ### Eine Kamera wird als gestört gemeldet
 

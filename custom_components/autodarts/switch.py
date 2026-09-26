@@ -1,4 +1,4 @@
-"""Local detection, upstream connection and automatic calibration settings."""
+"""Local detection, upstream connection, calibration settings and training sessions."""
 
 from functools import partial
 from typing import Any
@@ -26,8 +26,12 @@ async def async_setup_entry(
         upstream = () if coordinator.board_manager_2 else ("upstream",)
         async_add_entities(
             [
-                AutodartsSwitch(coordinator, key)
-                for key in ("detection", *upstream, *CONFIG_SWITCHES)
+                *(
+                    AutodartsSwitch(coordinator, key)
+                    for key in ("detection", *upstream, *CONFIG_SWITCHES)
+                ),
+                AutodartsTrainingSwitch(coordinator, "training_session"),
+                AutodartsTrainingSwitch(coordinator, "training_auto_start"),
             ]
         )
 
@@ -69,3 +73,37 @@ class AutodartsSwitch(AutodartsLocalEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._async_set(False)
+
+
+class AutodartsTrainingSwitch(AutodartsLocalEntity, SwitchEntity):
+    """Start or end a training session, or let the first dart start one."""
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
+        super().__init__(coordinator, key)
+        self._key = key
+        if key == "training_auto_start":
+            self._attr_entity_category = EntityCategory.CONFIG
+
+    @property
+    def available(self) -> bool:
+        # Sessions live in Home Assistant and work while the board is offline.
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        training = self.coordinator.training
+        return (
+            training.active if self._key == "training_session" else training.auto_start
+        )
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        if self._key == "training_session":
+            await self.coordinator.async_start_session()
+        else:
+            await self.coordinator.async_set_auto_start(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        if self._key == "training_session":
+            await self.coordinator.async_end_session()
+        else:
+            await self.coordinator.async_set_auto_start(False)
