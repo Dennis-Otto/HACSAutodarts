@@ -1,5 +1,6 @@
 """The automation blueprints, run by Home Assistant's own automation engine."""
 
+import asyncio
 import shutil
 from datetime import timedelta
 from pathlib import Path
@@ -13,6 +14,7 @@ from homeassistant.util.yaml import load_yaml
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
     async_mock_service,
+    get_scheduled_timer_handles,
 )
 
 BLUEPRINTS = Path(__file__).parents[1] / "blueprints" / "automation" / "autodarts"
@@ -42,6 +44,23 @@ def fire(hass, event_type: str, **attributes) -> None:
         dt_util.utcnow().isoformat(timespec="microseconds"),
         {"event_type": event_type, **attributes},
     )
+
+
+async def until_waiting(hass, seconds: float) -> None:
+    """Let a running automation reach a delay of the given length.
+
+    async_block_till_done() would wait for the whole run, which never ends
+    while the clock is frozen.
+    """
+    for _ in range(200):
+        due = [
+            handle.when() - hass.loop.time()
+            for handle in get_scheduled_timer_handles(hass.loop)
+        ]
+        if any(seconds - 0.5 < left <= seconds for left in due):
+            return
+        await asyncio.sleep(0)
+    raise AssertionError(f"no delay of {seconds} s started")
 
 
 @pytest.mark.parametrize(
@@ -275,3 +294,79 @@ async def test_training_report(hass, freezer):
     await hass.services.async_call(
         "automation", "turn_off", {"entity_id": "all"}, blocking=True
     )
+
+
+async def test_training_session_prepares_and_tidies_up_the_board(hass, freezer):
+    turn_on = async_mock_service(hass, "switch", "turn_on")
+    turn_off = async_mock_service(hass, "switch", "turn_off")
+    press = async_mock_service(hass, "button", "press")
+    light = async_mock_service(hass, "test", "light")
+    report = async_mock_service(hass, "test", "report")
+    hass.states.async_set(EVENTS, "unknown")
+    await automate(
+        hass,
+        "training_session",
+        {
+            "board_events": EVENTS,
+            "detection": "switch.autodarts_board_detection",
+            "calibration": "button.autodarts_board_calibrate",
+            "calibration_delay": 5,
+            "session_started": [{"action": "test.light"}],
+            "session_ended": [
+                {
+                    "action": "test.report",
+                    "data": {
+                        "reason": "{{ reason }}",
+                        "darts": "{{ darts }}",
+                        "average": "{{ average }}",
+                        "minutes": "{{ duration_minutes }}",
+                    },
+                }
+            ],
+        },
+    )
+    fire(hass, "session_started", started="2026-09-26T18:00:00+00:00")
+    # The cameras get time to open before the calibration.
+    await until_waiting(hass, 5)
+    assert len(light) == 1
+    assert turn_on[0].data["entity_id"] == ["switch.autodarts_board_detection"]
+    assert not press
+    freezer.tick(timedelta(seconds=5))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert press[0].data["entity_id"] == ["button.autodarts_board_calibrate"]
+
+    fire(
+        hass,
+        "session_ended",
+        reason="idle",
+        darts=30,
+        average=48.5,
+        duration_minutes=20.0,
+    )
+    await hass.async_block_till_done()
+    assert turn_off[0].data["entity_id"] == ["switch.autodarts_board_detection"]
+    assert report[0].data == {
+        "reason": "idle",
+        "darts": 30,
+        "average": 48.5,
+        "minutes": 20.0,
+    }
+
+
+async def test_training_session_without_board_controls_only_runs_actions(hass):
+    turn_on = async_mock_service(hass, "switch", "turn_on")
+    press = async_mock_service(hass, "button", "press")
+    light = async_mock_service(hass, "test", "light")
+    hass.states.async_set(EVENTS, "unknown")
+    await automate(
+        hass,
+        "training_session",
+        {"board_events": EVENTS, "session_started": [{"action": "test.light"}]},
+    )
+    fire(hass, "session_started", started="2026-09-26T18:00:00+00:00")
+    await hass.async_block_till_done()
+    fire(hass, "session_ended", reason="manual", darts=0)
+    await hass.async_block_till_done()
+    assert len(light) == 1
+    assert not turn_on and not press
