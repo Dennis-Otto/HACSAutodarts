@@ -1,7 +1,8 @@
 """Check the local HTTP protocol, safe partial writes and command failures."""
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+import aiohttp
 import pytest
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -127,3 +128,30 @@ async def test_stopped_camera_html_response_is_not_an_image(client, aioclient_mo
 async def test_ipv6_url(hass):
     client = AutodartsLocalClient("2001:db8::1", 3180, async_get_clientsession(hass))
     assert client.base_url == "http://[2001:db8::1]:3180"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [aiohttp.ServerDisconnectedError(), aiohttp.ClientOSError(104, "reset by peer")],
+)
+async def test_restart_that_drops_the_connection_succeeds(
+    client, aioclient_mock, error
+):
+    aioclient_mock.post(f"{BASE}/api/restart", exc=error)
+    await client.command("restart")
+    assert len(aioclient_mock.mock_calls) == 1
+
+
+async def test_unreachable_board_cannot_restart(client, aioclient_mock):
+    aioclient_mock.post(
+        f"{BASE}/api/restart",
+        exc=aiohttp.ClientConnectorError(Mock(), OSError(111, "refused")),
+    )
+    with pytest.raises(AutodartsConnectionError):
+        await client.command("restart")
+
+
+async def test_other_commands_still_report_a_dropped_connection(client, aioclient_mock):
+    aioclient_mock.put(f"{BASE}/api/start", exc=aiohttp.ServerDisconnectedError())
+    with pytest.raises(AutodartsConnectionError):
+        await client.command("start")

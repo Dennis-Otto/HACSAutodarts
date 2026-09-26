@@ -34,6 +34,14 @@ class AutodartsEndpointMissing(AutodartsLocalCommandError):
     """This firmware does not implement the requested route."""
 
 
+def _dropped_after_sending(error: BaseException | None) -> bool:
+    """The connection closed after the request, not while connecting."""
+    return isinstance(error, aiohttp.ServerDisconnectedError) or (
+        isinstance(error, aiohttp.ClientOSError)
+        and not isinstance(error, aiohttp.ClientConnectorError)
+    )
+
+
 def board_generation(version: object) -> int | None:
     """Major Board Manager version: 1 for the classic app, 2 for the headless board."""
     if not isinstance(version, str):
@@ -269,6 +277,11 @@ class AutodartsLocalClient:
                 await self._request(
                     method, f"/api/detection/{command}", response_type="none"
                 )
+            except AutodartsConnectionError as err:
+                if command == "restart" and _dropped_after_sending(err.__cause__):
+                    # Board Manager restarts before it finishes its answer.
+                    return
+                raise
 
     async def set_config_switch(self, key: str, enabled: bool) -> None:
         if key not in CONFIG_SWITCHES or not isinstance(enabled, bool):
