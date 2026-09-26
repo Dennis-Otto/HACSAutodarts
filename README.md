@@ -170,6 +170,7 @@ Details: [how it works](docs/how-it-works.md).
 - **Local first.** Local mode sends nothing to the internet. *Search for boards* asks the public Autodarts discovery service which boards are registered from your internet connection; nothing else leaves your network.
 - **No passwords.** The optional cloud link uses the Autodarts device login; Home Assistant never sees your password.
 - **Secrets stay on the board.** Board API keys, TLS keys and camera device paths are never stored or shown, not even in diagnostics.
+- **Security design:** the [security page](docs/security.md) documents trust boundaries, threats and countermeasures.
 - **Security reports:** please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Known limitations
@@ -190,6 +191,8 @@ Details: [how it works](docs/how-it-works.md).
 | [Automations](docs/automations.md) | Board events, blueprints and examples |
 | [How it works](docs/how-it-works.md) | Data flow, update intervals, training rules, privacy |
 | [Troubleshooting](docs/troubleshooting.md) | Common problems, repairs, diagnostics and logs |
+| [Security design](docs/security.md) | What is protected, trust boundaries, threats and countermeasures |
+| [Roadmap](docs/roadmap.md) | What comes after 1.0 |
 | [Development](docs/development.md) | Tests, Docker E2E, demo instance, screenshots, releases |
 | [Deutsche Dokumentation](docs/de/README.md) | Die komplette Anleitung auf Deutsch |
 

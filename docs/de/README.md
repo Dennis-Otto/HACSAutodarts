@@ -78,6 +78,8 @@
 | [Automationen](automationen.md) | Blueprints, Board-Ereignisse und fertige Beispiele |
 | [Funktionsweise](funktionsweise.md) | Architektur, Aktualisierung, Trainingsregeln, Datenschutz |
 | [Fehlerbehebung](fehlerbehebung.md) | Meldungen, Reparaturen, Diagnose und Logs |
+| [Sicherheit](sicherheit.md) | Schutzgüter, Vertrauensgrenzen, Bedrohungen und Gegenmaßnahmen |
+| [Roadmap](roadmap.md) | Was nach 1.0 kommt |
 
 Die Entwickler-Dokumentation gibt es auf Englisch: [Development](../development.md), [Releases](../releases.md).
 
