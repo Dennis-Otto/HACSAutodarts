@@ -50,6 +50,16 @@ Released features, all of them working without the Autodarts cloud:
 - A doubles analysis with the hit rate of every double, a doubles card and personal checkout routes.
 - A caller in the scoreboard that announces the game through the browser, off by default.
 
+## Next: 1.6
+
+| Topic | What it brings |
+| --- | --- |
+| **Tournament mode** | Round robin or knockout for three to eight named players at one board: the table or bracket on the scoreboard, the next match starts by itself, and the results go into the player profiles |
+| **Achievements** | Milestones per player, such as the first 180, a ton-plus checkout, a nine-darter or a ten-day streak, each with an event and shown on a badge card |
+| **Trends and heatmaps per player** | Average, checkout rate and doubles rate per week as a trend, and every player's own heatmap in the players card |
+| **Heatmap of the dart positions** | A heatmap that draws where every dart landed, from the positions the board reports; the card switches between beds, numbers and positions |
+| **Handicap starts** | Different X01 start scores per player in the same match, for example 501 against 301 |
+
 ## Later
 
 | Topic | Dependency |
