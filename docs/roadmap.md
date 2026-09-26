@@ -51,7 +51,6 @@ Released features, all of them working without the Autodarts cloud:
 | **More games** | Shanghai, Halve-It and Killer for several players; X01 with double in, start scores from 101 to 1001 and a bull-off for who starts |
 | **Caller in the scoreboard** | The screen at the board announces the score, the remaining score and the game shot itself, with sounds for a 180, without a text-to-speech setup. Off by default; the card options switch it on and choose what it calls |
 | **Doubles analysis** | The hit rate of every double from practice games and training games, and checkout routes that prefer your strongest doubles |
-| **Protocol library on PyPI** | The Board Manager protocol as a separate, tested library that the integration uses; a prerequisite for a possible Home Assistant core integration |
 
 ## Later
 
@@ -60,6 +59,7 @@ Released features, all of them working without the Autodarts cloud:
 | **Cloud match events:** leg and match won, bust, player change, remaining score | An OAuth client ID from Autodarts, which has been requested |
 | **HACS default repository** | Submitted in September 2026 ([hacs/default#11306](https://github.com/hacs/default/pull/11306)); the HACS review queue takes several months |
 | **More languages** | Contributions from native speakers |
+| **Protocol library on PyPI** | A separate library for the Board Manager protocol, a prerequisite for a possible Home Assistant core integration |
 
 ## How priorities are set
 
