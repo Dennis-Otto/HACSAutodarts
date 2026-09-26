@@ -164,6 +164,8 @@ const TEXT = {
     score_legs: "Legs",
     score_sets: "Sets",
     practice_names: "Player names",
+    practice_legs_per_day: "Practice legs per day",
+    practice_trend: "First 9 & checkout rate",
     drill_around_the_clock: "Around the Clock",
     drill_doubles: "Doubles training",
     drill_checkout: "Checkout training",
@@ -314,6 +316,8 @@ const TEXT = {
     score_legs: "Legs",
     score_sets: "Sätze",
     practice_names: "Spielernamen",
+    practice_legs_per_day: "Übungslegs pro Tag",
+    practice_trend: "First 9 & Checkout-Quote",
     drill_around_the_clock: "Around the Clock",
     drill_doubles: "Doppeltraining",
     drill_checkout: "Checkout-Training",
@@ -999,6 +1003,28 @@ function dashboardStrategy(hass, config = {}) {
         type: "history-graph",
         title: t("average_trend"),
         entities: [id("sensor.training_average")],
+        hours_to_show: 168,
+      });
+    }
+    if (id("sensor.practice_legs_played")) {
+      trends.push({
+        type: "statistics-graph",
+        title: t("practice_legs_per_day"),
+        entities: [id("sensor.practice_legs_played")],
+        stat_types: ["change"],
+        period: "day",
+        chart_type: "bar",
+        days_to_show: 30,
+      });
+    }
+    const practiceTrend = ["sensor.practice_first_9_average", "sensor.practice_checkout_rate"]
+      .map(id)
+      .filter(Boolean);
+    if (practiceTrend.length) {
+      trends.push({
+        type: "history-graph",
+        title: t("practice_trend"),
+        entities: practiceTrend,
         hours_to_show: 168,
       });
     }

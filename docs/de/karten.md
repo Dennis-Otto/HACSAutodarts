@@ -161,7 +161,7 @@ Pro Board entstehen drei Ansichten. Sie aktualisieren sich selbst, wenn du ein B
 | Ansicht | Inhalt |
 | --- | --- |
 | **Live** | Die Live-Karte über die volle Breite, die Steuerung des Übungsspiels und die Spielernamen |
-| **Training** | Die Trainingskarte, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet) und der 3-Dart-Average der letzten 7 Tage |
+| **Training** | Die Trainingskarte, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet), der 3-Dart-Average der letzten 7 Tage, Übungslegs pro Tag sowie First-9-Average und Checkout-Quote des Übungsspiels |
 | **Board** | Der Board-Status, die Board-Einstellungen und das Board-Manager-Update |
 
 <img src="../images/de/dashboard-strategy.png" alt="Die Trainingsansicht des automatischen Dashboards" width="760">

@@ -175,7 +175,7 @@ For every board, the dashboard gets three views, which update themselves when yo
 | View | Contents |
 | --- | --- |
 | **Live** | The live card across the full width, the practice game controls and the player names |
-| **Training** | The training card, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly) and the 3-dart average of the last 7 days |
+| **Training** | The training card, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly), the 3-dart average of the last 7 days, practice legs per day, and the first 9 average and checkout rate of the practice game |
 | **Board** | The board status card, the board settings and the Board Manager update |
 
 <img src="images/en/dashboard-strategy.png" alt="The training view of the automatic dashboard" width="760">

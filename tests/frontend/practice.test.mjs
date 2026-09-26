@@ -125,3 +125,28 @@ test("training games show their target, progress and beds to aim at", async () =
   assert.deepEqual([checkout.remaining, checkout.visit, checkout.rate], [81, 2, 25]);
   assert.deepEqual(drillBeds(checkout), ["T15"]);
 });
+
+test("the training view charts practice legs per day and the practice trend", () => {
+  const entity = (entity_id, translation_key) => ({ entity_id, translation_key, device_id: "dev", platform: "autodarts" });
+  const entities = [
+    entity("sensor.board_darts", "training_darts"),
+    entity("sensor.board_practice_legs", "practice_legs_played"),
+    entity("sensor.board_first_nine", "practice_first_9_average"),
+    entity("sensor.board_checkout_rate", "practice_checkout_rate"),
+  ];
+  const hass = {
+    locale: { language: "en" },
+    entities: Object.fromEntries(entities.map((item) => [item.entity_id, item])),
+    devices: {},
+    states: {},
+  };
+  const training = dashboardStrategy(hass).views[1];
+  const [darts, legs, trend] = training.sections[1].cards;
+  assert.deepEqual(darts.entities, ["sensor.board_darts"]);
+  assert.deepEqual([legs.title, legs.entities, legs.stat_types], [
+    "Practice legs per day",
+    ["sensor.board_practice_legs"],
+    ["change"],
+  ]);
+  assert.deepEqual(trend.entities, ["sensor.board_first_nine", "sensor.board_checkout_rate"]);
+});

@@ -246,6 +246,18 @@
       },
       "practice_target": {
         "name": "Übungsspiel Ziel"
+      },
+      "practice_first_9_average": {
+        "name": "Übungsspiel First-9-Average"
+      },
+      "practice_checkout_rate": {
+        "name": "Übungsspiel Checkout-Quote"
+      },
+      "practice_doubles_rate": {
+        "name": "Übungsspiel Doppelquote"
+      },
+      "practice_legs_played": {
+        "name": "Übungsspiel gespielte Legs"
       }
     },
     "button": {

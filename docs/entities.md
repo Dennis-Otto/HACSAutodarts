@@ -103,6 +103,10 @@ Play X01 on the local board without an Autodarts game. Home Assistant counts dow
 | Practice target | Sensor | The target of the [training game](#training-games), for example `7`, `D16`, `BULL` or the checkout score `81`; *unknown* without a training game and after it ended. Attributes: `drill`, `finished`, `visit`, `progress` and `targets`, `darts`, `hits`, `hit_rate`, the best result as `best`, and `results` with the last 10 results, which the recorder does not store. Bob's 27 adds `score`; the checkout training adds `remaining`, `checkout`, `bust`, `won`, `attempt_visit`, `attempt_visits`, `attempts`, `successes` and `rate`. |
 | New practice leg | Button | Starts the leg again from the full score; legs and sets stay. |
 | New practice match | Button | Starts the match again from zero legs and sets. |
+| Practice first 9 average | Sensor, points | 3-dart average of the first nine darts of each leg, over the last 10 legs of everybody at the board. |
+| Practice checkout rate | Sensor, % | Legs won per dart thrown at a double, over the last 10 legs. A dart counts at a double when one double could finish the score: 2 to 40 when even, or 50. Only with double out. |
+| Practice doubles rate | Sensor, % | The same darts at a double together with the last 10 results of the doubles training and Bob's 27. |
+| Practice legs played | Sensor, total | X01 legs finished; its long-term statistics show the legs per day. |
 | Practice players | Number | 1–4 players. A change starts a new match. |
 | Practice legs per set | Number | 1–11 legs win a set. A change starts a new match. |
 | Practice sets to win | Number | 1–7 sets win the match. A change starts a new match. |
