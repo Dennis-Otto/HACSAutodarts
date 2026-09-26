@@ -28,14 +28,12 @@ Enthalten, alles ohne Autodarts-Cloud:
 - Live-Kamerastreams von Board Manager 2 statt Standbildern.
 - Kamerazustand direkt nach dem Start oder Stopp der Erkennung statt erst nach der nächsten Abfrage.
 
-## Als Nächstes: 1.3
+## Version 1.3: Matches, Trainingsspiele und Statistik
 
-| Thema | Was es bringt |
-| --- | --- |
-| **Lokale X01-Matches** | Zwei bis vier Spieler an einem Board: Nach dem Ziehen der Darts ist der Nächste dran, mit Anzeigetafel in der Live-Karte sowie Legs und Sets |
-| **Trainingsspiele** | Around the Clock, Doppeltraining, Checkout-Training mit zufälligen Finishes und Bob's 27 |
-| **Übungsstatistiken** | Checkout-Quote, Doppel-Trefferquote, First-9-Average und Legs pro Tag als Langzeitstatistik |
-| **Blueprints** | Ein Übungs-Caller, der Restpunkte und Game shot ansagt, und ein Foto des Boards nach einer 180 oder einem Checkout aufs Handy |
+- X01-Matches für zwei bis vier Spieler an einem Board: Nach dem Ziehen der Darts ist der Nächste dran, mit Legs, Sätzen, Spielernamen und Anzeigetafel in der Live-Karte.
+- Trainingsspiele: Around the Clock, Doppeltraining, Checkout-Training und Bob's 27, mit umrandetem Ziel auf der Scheibe.
+- Übungsstatistik: First-9-Average, Checkout-Quote, Doppelquote und Legs pro Tag.
+- Zwei Blueprints: ein Übungs-Caller und ein Highlight-Foto nach einer 180 oder einem Checkout.
 
 ## Später
 

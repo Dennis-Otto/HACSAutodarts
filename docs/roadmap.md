@@ -28,14 +28,12 @@ Released features, all of them working without the Autodarts cloud:
 - Live camera streams from Board Manager 2 instead of snapshots.
 - Camera state right after the detection starts or stops, instead of after the next poll.
 
-## Next: 1.3
+## Version 1.3: matches, training games and statistics
 
-| Topic | What it brings |
-| --- | --- |
-| **Local X01 matches** | Two to four players at one board: the turn passes when the darts are pulled, with a scoreboard in the live card and legs and sets |
-| **Training games** | Around the Clock, doubles training, checkout training with random finishes, and Bob's 27 |
-| **Practice statistics** | Checkout rate, doubles hit rate, first-9 average and legs per day as long-term statistics |
-| **Blueprints** | A practice caller that announces the remaining score and the game shot, and a photo of the board after a 180 or a checkout, sent to your phone |
+- X01 matches for two to four players at one board: the turn passes when the darts are pulled, with legs, sets, player names and a scoreboard in the live card.
+- Training games: Around the Clock, doubles training, checkout training and Bob's 27, with the target outlined on the board.
+- Practice statistics: first-9 average, checkout rate, doubles rate and legs per day.
+- Two blueprints: a practice caller and a highlight photo after a 180 or a checkout.
 
 ## Later
 
