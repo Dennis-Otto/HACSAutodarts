@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 
 from .checkout import checkout
 from .cricket import CRICKET_NUMBERS, marks_per_round, next_target, play_visit
+from .doubles import DoubleStats, aimed_at, hits
 from .drills import DRILLS, Drill, make_drill
 from .party import (
     HALVE_IT_TARGETS,
@@ -112,6 +113,8 @@ class PracticeGame:
         self.double_out = True
         self.double_in = False
         self.bull_off = False
+        # Checkout routes over the strongest doubles of the player at the board.
+        self.personal_routes = False
         # The bull-off before a match of several players, while it runs.
         self.bulling: BullOff | None = None
         self.legs_to_win = 1
@@ -128,6 +131,7 @@ class PracticeGame:
         self.drill: str | None = None
         self.drills: dict[str, Drill] = {kind: make_drill(kind) for kind in DRILLS}
         self.profiles = Profiles()
+        self.doubles = DoubleStats()
         self._visit: list[dict[str, Any]] = []
         # Board positions of the visit's darts, where the board reports them.
         self._positions: list[tuple[float, float] | None] = []
@@ -143,7 +147,7 @@ class PracticeGame:
         if saved.get("game") in GAMES:
             self.game = saved["game"]
         self.cricket = saved.get("game") == CRICKET
-        for option in ("double_out", "double_in", "bull_off"):
+        for option in ("double_out", "double_in", "bull_off", "personal_routes"):
             if isinstance(saved.get(option), bool):
                 setattr(self, option, saved[option])
         self.legs_to_win = _count(saved.get("legs_to_win"), 1, MAX_LEGS, 1)
@@ -193,6 +197,7 @@ class PracticeGame:
         total = saved.get("legs_total")
         self.legs_total = total if type(total) is int and total >= 0 else 0
         self.profiles.restore(saved.get("profiles"))
+        self.doubles.restore(saved.get("doubles"))
         drills = saved.get("drills")
         for kind, drill in self.drills.items():
             state = drills.get(kind) if isinstance(drills, dict) else None
@@ -217,6 +222,8 @@ class PracticeGame:
             "double_out": self.double_out,
             "double_in": self.double_in,
             "bull_off": self.bull_off,
+            "personal_routes": self.personal_routes,
+            "doubles": self.doubles.stored(),
             "party": self.party.stored() if self.party else None,
             "bulling": self.bulling.stored() if self.bulling else None,
             "legs_to_win": self.legs_to_win,
@@ -334,6 +341,20 @@ class PracticeGame:
         )
         return remaining, outcome, opening + darts
 
+    def _route(self, remaining: int, darts: int) -> tuple[str, ...]:
+        """The checkout route, over the player's strongest doubles if wanted."""
+        preferred: tuple[str, ...] = ()
+        if self.personal_routes and self.double_out:
+            preferred = (
+                self.profiles.preferred(self._name(self.current))
+                or self.doubles.preferred()
+            )
+        return checkout(remaining, darts, self.double_out, preferred)
+
+    def _record_doubles(self, attempts: list[tuple[str, bool]], player: int) -> None:
+        self.doubles.record(attempts)
+        self.profiles.doubles(self._name(player), attempts)
+
     def _position(self, index: int) -> tuple[float, float] | None:
         """Where the board saw the dart at this index of the thrown darts."""
         index += self._skip
@@ -419,6 +440,7 @@ class PracticeGame:
         """Book the visit whose darts were pulled; then the next player throws."""
         events: list[tuple[str, dict[str, Any]]] = []
         if self.drill:
+            self._record_doubles(self.drills[self.drill].double_attempts(), 0)
             events = self.drills[self.drill].finish_visit()
         elif not self._playing() or self.winner is not None or not self._thrown():
             pass
@@ -432,7 +454,9 @@ class PracticeGame:
             opening = self._opening()
             remaining, outcome, darts = self._evaluate()
             player = self.players[self.current]
-            self._count_visit(player, outcome, darts, opening)
+            self._record_doubles(
+                self._count_visit(player, outcome, darts, opening), self.current
+            )
             scored = player.remaining - remaining
             player.darts += darts
             player.points += scored
@@ -473,7 +497,7 @@ class PracticeGame:
             details["target"] = self.party.target(self.current)
         else:
             opened = up.opened or not self.double_in
-            route = checkout(up.remaining, 3, self.double_out) if opened else ()
+            route = self._route(up.remaining, 3) if opened else ()
             details = {"remaining": up.remaining, "checkout": " ".join(route) or None}
         return "turn_changed", {**self._who(self.current), **details}
 
@@ -518,21 +542,27 @@ class PracticeGame:
 
     def _count_visit(
         self, player: Player, outcome: str | None, darts: int, opening: int = 0
-    ) -> None:
+    ) -> list[tuple[str, bool]]:
         """First nine darts and darts at a double of the visit being booked.
 
-        With double in, darts before the opening double score nothing.
+        With double in, darts before the opening double score nothing. Returns
+        every dart thrown at the double that finishes, and whether it hit.
         """
+        attempts: list[tuple[str, bool]] = []
         running = player.remaining
         for index, dart in enumerate(self._thrown()[:darts]):
             points = score(dart) if index >= opening else 0
             if self.double_out and finishable(running) and index >= opening:
                 player.at_double += 1
+                double = aimed_at(running)
+                if double:
+                    attempts.append((double, hits(dart, double)))
             if player.first9_darts < 9:
                 player.first9_darts += 1
                 # A bust visit scores nothing, not even its early darts.
                 player.first9_points += 0 if outcome == "bust" else points
             running -= points
+        return attempts
 
     def _book_stats(self) -> None:
         """One record per leg for everybody at the board, then a fresh count."""
@@ -933,9 +963,9 @@ class PracticeGame:
             route: tuple[str, ...] = ()
         elif outcome == "bust" or thrown >= 3:
             # The visit is over; the next one starts with three darts.
-            route = checkout(remaining, 3, self.double_out)
+            route = self._route(remaining, 3)
         else:
-            route = checkout(remaining, 3 - thrown, self.double_out)
+            route = self._route(remaining, 3 - thrown)
         scored = player.remaining - remaining
         leg_darts = player.darts + darts
         return {

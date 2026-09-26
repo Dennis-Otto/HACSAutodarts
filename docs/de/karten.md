@@ -2,7 +2,7 @@
 
 [← Übersicht](README.md) · [English](../cards.md)
 
-Die Integration bringt fünf Karten mit. Home Assistant lädt sie automatisch; eine Dashboard-Ressource oder ein eigener HACS-Download ist nicht nötig. Jede Karte:
+Die Integration bringt sechs Karten mit. Home Assistant lädt sie automatisch; eine Dashboard-Ressource oder ein eigener HACS-Download ist nicht nötig. Jede Karte:
 
 - hat einen visuellen Editor und folgt deinem Design (hell oder dunkel) und deiner Sprache;
 - passt sich ihrer Breite an, vom Handy bis zum Wandtablet;
@@ -188,6 +188,21 @@ type: custom:autodarts-scoreboard-card
 full_height: true
 ```
 
+## Doppelkarte
+
+`custom:autodarts-doubles-card` zeigt die [Doppelanalyse](entitaeten.md#doppelanalyse): den Doppelring der Scheibe, gefärbt von Rot (selten getroffen) bis Grün (etwa jeder zweite Dart), und jedes geworfene Double, das beste zuerst, mit Treffern, Darts und Quote. Das Lieblingsdouble ist ausgefüllt. Mit `player` zeigt sie die Doubles eines benannten Spielers statt die aller.
+
+<img src="../images/de/doubles-card.png" alt="Doppelkarte: der Doppelring nach Quote von Rot bis Grün gefärbt und eine Liste der Doubles mit Treffern, Darts und Quote, das beste zuerst" width="760">
+
+### Optionen
+
+| Option | Werte | Standard | Beschreibung |
+| --- | --- | --- | --- |
+| `device_id` | Gerät | erstes Board | Das anzuzeigende Board |
+| `title` | Text | *Doppel* | Kartentitel |
+| `player` | Text | alle | Ein Spielername, für die Doubles dieses Spielers |
+| `accent_color` | CSS-Farbe | Primärfarbe des Designs | Beschriftungen |
+
 ## Spielerkarte
 
 `custom:autodarts-players-card` zeigt die [Spielerprofile](entitaeten.md#spielerprofile): eine Kachel pro benanntem Spieler mit gewonnenen Legs und Matches, 3-Dart-Average, First 9, Checkout-Quote, Treffern pro Runde, höchster Aufnahme und höchstem Checkout sowie den wenigsten Darts pro Startwert. Darunter die direkten Vergleiche mit Balken und die letzten Matches mit ihrem Sieger.
@@ -217,7 +232,7 @@ Pro Board entstehen bis zu fünf Ansichten. Sie aktualisieren sich selbst, wenn 
 | --- | --- |
 | **Live** | Die Live-Karte über die volle Breite, die Steuerung des Übungsspiels und die Spielernamen |
 | **Anzeigetafel** | Die [Anzeigetafel](#anzeigetafel) über den ganzen Bildschirm, für ein Tablet oder einen Fernseher am Board |
-| **Training** | Die Trainingskarte, das Tagesziel mit den Darts von heute, die Serie und die letzte Bestleistung, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet), der 3-Dart-Average der letzten 7 Tage, Übungslegs pro Tag sowie First-9-Average und Checkout-Quote des Übungsspiels |
+| **Training** | Die Trainingskarte, die [Doppelkarte](#doppelkarte), das Tagesziel mit den Darts von heute, die Serie und die letzte Bestleistung, Darts pro Tag der letzten 30 Tage (aus den Langzeitstatistiken, die Home Assistant stündlich berechnet), der 3-Dart-Average der letzten 7 Tage, Übungslegs pro Tag sowie First-9-Average und Checkout-Quote des Übungsspiels |
 | **Spieler** | Die [Spielerkarte](#spielerkarte), sobald der erste benannte Spieler ein Profil hat |
 | **Board** | Der Board-Status, die Board-Einstellungen und das Board-Manager-Update |
 

@@ -332,6 +332,7 @@ async def async_setup_entry(
                 AutodartsDailyDarts(runtime.local),
                 AutodartsStreak(runtime.local),
                 AutodartsPlayerProfiles(runtime.local),
+                AutodartsDoubles(runtime.local),
                 AutodartsLastMatch(runtime.local),
             )
         )
@@ -869,6 +870,29 @@ class AutodartsPlayerProfiles(AutodartsLocalEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"players": self.coordinator.practice.profiles.snapshot()["players"]}
+
+
+class AutodartsDoubles(AutodartsLocalEntity, SensorEntity):
+    """The double hit best, with the hit rate of every double."""
+
+    _unrecorded_attributes = frozenset({"doubles"})
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "favourite_double")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> str | None:
+        value: str | None = self.coordinator.practice.doubles.snapshot()["favourite"]
+        return value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        snapshot = self.coordinator.practice.doubles.snapshot()
+        return {key: snapshot[key] for key in ("attempts", "hits", "rate", "doubles")}
 
 
 class AutodartsLastMatch(AutodartsLocalEntity, SensorEntity):

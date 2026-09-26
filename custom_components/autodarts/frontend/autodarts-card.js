@@ -21,6 +21,8 @@ const STATUS_EDITOR_TYPE = "autodarts-status-card-editor";
 const SCOREBOARD_TYPE = "autodarts-scoreboard-card";
 const PLAYERS_TYPE = "autodarts-players-card";
 const PLAYERS_EDITOR_TYPE = "autodarts-players-card-editor";
+const DOUBLES_TYPE = "autodarts-doubles-card";
+const DOUBLES_EDITOR_TYPE = "autodarts-doubles-card-editor";
 const SCOREBOARD_EDITOR_TYPE = "autodarts-scoreboard-card-editor";
 const STRATEGY_TYPE = "autodarts";
 const STRATEGY_ELEMENT = `ll-strategy-dashboard-${STRATEGY_TYPE}`;
@@ -216,6 +218,13 @@ const TEXT = {
     recent_matches: "Recent matches",
     show_head_to_head: "Show head-to-head",
     show_matches: "Show recent matches",
+    doubles_title: "Doubles",
+    doubles_darts: "darts at a double",
+    doubles_empty: "Throw at doubles in X01, the doubles training or Bob's 27 to see your hit rate on every double.",
+    doubles_routes: "Personal checkout routes use doubles with at least 10 darts.",
+    favourite_double: "Favourite",
+    player: "Player",
+    player_helper: "Optional. A player name shows that player's doubles; empty shows everybody's.",
     full_height: "Fill the screen",
     show_visit: "Show the current visit",
     show_status: "Show the board status",
@@ -407,6 +416,13 @@ const TEXT = {
     recent_matches: "Letzte Matches",
     show_head_to_head: "Direkten Vergleich anzeigen",
     show_matches: "Letzte Matches anzeigen",
+    doubles_title: "Doppel",
+    doubles_darts: "Darts aufs Double",
+    doubles_empty: "Wirf im X01, im Doppeltraining oder bei Bob's 27 auf Doubles, dann siehst du hier die Quote jedes Doubles.",
+    doubles_routes: "Persönliche Checkout-Wege nutzen Doubles mit mindestens 10 Darts.",
+    favourite_double: "Liebling",
+    player: "Spieler",
+    player_helper: "Optional. Ein Spielername zeigt die Doubles dieses Spielers; leer zeigt die aller.",
     full_height: "Bildschirm füllen",
     show_visit: "Aktuelle Aufnahme anzeigen",
     show_status: "Board-Status anzeigen",
@@ -512,6 +528,8 @@ const STATUS_DEFAULTS = {
   show_controls: true,
 };
 
+const DOUBLES_DEFAULTS = {};
+
 const PLAYERS_DEFAULTS = {
   show_head_to_head: true,
   show_matches: true,
@@ -590,6 +608,11 @@ const STATUS_KEYS = {
   hostOs: "sensor.host_os",
   processor: "sensor.host_processor",
   vision: "sensor.vision_version",
+};
+
+const DOUBLES_KEYS = {
+  doubles: "sensor.favourite_double",
+  profiles: "sensor.player_profiles",
 };
 
 const PLAYERS_KEYS = {
@@ -1513,6 +1536,82 @@ function playersHtml(view, ui) {
   return { players, headToHead, matches };
 }
 
+// Doubles --------------------------------------------------------------------
+
+const DOUBLE_ORDER = [...BOARD_NUMBERS.map((number) => `D${number}`), "BULL"];
+
+function doubleCounts(source) {
+  const number = (value) => (Number.isFinite(value) ? value : null);
+  const doubles = (Array.isArray(source?.doubles) ? source.doubles : [])
+    .filter(
+      (item) =>
+        item &&
+        DOUBLE_ORDER.includes(item.double) &&
+        Number.isInteger(item.attempts) &&
+        Number.isInteger(item.hits) &&
+        item.attempts > 0
+    )
+    .map((item) => ({
+      double: item.double,
+      attempts: item.attempts,
+      hits: item.hits,
+      rate: number(item.rate) ?? Math.round((item.hits * 1000) / item.attempts) / 10,
+    }));
+  return {
+    attempts: number(source?.attempts) ?? 0,
+    hits: number(source?.hits) ?? 0,
+    rate: number(source?.rate),
+    favourite: typeof source?.favourite === "string" ? source.favourite : null,
+    doubles,
+  };
+}
+
+// Everybody's doubles, or one player's from the profiles.
+function doublesView(doubles, profiles, player = "") {
+  const wanted = String(player || "").trim().toLowerCase();
+  if (wanted) {
+    const profile = (Array.isArray(profiles?.attributes?.players) ? profiles.attributes.players : []).find(
+      (item) => typeof item?.name === "string" && item.name.trim().toLowerCase() === wanted
+    );
+    return { player: profile?.name ?? player, ...doubleCounts(profile?.doubles) };
+  }
+  const attributes = doubles?.attributes || {};
+  const favourite = usable(doubles) ? doubles.state : null;
+  return { player: null, ...doubleCounts({ ...attributes, favourite }) };
+}
+
+// Red for rarely hit doubles, green from about one hit in two.
+function doubleColor(rate) {
+  const hue = Math.round(Math.min(Math.max(rate, 0), 50) * 2.6);
+  return `hsl(${hue} 70% 46%)`;
+}
+
+function doublesHtml(view, ui) {
+  const { format, label } = ui;
+  const ring = view.doubles
+    .map((item) => {
+      const path = bedPath(hitBeds(item.double)[0] ?? "");
+      return path
+        ? `<path d="${path}" style="fill:${doubleColor(item.rate)}"><title>${escapeHtml(
+            `${label(item.double)}: ${item.hits}/${item.attempts}`
+          )}</title></path>`
+        : "";
+    })
+    .join("");
+  const list = [...view.doubles]
+    .sort((a, b) => b.rate - a.rate || b.attempts - a.attempts)
+    .map(
+      (item) =>
+        `<div class="double${item.double === view.favourite ? " favourite" : ""}">` +
+        `<span class="bed" style="--c:${doubleColor(item.rate)}">${escapeHtml(label(item.double))}</span>` +
+        `<span class="bar"><i style="width:${Math.min(item.rate, 100)}%;background:${doubleColor(item.rate)}"></i></span>` +
+        `<span class="count">${item.hits}/${item.attempts}</span>` +
+        `<span class="rate">${escapeHtml(`${format(item.rate, 0)} %`)}</span></div>`
+    )
+    .join("");
+  return { ring, list };
+}
+
 // Board status shared by the live and status cards.
 function boardStatus(stateOf) {
   const on = (name) => stateOf(name)?.state === "on";
@@ -1663,6 +1762,9 @@ function dashboardStrategy(hass, config = {}) {
       max_columns: 2,
       sections: [
         { type: "grid", column_span: 2, cards: [{ type: `custom:${TRAINING_TYPE}`, ...board, ...full }] },
+        ...(id("sensor.favourite_double")
+          ? [{ type: "grid", column_span: 2, cards: [{ type: `custom:${DOUBLES_TYPE}`, ...board, ...full }] }]
+          : []),
         ...(trends.length ? [{ type: "grid", column_span: 2, cards: trends }] : []),
       ],
     });
@@ -2198,6 +2300,32 @@ const PLAYERS_CSS = `${BASE_CSS}
   .match .game { font-weight: 700; }
   .match b { color: ${STATUS_COLORS.ready}; }
   .players-card [hidden] { display: none; }
+`;
+
+const DOUBLES_CSS = `${BASE_CSS}
+  .doubles-card { display: flex; flex-direction: column; gap: 14px; padding: 18px; box-sizing: border-box; }
+  .doubles-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  @container (max-width: 560px) { .doubles-body { grid-template-columns: minmax(0, 1fr); } }
+  .doubles-board { max-width: 380px; width: 100%; margin: 0 auto; aspect-ratio: 1; }
+  .ring path { stroke: var(--card-background-color, #1c1c1c); stroke-width: 1.5; }
+  .double-list { display: grid; gap: 6px; }
+  .double {
+    display: grid; grid-template-columns: 3.4em minmax(0, 1fr) auto 3.4em; gap: 10px; align-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .double .bed {
+    padding: 2px 0; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 800;
+    color: var(--c); border: 1px solid var(--c);
+  }
+  .double.favourite .bed { color: #fff; background: var(--c); }
+  .double .bar {
+    height: 6px; border-radius: 999px; overflow: hidden;
+    background: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
+  }
+  .double .bar i { display: block; height: 100%; border-radius: inherit; }
+  .double .count { font-size: 12px; color: var(--secondary-text-color); }
+  .double .rate { font-size: 13px; font-weight: 700; text-align: right; }
+  .doubles-card [hidden] { display: none; }
 `;
 
 // Elements ------------------------------------------------------------------
@@ -4016,6 +4144,89 @@ function createElements(Base) {
     }
   }
 
+  // Doubles card ----------------------------------------------------------------
+
+  class AutodartsDoublesCard extends CardBase {
+    static keys = DOUBLES_KEYS;
+
+    static defaults = DOUBLES_DEFAULTS;
+
+    static getConfigElement() {
+      return document.createElement(DOUBLES_EDITOR_TYPE);
+    }
+
+    getCardSize() {
+      return 6;
+    }
+
+    _css() {
+      return DOUBLES_CSS;
+    }
+
+    _build() {
+      const t = (key) => escapeHtml(this._t(key));
+      this.shadowRoot.innerHTML = `
+        <style>${DOUBLES_CSS}</style>
+        <ha-card>
+          <div class="root">
+            <div class="doubles-card">
+              <header>
+                <div class="title"></div>
+                <div class="muted meta"></div>
+              </header>
+              <div class="message empty" hidden>${t("doubles_empty")}</div>
+              <div class="doubles-body">
+                <div class="doubles-board">
+                  <svg viewBox="-230 -230 460 460" role="img">
+                    <g class="face">${boardSvg("muted")}</g>
+                    <g class="ring"></g>
+                    <g class="numbers">${numbersSvg("muted")}</g>
+                  </svg>
+                </div>
+                <div>
+                  <div class="double-list"></div>
+                  <p class="muted">${t("doubles_routes")}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ha-card>
+      `;
+      const root = this.shadowRoot;
+      this._el = {
+        title: root.querySelector(".title"),
+        meta: root.querySelector(".meta"),
+        empty: root.querySelector(".empty"),
+        body: root.querySelector(".doubles-body"),
+        ring: root.querySelector(".ring"),
+        list: root.querySelector(".double-list"),
+        svg: root.querySelector("svg"),
+      };
+    }
+
+    _update() {
+      const c = this._config;
+      const el = this._el;
+      const t = (key) => this._t(key);
+      this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
+      const view = doublesView(this._state("doubles"), this._state("profiles"), c.player);
+      el.title.textContent = c.title || [t("doubles_title"), view.player].filter(Boolean).join(" · ");
+      el.meta.textContent = view.attempts
+        ? `${this._format(view.attempts)} ${t("doubles_darts")}` +
+          (view.rate === null ? "" : ` · ${this._format(view.rate, 1)} %`)
+        : "";
+      el.empty.hidden = view.doubles.length > 0;
+      el.body.hidden = view.doubles.length === 0;
+      el.svg.setAttribute("aria-label", t("doubles_title"));
+      const html = doublesHtml(view, {
+        format: (value, digits) => this._format(value, digits),
+        label: (key) => hitLabel(this._hass, key),
+      });
+      this._setHtml(el.ring, html.ring);
+      this._setHtml(el.list, html.list);
+    }
+  }
+
   // Editors ---------------------------------------------------------------------
 
   class CardEditor extends Base {
@@ -4060,7 +4271,11 @@ function createElements(Base) {
         this._form = document.createElement("ha-form");
         this._form.computeLabel = (schema) => translate(this._hass, schema.name);
         this._form.computeHelper = (schema) =>
-          schema.name === "device_id" ? translate(this._hass, "device_helper") : undefined;
+          schema.name === "device_id"
+            ? translate(this._hass, "device_helper")
+            : schema.name === "player"
+              ? translate(this._hass, "player_helper")
+              : undefined;
         this._form.addEventListener("value-changed", (event) => {
           const defaults = this.constructor.defaults;
           const config = { ...event.detail.value };
@@ -4169,6 +4384,14 @@ function createElements(Base) {
     }
   }
 
+  class AutodartsDoublesCardEditor extends CardEditor {
+    static defaults = DOUBLES_DEFAULTS;
+
+    _schema() {
+      return [device, title, { name: "player", selector: { text: {} } }];
+    }
+  }
+
   class AutodartsDashboardStrategy extends Base {
     static async generate(config, hass) {
       return dashboardStrategy(hass, config);
@@ -4187,6 +4410,8 @@ function createElements(Base) {
     [SCOREBOARD_EDITOR_TYPE]: AutodartsScoreboardCardEditor,
     [PLAYERS_TYPE]: AutodartsPlayersCard,
     [PLAYERS_EDITOR_TYPE]: AutodartsPlayersCardEditor,
+    [DOUBLES_TYPE]: AutodartsDoublesCard,
+    [DOUBLES_EDITOR_TYPE]: AutodartsDoublesCardEditor,
   };
 }
 
@@ -4217,6 +4442,11 @@ const CARDS = [
     type: PLAYERS_TYPE,
     name: "Autodarts players",
     description: "Statistics and personal bests of every named player, head-to-head records and recent matches.",
+  },
+  {
+    type: DOUBLES_TYPE,
+    name: "Autodarts doubles",
+    description: "Hit rate of every double on the board, for everybody or one player, with the favourite double.",
   },
 ];
 
@@ -4280,6 +4510,9 @@ export {
   partyBeds,
   partyView,
   bullOffView,
+  doubleColor,
+  doublesHtml,
+  doublesView,
   playersHtml,
   playersView,
   scoreboardHtml,

@@ -7,6 +7,7 @@ from custom_components.autodarts.const import DOMAIN
 
 from .test_local_setup import entity_id, setup_local, state
 from .test_practice_setup import select_game, set_number, throw
+from .test_sessions import switch
 from .test_training import board
 
 D20 = ("D20", 20, 2)
@@ -40,6 +41,17 @@ async def test_profiles_the_last_match_and_deleting_a_player(hass, aioclient_moc
     assert last.attributes["head_to_head"] == [
         {"players": ["Alex", "Lea"], "wins": [1, 0]}
     ]
+
+    # The checkout was a dart at D20, for the doubles analysis.
+    doubles = hass.states.get(entity_id(hass, "sensor", "favourite_double"))
+    assert doubles.state == "unknown"
+    assert (doubles.attributes["attempts"], doubles.attributes["hits"]) == (1, 1)
+    assert doubles.attributes["doubles"] == [
+        {"double": "D20", "attempts": 1, "hits": 1, "rate": 100.0}
+    ]
+    await switch(hass, "practice_personal_routes", True)
+    assert coordinator.practice.personal_routes is True
+    assert coordinator.practice.winner == 0
 
     await hass.services.async_call(
         DOMAIN, "delete_player", {"name": "lea"}, blocking=True

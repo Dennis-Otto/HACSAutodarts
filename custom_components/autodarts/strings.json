@@ -276,6 +276,9 @@
       },
       "last_match": {
         "name": "Last match"
+      },
+      "favourite_double": {
+        "name": "Favourite double"
       }
     },
     "button": {
@@ -349,6 +352,9 @@
       },
       "practice_bull_off": {
         "name": "Practice bull-off"
+      },
+      "practice_personal_routes": {
+        "name": "Practice personal checkout routes"
       }
     },
     "select": {

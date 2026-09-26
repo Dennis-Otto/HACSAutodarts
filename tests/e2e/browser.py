@@ -38,6 +38,7 @@ TRAINING_CARDS = find("autodarts-training-card")
 STATUS_CARDS = find("autodarts-status-card")
 SCOREBOARD_CARDS = find("autodarts-scoreboard-card")
 PLAYERS_CARDS = find("autodarts-players-card")
+DOUBLES_CARDS = find("autodarts-doubles-card")
 SCOREBOARD_STATE = f"""
 () => {{
   const root = ({SCOREBOARD_CARDS})()[0].shadowRoot;
@@ -710,6 +711,17 @@ def main() -> None:
                 ),
             ),
             (
+                "doubles editor",
+                lambda: editor(
+                    browser,
+                    "doubles",
+                    DOUBLES_CARDS,
+                    ".doubles-card",
+                    "autodarts-doubles-card-editor",
+                    3,
+                ),
+            ),
+            (
                 "players editor",
                 lambda: editor(
                     browser,
@@ -745,7 +757,7 @@ def main() -> None:
         "training heatmap, "
         "history and "
         "sessions, board status, the scoreboard, "
-        "the generated dashboard, all five editors and light theme."
+        "the generated dashboard, all six editors and light theme."
     )
 
 

@@ -1,0 +1,100 @@
+"""Hit rates of every double, and the doubles a player finishes on best.
+
+A dart counts as an attempt at a double when that double is the target: in
+X01 when one double could finish the remaining score, in the doubles training
+and in Bob's 27 at the double of the round.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from .scoring import BULL
+
+DOUBLES = (*(f"D{number}" for number in range(1, 21)), "BULL")
+# A double needs this many attempts before it changes a checkout route.
+MIN_ATTEMPTS = 10
+
+
+def double_of(number: int) -> str:
+    return "BULL" if number == BULL else f"D{number}"
+
+
+def aimed_at(remaining: int) -> str | None:
+    """The double that finishes this score with one dart, if any."""
+    if remaining == 50:
+        return "BULL"
+    if 2 <= remaining <= 40 and remaining % 2 == 0:
+        return f"D{remaining // 2}"
+    return None
+
+
+def hits(dart: dict[str, Any], double: str) -> bool:
+    return bool(dart["multiplier"] == 2 and double_of(dart["number"]) == double)
+
+
+class DoubleStats:
+    """Attempts and hits per double."""
+
+    def __init__(self) -> None:
+        self.counts: dict[str, list[int]] = {}
+
+    def record(self, attempts: list[tuple[str, bool]]) -> None:
+        for double, hit in attempts:
+            if double in DOUBLES:
+                count = self.counts.setdefault(double, [0, 0])
+                count[0] += 1
+                count[1] += int(hit)
+
+    def rate(self, double: str) -> float | None:
+        attempts, hit = self.counts.get(double, (0, 0))
+        return round(hit * 100 / attempts, 1) if attempts else None
+
+    def preferred(self) -> tuple[str, ...]:
+        """Doubles with enough attempts, the best hit rate first."""
+        known = [
+            double
+            for double in DOUBLES
+            if self.counts.get(double, (0, 0))[0] >= MIN_ATTEMPTS
+        ]
+        return tuple(
+            sorted(
+                known,
+                key=lambda double: (-(self.rate(double) or 0), -self.counts[double][0]),
+            )
+        )
+
+    def snapshot(self) -> dict[str, Any]:
+        attempts = sum(count[0] for count in self.counts.values())
+        hit = sum(count[1] for count in self.counts.values())
+        preferred = self.preferred()
+        return {
+            "attempts": attempts,
+            "hits": hit,
+            "rate": round(hit * 100 / attempts, 1) if attempts else None,
+            "favourite": preferred[0] if preferred else None,
+            "doubles": [
+                {
+                    "double": double,
+                    "attempts": self.counts[double][0],
+                    "hits": self.counts[double][1],
+                    "rate": self.rate(double),
+                }
+                for double in DOUBLES
+                if double in self.counts
+            ],
+        }
+
+    def stored(self) -> dict[str, list[int]]:
+        return {double: list(count) for double, count in self.counts.items()}
+
+    def restore(self, saved: object) -> None:
+        self.counts = {
+            double: list(count)
+            for double, count in (saved if isinstance(saved, dict) else {}).items()
+            if double in DOUBLES
+            and isinstance(count, list)
+            and len(count) == 2
+            and all(type(value) is int and value >= 0 for value in count)
+            and count[1] <= count[0]
+        }

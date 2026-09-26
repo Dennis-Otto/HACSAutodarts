@@ -12,6 +12,8 @@ from typing import Any
 
 from homeassistant.util import dt as dt_util
 
+from .doubles import DoubleStats
+
 MATCH_HISTORY = 20
 NAME_LENGTH = 20
 
@@ -50,7 +52,14 @@ class Profile:
     best_mpr: float = 0.0
     # Start score -> fewest darts for a won X01 leg.
     fewest_darts: dict[str, int] = field(default_factory=dict)
+    # Double -> attempts and hits.
+    doubles: dict[str, list[int]] = field(default_factory=dict)
     last_played: str | None = None
+
+    def double_stats(self) -> DoubleStats:
+        stats = DoubleStats()
+        stats.counts = self.doubles
+        return stats
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -67,6 +76,7 @@ class Profile:
             "highest_checkout": self.highest_checkout or None,
             "best_mpr": self.best_mpr or None,
             "fewest_darts": dict(self.fewest_darts),
+            "doubles": self.double_stats().snapshot(),
             "last_played": self.last_played,
         }
 
@@ -89,6 +99,9 @@ class Profile:
                 for game, darts in fewest.items()
                 if str(game).isdigit() and type(darts) is int and darts > 0
             }
+        doubles = DoubleStats()
+        doubles.restore(saved.get("doubles"))
+        profile.doubles = doubles.counts
         if isinstance(saved.get("last_played"), str):
             profile.last_played = saved["last_played"]
         return profile
@@ -119,6 +132,16 @@ class Profiles:
         """An X01 visit of up to three darts."""
         if profile := self._profile(name):
             profile.highest_visit = max(profile.highest_visit, points)
+
+    def doubles(self, name: str | None, attempts: list[tuple[str, bool]]) -> None:
+        """Darts a player threw at doubles."""
+        if attempts and (profile := self._profile(name)):
+            profile.double_stats().record(attempts)
+
+    def preferred(self, name: str | None) -> tuple[str, ...]:
+        """The doubles a named player hits best, strongest first."""
+        profile = self.players.get(_key(name)) if name and name.strip() else None
+        return profile.double_stats().preferred() if profile else ()
 
     def leg(self, game: int | str, players: list[dict[str, Any]]) -> None:
         """A finished leg, with every player's numbers of that leg."""

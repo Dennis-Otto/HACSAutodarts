@@ -697,9 +697,9 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return deleted
 
     async def async_set_practice_option(self, option: str, enabled: bool) -> None:
-        """Double out applies from now on; double in and the bull-off start a new match."""
+        """Double out and routes apply at once; double in and the bull-off start anew."""
         setattr(self.practice, option, enabled)
-        if option != "double_out":
+        if option in ("double_in", "bull_off"):
             self.practice.new_match()
         await self._async_training([])
 
