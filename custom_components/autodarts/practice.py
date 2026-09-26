@@ -219,7 +219,12 @@ class PracticeGame:
         return self.names[index] or None
 
     def _who(self, index: int) -> dict[str, Any]:
-        return {"game": self.game, "player": index + 1, "name": self._name(index)}
+        return {
+            "game": self.game,
+            "player": index + 1,
+            "name": self._name(index),
+            "players": len(self.players),
+        }
 
     def _thrown(self) -> list[dict[str, Any]]:
         return self._visit[self._skip :]
@@ -274,6 +279,7 @@ class PracticeGame:
                     "checkout": player.remaining,
                     "legs": legs,
                     "sets": sets,
+                    "match": match,
                 },
             )
         ]
@@ -312,12 +318,18 @@ class PracticeGame:
             else:
                 player.remaining = remaining
                 self.current = (self.current + 1) % len(self.players)
-            if len(self.players) > 1 and self.winner is None:
+            if self.winner is None:
+                # Also when playing alone: the next visit is up, for callers.
                 up = self.players[self.current]
+                route = checkout(up.remaining, 3, self.double_out)
                 events.append(
                     (
                         "turn_changed",
-                        {**self._who(self.current), "remaining": up.remaining},
+                        {
+                            **self._who(self.current),
+                            "remaining": up.remaining,
+                            "checkout": " ".join(route) or None,
+                        },
                     )
                 )
         self._visit, self._skip, self._announced = [], 0, None

@@ -1,0 +1,139 @@
+blueprint:
+  name: "Autodarts: practice caller"
+  description: >-
+    Calls the practice game on your speakers like a caller on stage: what a
+    player requires when a checkout is possible, "No score" after a bust, and
+    the game shot of a leg or the match.
+
+
+    The messages are templates. They can use `who` (the player's name, "Player
+    2" in a match without names, empty when you play alone), `remaining`,
+    `checkout` (for example `T20 T20 BULL`), `darts` and `average`. An empty
+    message stays silent.
+  domain: automation
+  author: Dennis Otto
+  source_url: https://github.com/Dennis-Otto/ha-autodarts/blob/main/blueprints/automation/autodarts/practice_caller.yaml
+  homeassistant:
+    min_version: "2026.8.0"
+  input:
+    board:
+      name: Board
+      icon: mdi:bullseye-arrow
+      input:
+        board_events:
+          name: Board events
+          description: The "Board events" entity of your Autodarts board.
+          selector:
+            entity:
+              filter:
+                - integration: autodarts
+                  domain: event
+    voice:
+      name: Voice
+      icon: mdi:account-voice
+      input:
+        tts_engine:
+          name: Text-to-speech engine
+          selector:
+            entity:
+              filter:
+                - domain: tts
+        speakers:
+          name: Speakers
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: media_player
+    messages:
+      name: Messages
+      icon: mdi:message-text
+      collapsed: true
+      input:
+        checkout_message:
+          name: Checkout possible
+          description: Said when the next visit can finish the leg.
+          default: "{{ who ~ ', you' if who else 'You' }} require {{ remaining }}"
+          selector:
+            text: {}
+        turn_message:
+          name: Next player
+          description: >-
+            Said when the next visit cannot finish the leg, for example
+            `{{ who }}` in a match. Empty stays silent.
+          default: ""
+          selector:
+            text: {}
+        bust_message:
+          name: Bust
+          default: "No score"
+          selector:
+            text: {}
+        leg_message:
+          name: Leg won
+          default: "Game shot, and the leg{{ ', ' ~ who if who }}!"
+          selector:
+            text: {}
+        match_message:
+          name: Match won
+          default: "Game shot, and the match, {{ who }}!"
+          selector:
+            text: {}
+        player_label:
+          name: Word for a player without a name
+          default: "Player"
+          selector:
+            text: {}
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: !input board_events
+    options:
+      event_type:
+        - turn_changed
+        - bust
+        - leg_won
+        - match_won
+
+variables:
+  # Read from the triggering state: the next event may already have replaced it.
+  kind: "{{ trigger.to_state.attributes.get('event_type', '') }}"
+  player: "{{ trigger.to_state.attributes.get('player') | int(1) }}"
+  players: "{{ trigger.to_state.attributes.get('players') | int(1) }}"
+  name: "{{ trigger.to_state.attributes.get('name') or '' }}"
+  label: !input player_label
+  who: "{{ name if name else (label ~ ' ' ~ player if players > 1 else '') }}"
+  remaining: "{{ trigger.to_state.attributes.get('remaining') | int(0) }}"
+  checkout: "{{ trigger.to_state.attributes.get('checkout') or '' }}"
+  darts: "{{ trigger.to_state.attributes.get('darts') | int(0) }}"
+  average: "{{ trigger.to_state.attributes.get('average') }}"
+  deciding: "{{ trigger.to_state.attributes.get('match', false) }}"
+  checkout_text: !input checkout_message
+  turn_text: !input turn_message
+  bust_text: !input bust_message
+  leg_text: !input leg_message
+  match_text: !input match_message
+  message: >-
+    {% if kind == 'turn_changed' %}{{ checkout_text if checkout else turn_text }}
+    {%- elif kind == 'bust' %}{{ bust_text }}
+    {%- elif kind == 'leg_won' %}{{ '' if deciding else leg_text }}
+    {%- else %}{{ match_text }}{% endif %}
+
+conditions:
+  - alias: An empty message stays silent
+    condition: template
+    value_template: "{{ message | trim | length > 0 }}"
+
+actions:
+  - action: tts.speak
+    target:
+      entity_id: !input tts_engine
+    data:
+      media_player_entity_id: !input speakers
+      cache: true
+      message: "{{ message }}"

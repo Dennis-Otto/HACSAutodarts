@@ -22,16 +22,22 @@ def dart(name: str) -> dict:
 
 
 def throw(game: PracticeGame, *names: str) -> list[tuple[str, dict]]:
-    """Throw a visit dart by dart and pull the darts; return the events."""
+    """Throw a visit dart by dart and pull the darts; return the events.
+
+    Playing alone, the turn stays with the same player; those events are
+    left out here and checked on their own.
+    """
     events = []
     for count in range(1, len(names) + 1):
         events += game.track([dart(name) for name in names[:count]])
     events += game.finish_visit()
     game.track([])
+    if len(game.players) == 1:
+        events = [event for event in events if event[0] != "turn_changed"]
     return events
 
 
-PLAYER_1 = {"game": 301, "player": 1, "name": None}
+PLAYER_1 = {"game": 301, "player": 1, "name": None, "players": 1}
 
 
 def playing(start: int, remaining: int | None = None, **settings) -> PracticeGame:
@@ -89,6 +95,7 @@ def test_a_double_wins_the_leg_and_the_next_leg_starts():
                 "checkout": 40,
                 "legs": 1,
                 "sets": 0,
+                "match": False,
             },
         )
     ]
@@ -200,10 +207,14 @@ def match(players: int, legs: int = 1, sets: int = 1, **names) -> PracticeGame:
     return game
 
 
+DENNIS = {"game": 301, "player": 1, "name": "Dennis", "players": 2}
+LEA = {"game": 301, "player": 2, "name": "Lea", "players": 2}
+
+
 def test_players_take_turns_and_a_bust_passes_the_turn():
     game = match(2, p1="Dennis", p2=" Lea ")
     assert throw(game, "T20", "T20", "T20") == [
-        ("turn_changed", {"game": 301, "player": 2, "name": "Lea", "remaining": 301})
+        ("turn_changed", {**LEA, "remaining": 301, "checkout": None})
     ]
     throw(game, "S20")
     scores = game.snapshot()["scores"]
@@ -214,8 +225,8 @@ def test_players_take_turns_and_a_bust_passes_the_turn():
     assert scores[0]["average"] == 180.0 and scores[1]["average"] == 60.0
     # 121 - 120 leaves one: a bust, and the turn passes anyway.
     assert throw(game, "T20", "T20") == [
-        ("bust", {"game": 301, "player": 1, "name": "Dennis", "remaining": 121}),
-        ("turn_changed", {"game": 301, "player": 2, "name": "Lea", "remaining": 281}),
+        ("bust", {**DENNIS, "remaining": 121}),
+        ("turn_changed", {**LEA, "remaining": 281, "checkout": None}),
     ]
     assert game.snapshot()["player"] == 2
 
@@ -236,6 +247,7 @@ def test_legs_make_sets_and_sets_make_the_match():
     won = dict(events)
     assert won["leg_won"]["legs"] == 0 and won["leg_won"]["sets"] == 2
     assert won["match_won"]["player"] == 1 and won["match_won"]["sets"] == 2
+    assert won["leg_won"]["match"] is True
     snapshot = game.snapshot()
     assert snapshot["winner"] == 1 and snapshot["checkout"] is None
     assert [score["sets"] for score in snapshot["scores"]] == [2, 0]
@@ -304,3 +316,17 @@ def test_any_match_keeps_turns_and_scores_consistent(players, legs, sets, visits
                 assert 0 < score["remaining"] <= 301
                 assert score["legs"] < legs or players == 1
                 assert score["sets"] < sets or players == 1
+
+
+def test_playing_alone_the_next_visit_is_announced_with_its_checkout():
+    game = playing(301, 141)
+    game.track([dart("T20")])
+    assert game.finish_visit() == [
+        ("turn_changed", {**PLAYER_1, "remaining": 81, "checkout": "T15 D18"})
+    ]
+    game.players[0].remaining = 40
+    game.track([dart("D20")])
+    # A won leg starts the next one.
+    assert game.finish_visit() == [
+        ("turn_changed", {**PLAYER_1, "remaining": 301, "checkout": None})
+    ]

@@ -41,10 +41,10 @@ Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Ass
 | `status_changed` | Der Erkennungsstatus ändert sich | `status` |
 | `session_started` | Eine Trainingssession beginnt: mit dem Schalter *Trainingssession*, der Taste *Neue Trainingssession* oder mit dem ersten Dart, wenn *Sessions automatisch starten* an ist | `started` und `reason` (`manual`, `new_session` oder `first_dart`) |
 | `session_ended` | Eine Trainingssession endet: mit dem Schalter, der Taste oder nach der Pause aus *Session beenden nach einer Pause von* | `reason` (`manual`, `new_session` oder `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` und die übrigen Trainingssummen |
-| `bust` | Ein Dart im [Übungsspiel](#übungsspiel) geht unter null, lässt mit Double-Out 1 übrig oder erreicht 0 ohne Double | `game`, `player`, `name`, `remaining` (der Rest zu Beginn der Aufnahme, der bleibt) |
-| `leg_won` | Ein Dart beendet das Übungsleg | `game`, `player`, `name`, `darts` und `average` des Legs, `checkout` (der ausgecheckte Rest), `legs` und `sets` des Gewinners danach |
-| `match_won` | Ein Dart entscheidet ein Übungsmatch mehrerer Spieler | `game`, `player`, `name`, `sets`, `average` des Matches |
-| `turn_changed` | Im Übungsmatch wurden die Darts gezogen und der nächste Spieler ist dran | `game`, `player`, `name`, `remaining` |
+| `bust` | Ein Dart im [Übungsspiel](#übungsspiel) geht unter null, lässt mit Double-Out 1 übrig oder erreicht 0 ohne Double | `game`, `player`, `name`, `players`, `remaining` (der Rest zu Beginn der Aufnahme, der bleibt) |
+| `leg_won` | Ein Dart beendet das Übungsleg | `game`, `player`, `name`, `players`, `darts` und `average` des Legs, `checkout` (der ausgecheckte Rest), `legs` und `sets` des Gewinners danach, `match` (`true`, wenn das Leg das Match entscheidet) |
+| `match_won` | Ein Dart entscheidet ein Übungsmatch mehrerer Spieler | `game`, `player`, `name`, `players`, `sets`, `average` des Matches |
+| `turn_changed` | Im X01-Übungsspiel wurden die Darts gezogen und die nächste Aufnahme ist dran: im Match der nächste Spieler, allein derselbe | `game`, `player`, `name`, `players`, `remaining`, `checkout` (der Weg für drei Darts oder keiner) |
 | `drill_finished` | Ein [Trainingsspiel](#trainingsspiele) endet: Around the Clock oder Doppeltraining sind durch, oder Bob's 27 ist vorbei | `drill`, `darts`, `hits`, `hit_rate` (Prozent); Bob's 27 ergänzt `score` und `completed` |
 | `checkout_attempt` | Ein Versuch im Checkout-Training endet | `drill`, `target`, `success`, `darts`, `attempts`, `successes`, `rate` (Prozent) |
 
