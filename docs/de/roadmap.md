@@ -21,12 +21,12 @@ Enthalten, alles ohne Autodarts-Cloud:
 - Die letzten Aufnahmen in der Live-Karte, Sessionstatus und vergangene Sessions in der Trainingskarte.
 - Details zum Board-PC aus Board Manager 2: Betriebssystem, Prozessor und Erkennungssoftware.
 
-## Als Nächstes: 1.2
+## Version 1.2: Übungsspiele und Live-Kameras
 
-| Thema | Was es bringt |
-| --- | --- |
-| **Lokale Übungsspiele** | Ein X01-Übungsmodus, der die Restpunkte führt, Überwerfen erkennt und Checkouts vorschlägt, alles vom lokalen Board |
-| **Live-Kamerabild** | Livestreams der Board-Kameras statt Standbildern, wo Board Manager 2 sie anbietet |
+- X01-Übungsspiele (301, 501, 701) am lokalen Board: Restpunkte, Überwerfen, Double-Out, Checkout-Wege und die letzten 10 Legs, mit den Ereignissen `bust` und `leg_won`.
+- Ein Übungsspiel-Bereich in der Live-Karte mit Checkout-Weg und nächstem Zielfeld sowie die Steuerung des Übungsspiels im automatischen Dashboard.
+- Live-Kamerastreams von Board Manager 2 statt Standbildern.
+- Kamerazustand direkt nach dem Start oder Stopp der Erkennung statt erst nach der nächsten Abfrage.
 
 ## Später
 

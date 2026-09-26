@@ -21,12 +21,12 @@ Released features, all of them working without the Autodarts cloud:
 - The last visits in the live card, the session state and past sessions in the training card.
 - Board PC details from Board Manager 2: operating system, processor and detection software.
 
-## Next: 1.2
+## Version 1.2: practice games and live cameras
 
-| Topic | What it brings |
-| --- | --- |
-| **Local practice games** | An X01 practice mode that tracks the remaining score, recognises busts and suggests checkouts, all from the local board |
-| **Live camera view** | Live streams of the board cameras instead of snapshots, where Board Manager 2 offers them |
+- X01 practice games (301, 501, 701) on the local board: remaining score, busts, double out, checkout routes and the last 10 legs, with the `bust` and `leg_won` events.
+- A practice panel in the live card with the checkout route and the bed to aim at next, and the practice controls in the automatic dashboard.
+- Live camera streams from Board Manager 2 instead of snapshots.
+- Camera state right after the detection starts or stops, instead of after the next poll.
 
 ## Later
 
