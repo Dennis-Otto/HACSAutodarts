@@ -51,6 +51,7 @@ Enthalten, alles ohne Autodarts-Cloud:
 | **Mehr Spiele** | Shanghai, Halve-It und Killer für mehrere Spieler; X01 mit Double-In, Startwerten von 101 bis 1001 und Ausbullen, wer beginnt |
 | **Caller in der Anzeigetafel** | Der Bildschirm am Board sagt Punkte, Rest und Game shot selbst an, mit Klängen für eine 180, ohne Sprachausgabe einzurichten |
 | **Doppelanalyse** | Die Trefferquote jedes Doubles aus Übungs- und Trainingsspielen und Checkout-Wege, die deine stärksten Doubles bevorzugen |
+| **Protokoll-Bibliothek auf PyPI** | Das Board-Manager-Protokoll als eigene, getestete Bibliothek, die die Integration nutzt; Voraussetzung für einen möglichen Weg in den Home-Assistant-Kern |
 
 ## Später
 
@@ -59,7 +60,6 @@ Enthalten, alles ohne Autodarts-Cloud:
 | **Cloud-Spielereignisse:** Leg und Match gewonnen, Überwerfen, Spielerwechsel, Restpunkte | Eine OAuth-Client-ID von Autodarts; sie ist beantragt |
 | **HACS-Standardkatalog** | Im September 2026 beantragt ([hacs/default#11306](https://github.com/hacs/default/pull/11306)); die Prüfung bei HACS dauert mehrere Monate |
 | **Weitere Sprachen** | Beiträge von Muttersprachlern |
-| **Protokoll-Bibliothek auf PyPI** | Eine eigene Bibliothek für das Board-Manager-Protokoll; Voraussetzung für einen möglichen Weg in den Home-Assistant-Kern |
 
 ## So werden Prioritäten gesetzt
 
