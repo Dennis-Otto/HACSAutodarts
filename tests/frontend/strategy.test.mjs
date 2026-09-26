@@ -90,3 +90,21 @@ test("without boards the dashboard explains what to do", () => {
   const config = dashboardStrategy({ locale: { language: "de" }, entities: {} });
   assert.match(config.views[0].cards[0].content, /Kein Autodarts-Board/);
 });
+
+test("the training view offers the daily goal, the streak and personal bests", () => {
+  const config = dashboardStrategy(
+    hass([
+      ...board("dev1", "b"),
+      entity("number.b_goal", "training_daily_goal", "dev1"),
+      entity("sensor.b_today", "darts_today", "dev1"),
+      entity("sensor.b_streak", "training_streak", "dev1"),
+      entity("sensor.b_best", "personal_best", "dev1"),
+    ])
+  );
+  const training = config.views.find((view) => view.path === "training");
+  assert.deepEqual(training.sections[1].cards[0], {
+    type: "entities",
+    title: "Goals and personal bests",
+    entities: ["number.b_goal", "sensor.b_today", "sensor.b_streak", "sensor.b_best"],
+  });
+});

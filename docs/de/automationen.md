@@ -284,6 +284,32 @@ mode: queued
 
 Die Entitäts-IDs in den Beispielen hängen vom Namen deines Boards und der Sprache bei der Einrichtung ab. Du findest sie auf der Geräteseite.
 
+### Bestleistung und Tagesziel feiern
+
+```yaml
+alias: Darts – Bestleistung
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: event.autodarts_board_board_events
+    options:
+      event_type:
+        - personal_best
+        - daily_goal_reached
+actions:
+  - action: notify.mobile_app_handy
+    data:
+      message: >-
+        {% set event = trigger.to_state.attributes %}
+        {% if event.event_type == 'personal_best' %}
+          Neue Bestleistung: {{ event.record | replace('_', ' ') }} {{ event.value }}
+          (vorher {{ event.previous }}){{ ' von ' ~ event.name if event.name }}!
+        {% else %}
+          Tagesziel erreicht: {{ event.darts }} Darts, {{ event.streak }} Tage in Folge.
+        {% endif %}
+mode: queued
+```
+
 ### Spiel per Sprache starten
 
 Mit dem Sprachassistenten Assist startet ein Satz das Spiel. `{names}` nimmt den Rest des Satzes auf, etwa „Dennis und Lea“.

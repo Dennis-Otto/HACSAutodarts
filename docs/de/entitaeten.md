@@ -47,6 +47,8 @@ Die Entität **Board-Ereignisse** (`event.*_board_events`) löst native Home-Ass
 | `turn_changed` | Im X01- oder Cricket-Übungsspiel wurden die Darts gezogen und die nächste Aufnahme ist dran: im Match der nächste Spieler, allein derselbe | `game`, `player`, `name`, `players`, `remaining`, `checkout` (der Weg für drei Darts oder keiner); bei Cricket `points` des nächsten Spielers |
 | `drill_finished` | Ein [Trainingsspiel](#trainingsspiele) endet: Around the Clock oder Doppeltraining sind durch, oder Bob's 27 ist vorbei | `drill`, `darts`, `hits`, `hit_rate` (Prozent); Bob's 27 ergänzt `score` und `completed` |
 | `checkout_attempt` | Ein Versuch im Checkout-Training endet | `drill`, `target`, `success`, `darts`, `attempts`, `successes`, `rate` (Prozent) |
+| `personal_best` | Ein Wert übertrifft deine [Bestleistung](#bestleistungen-serie-und-tagesziel) | `record`, `value`, `previous`, `name` (der Spieler, falls bekannt) |
+| `daily_goal_reached` | Die Darts von heute erreichen das [Tagesziel](#bestleistungen-serie-und-tagesziel), einmal pro Tag | `goal`, `darts`, `streak` |
 
 Nach einem Neustart oder Verbindungsabbruch werden Ereignisse nie wiederholt. Beispiele stehen unter [Automationen](automationen.md).
 
@@ -83,6 +85,27 @@ Mit den Standardwerten, automatischer Start an und keine Pausengrenze, zählt je
 | Schnitt der letzten Session | Sensor, Punkte | 3-Dart-Average der letzten beendeten Session. Attribute: `started`, `ended`, `duration_minutes`, die Summen und `sessions` mit den letzten 20 Sessions, die der Recorder nicht speichert. |
 
 Die Summen nutzen die Zustandsklasse *total increasing*. Statistiken und Verlaufsdiagramme von Home Assistant behandeln einen Neustart der Session daher korrekt. [So wird gezählt](funktionsweise.md#trainingssession).
+
+## Bestleistungen, Serie und Tagesziel
+
+Home Assistant merkt sich deine besten Werte, die Tage, an denen du trainiert hast, und deine Darts pro Tag. Jeder erkannte Dart zählt für den Tag, mit oder ohne Session. Der erste Wert eines Rekords setzt ihn still; wer ihn übertrifft, löst `personal_best` aus, gleiche Werte zählen nicht.
+
+| Rekord | Bester Wert | Aus |
+| --- | --- | --- |
+| `highest_visit` | höchster | einer Aufnahme mit bis zu drei Darts |
+| `highest_checkout` | höchster | einem gewonnenen X01-Leg |
+| `fewest_darts_301`, `fewest_darts_501`, `fewest_darts_701` | wenigste | einem gewonnenen X01-Leg |
+| `best_cricket_mpr` | höchster | den Treffern pro Runde eines gewonnenen Cricket-Legs |
+| `around_the_clock`, `doubles` | wenigste | Darts eines beendeten Trainingsspiels |
+| `bobs_27` | höchster | den Punkten eines geschafften Bob's 27 |
+| `best_session_average` | höchster | einer beendeten Trainingssession mit mindestens 30 Darts |
+
+| Entität | Typ | Beschreibung |
+| --- | --- | --- |
+| Letzte Bestleistung | Sensor, Zeitstempel | Wann die letzte Bestleistung fiel; vor der ersten *unbekannt*. Attribute: `record`, `value`, `previous` und `name` dieser Bestleistung sowie der beste Wert jedes Rekords unter seinem Schlüssel, etwa `highest_checkout`. |
+| Darts heute | Sensor, Darts, Summe | Heute erkannte Darts; beginnt um Mitternacht bei 0. Attribute: `goal`, `goal_reached`, `progress` (Prozent des Ziels). |
+| Trainingsserie | Sensor, Tage | Tage in Folge mit mindestens einem Dart. Sie bleibt, bis ein ganzer Tag ohne Darts vergeht. Attribute: `best_streak`, `trained_today`, `last_day`. |
+| Tagesziel | Zahl, Darts, *Konfiguration* | Darts, die du jeden Tag werfen willst, 0–2000; `0`, der Standard, setzt kein Ziel. Erreichen die Darts von heute das Ziel, löst `daily_goal_reached` einmal aus. |
 
 ## Übungsspiel
 

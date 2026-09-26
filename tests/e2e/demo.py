@@ -128,6 +128,8 @@ async def main() -> None:
             result = await demo.local_flow("board-mock", PORT)
         entry_id = result["result"]["entry_id"]
         await demo.registries(entry_id)
+        # A daily goal the demo darts reach halfway, for the training card.
+        await demo.service("number", "set_value", "training_daily_goal", value=120)
         await demo.service("button", "press", "start")
         await demo.expect_states({"detection": "on", "realtime_connected": "on"})
         for session in EARLIER:

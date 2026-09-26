@@ -174,3 +174,13 @@ test("training games show their target, between games the visit and the session"
   assert.match(idle.main, /<div class="label">visit<\/div><div class="big">60<\/div>/);
   assert.match(idle.main, /<b>123<\/b> darts.*<b>45\.6<\/b> average.*<b>140<\/b> highest.*<b>1<\/b> max/);
 });
+
+test("between games the scoreboard adds the streak and the darts towards the daily goal", () => {
+  const stats = { ...ui.stats, streak: 4, today: 120, goal: 300 };
+  const idle = scoreboardHtml({ mode: "idle" }, { ...ui, stats });
+  assert.match(idle.main, /<b>4<\/b> streak_days.*<b>120 \/ 300<\/b> darts_today/);
+  const first = scoreboardHtml({ mode: "idle" }, { ...ui, stats: { ...stats, streak: 1, goal: 0 } });
+  assert.match(first.main, /<b>1<\/b> streak_day<\/span><span><b>120<\/b> darts_today/);
+  const none = scoreboardHtml({ mode: "idle" }, { ...ui, stats: { ...stats, streak: 0, today: null } });
+  assert.doesNotMatch(none.main, /streak|darts_today/);
+});

@@ -37,6 +37,7 @@
   - training sessions that start with the first dart or on purpose, end after a pause and keep your last 20 sessions;
   - 3-dart average, visits, highest visit, 100+/140+/180 and triple rate;
   - hits per bed, stored locally and kept across restarts.
+  - personal bests with an event when you beat one, a training streak in days and a daily goal in darts.
 - **Practice games and matches.** Play X01 (301, 501 or 701) or Cricket on the local board, alone or as a match of up to four players with legs and sets. The remaining score counts down, busts are recognised, and the live card shows the checkout route, the bed to aim at and a scoreboard, in Cricket a chalkboard with marks, points and marks per round. Four training games train the basics: Around the Clock, doubles training, checkout training and Bob's 27. First-9 average, checkout rate, doubles rate and legs per day show your progress.
 - **Automations that feel like a stage.** Board events for every dart, correction, takeout, completed visit and training session, plus nine ready-made blueprints: 180 celebrations, a dart caller, takeout lights, automatic detection, alerts, daily reports, a training session routine, a practice caller and a highlight photo.
 - **Full control.**

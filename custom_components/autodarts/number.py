@@ -1,4 +1,4 @@
-"""The pause that ends a training session, and the practice match format."""
+"""The pause that ends a session, the daily goal and the practice match format."""
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.const import EntityCategory, UnitOfTime
@@ -8,6 +8,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .entity import AutodartsLocalEntity
 from .local_coordinator import AutodartsLocalCoordinator
 from .practice import MAX_LEGS, MAX_PLAYERS, MAX_SETS
+from .records import DAILY_GOAL_MAX
 from .runtime import AutodartsConfigEntry
 from .training import IDLE_MINUTES_MAX
 
@@ -30,6 +31,7 @@ async def async_setup_entry(
         async_add_entities(
             [
                 AutodartsIdleTimeout(coordinator),
+                AutodartsDailyGoal(coordinator),
                 *(
                     AutodartsPracticeNumber(coordinator, key)
                     for key in PRACTICE_NUMBERS
@@ -62,6 +64,31 @@ class AutodartsIdleTimeout(AutodartsLocalEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         await self.coordinator.async_set_idle_minutes(int(value))
+
+
+class AutodartsDailyGoal(AutodartsLocalEntity, NumberEntity):
+    """Darts to throw every day; 0 sets no goal."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_native_unit_of_measurement = "darts"
+    _attr_native_min_value = 0
+    _attr_native_max_value = DAILY_GOAL_MAX
+    _attr_native_step = 10
+    _attr_mode = NumberMode.BOX
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "training_daily_goal")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> int:
+        return self.coordinator.records.goal
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self.coordinator.async_set_daily_goal(int(value))
 
 
 class AutodartsPracticeNumber(AutodartsLocalEntity, NumberEntity):

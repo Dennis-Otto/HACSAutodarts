@@ -93,6 +93,9 @@
       },
       "practice_sets": {
         "default": "mdi:trophy-outline"
+      },
+      "training_daily_goal": {
+        "default": "mdi:flag-checkered"
       }
     },
     "select": {
@@ -237,6 +240,15 @@
       },
       "correction_rate": {
         "default": "mdi:target-variant"
+      },
+      "personal_best": {
+        "default": "mdi:trophy"
+      },
+      "darts_today": {
+        "default": "mdi:calendar-today"
+      },
+      "training_streak": {
+        "default": "mdi:fire"
       }
     },
     "switch": {

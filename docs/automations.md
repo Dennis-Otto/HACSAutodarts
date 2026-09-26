@@ -271,6 +271,32 @@ actions:
 mode: queued
 ```
 
+### Celebrate a personal best and the daily goal
+
+```yaml
+alias: Darts - personal best
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: event.autodarts_board_board_events
+    options:
+      event_type:
+        - personal_best
+        - daily_goal_reached
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      message: >-
+        {% set event = trigger.to_state.attributes %}
+        {% if event.event_type == 'personal_best' %}
+          New personal best: {{ event.record | replace('_', ' ') }} {{ event.value }}
+          (before {{ event.previous }}){{ ' by ' ~ event.name if event.name }}!
+        {% else %}
+          Daily goal reached: {{ event.darts }} darts, {{ event.streak }} days in a row.
+        {% endif %}
+mode: queued
+```
+
 ### Start a game by voice
 
 With the Assist voice assistant, one sentence starts a game. `{names}` takes the rest of the sentence, for example "Dennis and Lea".

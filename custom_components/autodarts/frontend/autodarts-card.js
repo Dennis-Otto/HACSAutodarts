@@ -168,6 +168,10 @@ const TEXT = {
     practice_names: "Player names",
     practice_legs_per_day: "Practice legs per day",
     practice_trend: "First 9 & checkout rate",
+    streak_day: "day in a row",
+    streak_days: "days in a row",
+    darts_today: "darts today",
+    goals_and_bests: "Goals and personal bests",
     drill_around_the_clock: "Around the Clock",
     drill_doubles: "Doubles training",
     drill_checkout: "Checkout training",
@@ -331,6 +335,10 @@ const TEXT = {
     practice_names: "Spielernamen",
     practice_legs_per_day: "Übungslegs pro Tag",
     practice_trend: "First 9 & Checkout-Quote",
+    streak_day: "Tag in Folge",
+    streak_days: "Tage in Folge",
+    darts_today: "Darts heute",
+    goals_and_bests: "Ziele und Bestleistungen",
     drill_around_the_clock: "Around the Clock",
     drill_doubles: "Doppeltraining",
     drill_checkout: "Checkout-Training",
@@ -509,6 +517,8 @@ const TRAINING_KEYS = {
   newSession: "button.reset_training",
   session: "switch.training_session",
   lastSession: "sensor.training_last_session",
+  streak: "sensor.training_streak",
+  today: "sensor.darts_today",
 };
 
 const STATUS_KEYS = {
@@ -534,6 +544,8 @@ const SCOREBOARD_KEYS = {
   average: "sensor.training_average",
   highest: "sensor.training_highest_visit",
   max: "sensor.training_scores_180",
+  streak: "sensor.training_streak",
+  today: "sensor.darts_today",
 };
 
 // Per-camera entities carry their camera number as an attribute.
@@ -1137,6 +1149,13 @@ function idleBoard(stats, ui) {
     fact(format(stats.average, 1), t("average")) +
     fact(format(stats.highest, 0), t("highest")) +
     fact(format(stats.max, 0), t("max")) +
+    (stats.streak > 0 ? fact(format(stats.streak, 0), t(stats.streak === 1 ? "streak_day" : "streak_days")) : "") +
+    (stats.today === null || stats.today === undefined
+      ? ""
+      : fact(
+          stats.goal ? `${format(stats.today, 0)} / ${format(stats.goal, 0)}` : format(stats.today, 0),
+          t("darts_today")
+        )) +
     `</div></div>`
   );
 }
@@ -1294,6 +1313,10 @@ function dashboardStrategy(hass, config = {}) {
         days_to_show: 30,
       });
     }
+    const goals = ["number.training_daily_goal", "sensor.darts_today", "sensor.training_streak", "sensor.personal_best"]
+      .map(id)
+      .filter(Boolean);
+    if (goals.length) trends.unshift({ type: "entities", title: t("goals_and_bests"), entities: goals });
     const practiceTrend = ["sensor.practice_first_9_average", "sensor.practice_checkout_rate"]
       .map(id)
       .filter(Boolean);
@@ -1561,6 +1584,21 @@ const TRAINING_CSS = `${BASE_CSS}
   }
   .average-label { font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; }
   .totals { display: flex; gap: 18px; }
+  .daily { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+  .daily[hidden], .daily [hidden] { display: none; }
+  .streak {
+    padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap;
+    color: #ff8a00; background: color-mix(in srgb, #ff8a00 14%, transparent);
+  }
+  .streak::before { content: "🔥 "; }
+  .goal { flex: 1 1 180px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .goal-bar {
+    flex: 1; height: 6px; border-radius: 999px; overflow: hidden;
+    background: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
+  }
+  .goal-bar span { display: block; height: 100%; border-radius: inherit; background: var(--ad-accent); transition: width .4s; }
+  .goal.reached .goal-bar span { background: ${STATUS_COLORS.ready}; }
+  .goal-text { font-size: 12px; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .total .value { font-size: 22px; font-weight: 700; color: var(--primary-text-color); font-variant-numeric: tabular-nums; text-align: right; }
   .total .name { font-size: 11px; color: var(--secondary-text-color); text-align: right; }
   .body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -2579,6 +2617,13 @@ function createElements(Base) {
                 <div class="title"></div>
                 <div class="muted since"></div>
               </header>
+              <div class="daily" hidden>
+                <span class="streak" hidden></span>
+                <div class="goal" hidden>
+                  <div class="goal-bar" hidden><span></span></div>
+                  <span class="goal-text"></span>
+                </div>
+              </div>
               <div class="hero">
                 <div>
                   <div class="average">–</div>
@@ -2684,6 +2729,12 @@ function createElements(Base) {
       this._el = {
         title: root.querySelector(".title"),
         since: root.querySelector(".since"),
+        daily: root.querySelector(".daily"),
+        streak: root.querySelector(".streak"),
+        goal: root.querySelector(".goal"),
+        goalBar: root.querySelector(".goal-bar"),
+        goalFill: root.querySelector(".goal-bar span"),
+        goalText: root.querySelector(".goal-text"),
         average: root.querySelector(".average"),
         totals: Object.fromEntries([...root.querySelectorAll("[data-total]")].map((el) => [el.dataset.total, el])),
         empty: root.querySelector(".empty-hint"),
@@ -2781,12 +2832,32 @@ function createElements(Base) {
       }).format(new Date(time));
     }
 
+    // The streak and today's darts towards the daily goal.
+    _updateDaily() {
+      const el = this._el;
+      const streak = this._number("streak");
+      const today = this._number("today");
+      el.daily.hidden = !(streak > 0) && today === null;
+      el.streak.hidden = !(streak > 0);
+      el.streak.textContent = `${this._format(streak)} ${this._t(streak === 1 ? "streak_day" : "streak_days")}`;
+      el.goal.hidden = today === null;
+      const attributes = this._state("today")?.attributes || {};
+      const goal = Number(attributes.goal) || 0;
+      el.goalBar.hidden = !goal;
+      el.goalFill.style.width = goal ? `${Math.min(100, (today / goal) * 100)}%` : "0";
+      el.goal.classList.toggle("reached", attributes.goal_reached === true);
+      el.goalText.textContent = `${
+        goal ? `${this._format(today)} / ${this._format(goal)}` : this._format(today)
+      } ${this._t("darts_today")}`;
+    }
+
     _update() {
       const c = this._config;
       const el = this._el;
       this.style.setProperty("--ad-accent", cssColor(c.accent_color, "var(--primary-color)"));
       el.title.textContent = c.title || `${this._t("training")} · ${this._deviceName()}`;
       el.since.textContent = this._since();
+      this._updateDaily();
 
       const darts = this._number("darts");
       const points = this._number("points");
@@ -3334,6 +3405,9 @@ function createElements(Base) {
           average: this._number("average"),
           highest: this._number("highest"),
           max: this._number("max"),
+          streak: this._number("streak"),
+          today: this._number("today"),
+          goal: Number(this._state("today")?.attributes?.goal) || 0,
         },
       });
       el.title.textContent = board.title;

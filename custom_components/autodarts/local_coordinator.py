@@ -17,7 +17,10 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_point_in_utc_time
+from homeassistant.helpers.event import (
+    async_track_point_in_utc_time,
+    async_track_time_change,
+)
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -32,6 +35,7 @@ from .local_api import (
 )
 from .practice import PracticeGame
 from .quality import RECALIBRATE_RATE, RECOVERED_RATE, DetectionQuality
+from .records import PersonalRecords
 from .training import TrainingSession
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,6 +69,8 @@ EVENT_TYPES = [
     "turn_changed",
     "drill_finished",
     "checkout_attempt",
+    "personal_best",
+    "daily_goal_reached",
 ]
 
 
@@ -103,6 +109,8 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.training = TrainingSession()
         self.practice = PracticeGame()
         self.quality = DetectionQuality()
+        self.records = PersonalRecords()
+        self._midnight_unsub: CALLBACK_TYPE | None = None
         self._store: Store[dict[str, Any]] = Store(
             hass, 1, f"{DOMAIN}.{entry.entry_id}.training"
         )
@@ -133,12 +141,17 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.practice.restore(
             saved.get("practice") if isinstance(saved, dict) else None
         )
+        self.records.restore(saved.get("records") if isinstance(saved, dict) else None)
         if saved is None:
             self._save_training()
 
     def _stored(self) -> dict[str, Any]:
-        """Training sessions and the practice game, saved together."""
-        return {**self.training.stored(), "practice": self.practice.stored()}
+        """Training sessions, the practice game and personal bests, saved together."""
+        return {
+            **self.training.stored(),
+            "practice": self.practice.stored(),
+            "records": self.records.stored(),
+        }
 
     def _save_training(self) -> None:
         self._training_dirty = True
@@ -148,6 +161,11 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def async_start(self) -> None:
         # Entities exist now, so an overdue idle end is announced, too.
         self._schedule_idle_end()
+        if self._midnight_unsub is None:
+            # Darts today and the streak change with the date, not with a dart.
+            self._midnight_unsub = async_track_time_change(
+                self.hass, self._async_new_day, hour=0, minute=0, second=1
+            )
         if self._stream_task is None:
             self._stream_task = self._entry.async_create_background_task(
                 self.hass, self._listen(), f"{DOMAIN} local events"
@@ -163,6 +181,9 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._idle_unsub:
             self._idle_unsub()
             self._idle_unsub = None
+        if self._midnight_unsub:
+            self._midnight_unsub()
+            self._midnight_unsub = None
         if self._training_dirty:
             await self._store.async_save(self._stored())
             self._training_dirty = False
@@ -238,6 +259,21 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             {**attributes, "source": source},
         )
 
+    def _recorded(
+        self, events: list[tuple[str, dict[str, Any]]]
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """The events, each followed by the personal bests or daily goal it brings."""
+        now = dt_util.now()
+        result: list[tuple[str, dict[str, Any]]] = []
+        for kind, attributes in events:
+            result.append((kind, attributes))
+            result.extend(self.records.observe(kind, attributes, now))
+        return result
+
+    @callback
+    def _async_new_day(self, _now: datetime) -> None:
+        self.async_update_listeners()
+
     def _start_takeout(self, source: str) -> None:
         if not self._taking_out:
             self._taking_out = True
@@ -253,13 +289,15 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         state = data.get("local", {})
         if "local" in fields:
             previous = self._observed_state
-            for kind, attributes in self.training.observe(state):
+            for kind, attributes in self._recorded(self.training.observe(state)):
                 self.quality.record(kind, attributes)
                 self._emit(kind, attributes, source)
                 if kind == "visit_completed":
-                    for turn, details in self.practice.finish_visit():
+                    for turn, details in self._recorded(self.practice.finish_visit()):
                         self._emit(turn, details, source)
-            for kind, attributes in self.practice.track(self.training.visit()):
+            for kind, attributes in self._recorded(
+                self.practice.track(self.training.visit())
+            ):
                 self._emit(kind, attributes, source)
             if previous is not None:
                 status = state.get("status")
@@ -581,6 +619,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_training(self, events: list[tuple[str, dict[str, Any]]]) -> None:
         """Save a session change at once, then announce it."""
+        events = self._recorded(events)
         stored = self._stored()
         await self._store.async_save(stored)
         self._training_dirty = self._stored() != stored
@@ -607,6 +646,10 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_auto_start(self, enabled: bool) -> None:
         self.training.auto_start = enabled
+        await self._async_training([])
+
+    async def async_set_daily_goal(self, darts: int) -> None:
+        self.records.set_goal(darts, dt_util.now().date())
         await self._async_training([])
 
     async def async_set_idle_minutes(self, minutes: int) -> None:

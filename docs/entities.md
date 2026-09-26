@@ -47,6 +47,8 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `turn_changed` | In an X01 or Cricket practice game, the darts were pulled and the next visit is up: the next player in a match, the same player when playing alone | `game`, `player`, `name`, `players`, `remaining`, `checkout` (the route for three darts, or none); in Cricket `points` of the next player |
 | `drill_finished` | A [training game](#training-games) ends: Around the Clock or doubles training reach the end, or Bob's 27 ends | `drill`, `darts`, `hits`, `hit_rate` (percent); Bob's 27 adds `score` and `completed` |
 | `checkout_attempt` | An attempt of the checkout training ends | `drill`, `target`, `success`, `darts`, `attempts`, `successes`, `rate` (percent) |
+| `personal_best` | A value beats your [personal best](#personal-bests-streak-and-daily-goal) | `record`, `value`, `previous`, `name` (the player, if known) |
+| `daily_goal_reached` | Today's darts reach the [daily goal](#personal-bests-streak-and-daily-goal), once per day | `goal`, `darts`, `streak` |
 
 Events are never replayed after a restart or reconnection. See [automations](automations.md) for examples.
 
@@ -83,6 +85,27 @@ The defaults, automatic start on and no pause limit, count every dart as version
 | Last session average | Sensor, points | 3-dart average of the last finished session. Attributes: `started`, `ended`, `duration_minutes`, the totals, and `sessions` with the last 20 sessions, which the recorder does not store. |
 
 Totals use the state class *total increasing*, so Home Assistant's statistics and energy-style graphs handle resets correctly. [How the counting works](how-it-works.md#training-session).
+
+## Personal bests, streak and daily goal
+
+Home Assistant keeps your best values, the days you trained and your darts per day. Every detected dart counts for the day, in a session or not. The first value of each record sets it quietly; beating it fires `personal_best`, and equal values do not count.
+
+| Record | Best value | From |
+| --- | --- | --- |
+| `highest_visit` | highest | a visit of up to three darts |
+| `highest_checkout` | highest | a won X01 leg |
+| `fewest_darts_301`, `fewest_darts_501`, `fewest_darts_701` | fewest | a won X01 leg |
+| `best_cricket_mpr` | highest | the marks per round of a won Cricket leg |
+| `around_the_clock`, `doubles` | fewest | darts of a finished training game |
+| `bobs_27` | highest | the score of a completed Bob's 27 |
+| `best_session_average` | highest | a finished training session of at least 30 darts |
+
+| Entity | Type | Description |
+| --- | --- | --- |
+| Last personal best | Sensor, timestamp | When the last personal best fell; *unknown* before the first. Attributes: `record`, `value`, `previous` and `name` of that best, and the best value of every record under its key, for example `highest_checkout`. |
+| Darts today | Sensor, darts, total | Darts detected today; starts from 0 at midnight. Attributes: `goal`, `goal_reached`, `progress` (percent of the goal). |
+| Training streak | Sensor, days | Days in a row with at least one dart. It stays until a whole day passes without darts. Attributes: `best_streak`, `trained_today`, `last_day`. |
+| Daily goal | Number, darts, *Configuration* | Darts to throw every day, 0–2000; `0`, the default, sets no goal. When today's darts reach it, `daily_goal_reached` fires once. |
 
 ## Practice game
 

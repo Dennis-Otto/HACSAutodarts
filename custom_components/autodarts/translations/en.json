@@ -261,6 +261,15 @@
       },
       "correction_rate": {
         "name": "Detection correction rate"
+      },
+      "personal_best": {
+        "name": "Last personal best"
+      },
+      "darts_today": {
+        "name": "Darts today"
+      },
+      "training_streak": {
+        "name": "Training streak"
       }
     },
     "button": {
@@ -361,6 +370,9 @@
       },
       "practice_sets": {
         "name": "Practice sets to win"
+      },
+      "training_daily_goal": {
+        "name": "Daily goal"
       }
     },
     "binary_sensor": {
@@ -422,7 +434,9 @@
               "match_won": "Match won",
               "turn_changed": "Turn changed",
               "drill_finished": "Training game finished",
-              "checkout_attempt": "Checkout attempt"
+              "checkout_attempt": "Checkout attempt",
+              "personal_best": "Personal best",
+              "daily_goal_reached": "Daily goal reached"
             }
           }
         }

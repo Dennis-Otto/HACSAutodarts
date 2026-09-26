@@ -15,7 +15,12 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfInformation
+from homeassistant.const import (
+    PERCENTAGE,
+    EntityCategory,
+    UnitOfInformation,
+    UnitOfTime,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -321,6 +326,13 @@ async def async_setup_entry(
             for key in PRACTICE_STATISTICS
         )
         entities.append(AutodartsCorrectionRate(runtime.local))
+        entities.extend(
+            (
+                AutodartsPersonalBest(runtime.local),
+                AutodartsDailyDarts(runtime.local),
+                AutodartsStreak(runtime.local),
+            )
+        )
         entities.extend(
             AutodartsLocalSensor(runtime.local, description)
             for description in STATIC_SENSORS
@@ -756,6 +768,82 @@ class AutodartsPracticeStatistic(AutodartsLocalEntity, SensorEntity):
         return {
             "legs_counted": statistics["legs_counted"],
             "darts_at_double": statistics["darts_at_double"],
+        }
+
+
+class AutodartsRecordsEntity(AutodartsLocalEntity, SensorEntity):
+    """Personal bests, darts per day and the streak; kept across restarts."""
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def _records(self) -> dict[str, Any]:
+        return self.coordinator.records.snapshot(dt_util.now().date())
+
+
+class AutodartsPersonalBest(AutodartsRecordsEntity):
+    """When the last personal best fell, with every best value as attributes."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "personal_best")
+
+    @property
+    def native_value(self) -> datetime | None:
+        latest = self._records()["latest"]
+        return dt_util.parse_datetime(latest["date"]) if latest else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        records = self._records()
+        latest = records["latest"] or {}
+        return {
+            **{key: latest.get(key) for key in ("record", "value", "previous", "name")},
+            **records["bests"],
+        }
+
+
+class AutodartsDailyDarts(AutodartsRecordsEntity):
+    """Darts detected today, towards the daily goal."""
+
+    _attr_native_unit_of_measurement = "darts"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "darts_today")
+
+    @property
+    def native_value(self) -> int:
+        value: int = self._records()["darts_today"]
+        return value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        records = self._records()
+        return {key: records[key] for key in ("goal", "goal_reached", "progress")}
+
+
+class AutodartsStreak(AutodartsRecordsEntity):
+    """Days in a row with at least one dart; today does not break it yet."""
+
+    _attr_native_unit_of_measurement = UnitOfTime.DAYS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "training_streak")
+
+    @property
+    def native_value(self) -> int:
+        value: int = self._records()["streak"]
+        return value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        records = self._records()
+        return {
+            key: records[key] for key in ("best_streak", "trained_today", "last_day")
         }
 
 
