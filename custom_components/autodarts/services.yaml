@@ -1,0 +1,45 @@
+start_game:
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: autodarts
+    game:
+      required: true
+      example: "501"
+      selector:
+        select:
+          translation_key: game
+          options:
+            - "301"
+            - "501"
+            - "701"
+            - around_the_clock
+            - doubles
+            - checkout
+            - bobs_27
+    players:
+      required: false
+      example: '["Dennis", "Lea"]'
+      selector:
+        text:
+          multiple: true
+    legs:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 11
+          mode: box
+    sets:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 7
+          mode: box
+    double_out:
+      required: false
+      selector:
+        boolean: {}

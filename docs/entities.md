@@ -165,6 +165,7 @@ A change is written to the Board Manager configuration; only the changed setting
 | Camera problem | Binary sensor, *Diagnostic* | On when any camera delivers no frames for 15 seconds during active detection. Normal stops, calibration and standby are ignored. |
 | Camera *N* problem | Binary sensor, *Diagnostic* | The same for one camera. |
 | Detection frame rate | Sensor, fps, *Diagnostic*, *Disabled* | Frames per second of the detection. |
+| Detection correction rate | Sensor, %, *Diagnostic* | Share of the last 100 detected darts that the board corrected afterwards. From 20 % over at least 50 darts, a [repair](troubleshooting.md#repairs) suggests to recalibrate. Attributes: `darts`, `corrected`. |
 | Camera *N* frame rate | Sensor, fps, *Diagnostic*, *Disabled* | Frames per second of one camera. |
 | CPU usage | Sensor, %, **BM 2**, *Diagnostic* | CPU load of the board PC. |
 | Memory usage | Sensor, **BM 2**, *Diagnostic*, *Disabled* | Memory use as reported by Board Manager 2. |
@@ -206,6 +207,31 @@ These entities exist only with a [linked Autodarts account](installation.md#link
 | Darts thrown | Sensor, darts | Darts thrown in the match. |
 
 Without a local board, *Last board event*, *Last dart* and *Darts in visit* come from the cloud as well.
+
+## Actions
+
+### Start a practice game: `autodarts.start_game`
+
+Sets up and starts a game in one call, for automations, scripts, dashboard buttons and voice control. Values you leave out stay as they are.
+
+| Field | Values | Description |
+| --- | --- | --- |
+| `game` | `301`, `501`, `701`, `around_the_clock`, `doubles`, `checkout`, `bobs_27` | The game; required |
+| `players` | 1–4 names | Players in throwing order; the number of names sets the number of players |
+| `legs` | 1–11 | Legs that win a set |
+| `sets` | 1–7 | Sets that win the match |
+| `double_out` | `true`, `false` | Finish X01 legs on a double or the bullseye |
+| `config_entry_id` | Autodarts entry | Only needed with more than one board |
+
+```yaml
+action: autodarts.start_game
+data:
+  game: "501"
+  players: [Dennis, Lea]
+  legs: 3
+```
+
+The action fails with a clear message when no board is loaded, or when several boards are set up and none is chosen.
 
 ## Availability
 

@@ -271,6 +271,25 @@ actions:
 mode: queued
 ```
 
+### Start a game by voice
+
+With the Assist voice assistant, one sentence starts a game. `{names}` takes the rest of the sentence, for example "Dennis and Lea".
+
+```yaml
+alias: Darts - start by voice
+triggers:
+  - trigger: conversation
+    command:
+      - "start {game} for {names}"
+actions:
+  - action: autodarts.start_game
+    data:
+      game: "{{ trigger.slots.game }}"
+      players: "{{ trigger.slots.names.split(' and ') }}"
+  - set_conversation_response: "Game on, {{ trigger.slots.names }}!"
+mode: single
+```
+
 ## Adapting automations from older versions
 
 Since version 1.0, the **Detection status** sensor reports translatable states: `stopped`, `throw`, `takeout_in_progress` and so on. Older versions reported the raw text of the Board Manager, such as `Stopped` or `Takeout in progress`. Update automations that compare against the old text:

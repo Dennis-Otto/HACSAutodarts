@@ -234,6 +234,9 @@
       },
       "practice_legs_played": {
         "default": "mdi:counter"
+      },
+      "correction_rate": {
+        "default": "mdi:target-variant"
       }
     },
     "switch": {
@@ -275,6 +278,11 @@
       "practice_player": {
         "default": "mdi:account"
       }
+    }
+  },
+  "services": {
+    "start_game": {
+      "service": "mdi:play-circle-outline"
     }
   }
 }

@@ -165,6 +165,7 @@ Jede Aktion wird **genau einmal** gesendet. Lehnt das Board sie ab oder antworte
 | Kamerastörung | Binärsensor, *Diagnose* | An, wenn eine Kamera bei laufender Erkennung 15 Sekunden lang keine Bilder liefert. Normales Stoppen, Kalibrieren und Standby zählen nicht. |
 | Störung Kamera *N* | Binärsensor, *Diagnose* | Dasselbe für eine einzelne Kamera. |
 | Erkennungsbildrate | Sensor, fps, *Diagnose*, *Deaktiviert* | Bilder pro Sekunde der Erkennung. |
+| Korrekturquote der Erkennung | Sensor, %, *Diagnose* | Anteil der letzten 100 erkannten Darts, die das Board nachträglich korrigiert hat. Ab 20 % bei mindestens 50 Darts schlägt eine [Reparatur](fehlerbehebung.md#reparaturen) das Nachkalibrieren vor. Attribute: `darts`, `corrected`. |
 | Bildrate Kamera *N* | Sensor, fps, *Diagnose*, *Deaktiviert* | Bilder pro Sekunde einer Kamera. |
 | CPU-Auslastung | Sensor, %, **BM 2**, *Diagnose* | CPU-Last des Board-PCs. |
 | Speichernutzung | Sensor, **BM 2**, *Diagnose*, *Deaktiviert* | Speichernutzung laut Board Manager 2. |
@@ -206,6 +207,31 @@ Diese Entitäten gibt es nur mit [verknüpftem Autodarts-Konto](installation.md#
 | Geworfene Darts | Sensor, Darts | Im Spiel geworfene Darts. |
 
 Ohne lokales Board kommen auch *Letztes Board-Ereignis*, *Letzter Dart* und *Darts in der Aufnahme* aus der Cloud.
+
+## Aktionen
+
+### Übungsspiel starten: `autodarts.start_game`
+
+Richtet ein Spiel mit einem Aufruf ein und startet es, für Automationen, Skripte, Dashboard-Tasten und Sprachsteuerung. Werte, die du weglässt, bleiben, wie sie sind.
+
+| Feld | Werte | Beschreibung |
+| --- | --- | --- |
+| `game` | `301`, `501`, `701`, `around_the_clock`, `doubles`, `checkout`, `bobs_27` | Das Spiel; Pflichtfeld |
+| `players` | 1–4 Namen | Spieler in Wurfreihenfolge; die Zahl der Namen legt die Spielerzahl fest |
+| `legs` | 1–11 | Legs, die einen Satz gewinnen |
+| `sets` | 1–7 | Sätze, die das Match gewinnen |
+| `double_out` | `true`, `false` | X01-Legs auf einem Double oder dem Bullseye beenden |
+| `config_entry_id` | Autodarts-Eintrag | Nur bei mehreren Boards nötig |
+
+```yaml
+action: autodarts.start_game
+data:
+  game: "501"
+  players: [Dennis, Lea]
+  legs: 3
+```
+
+Die Aktion bricht mit einer klaren Meldung ab, wenn kein Board geladen ist oder mehrere Boards eingerichtet sind und keines gewählt ist.
 
 ## Verfügbarkeit
 
