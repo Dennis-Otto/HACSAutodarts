@@ -43,6 +43,15 @@ Released features, all of them working without the Autodarts cloud:
 - `autodarts.start_game` starts X01, Cricket or a training game with players, names and format in one action.
 - Detection quality: the share of corrected darts, with a repair that recalibrates the board when it rises.
 
+## Next: 1.5
+
+| Topic | What it brings |
+| --- | --- |
+| **Player profiles and match history** | Statistics and personal bests for every player name, a history of matches with their results, and head-to-head records |
+| **More games** | Shanghai, Halve-It and Killer for several players; X01 with double in, start scores from 101 to 1001 and a bull-off for who starts |
+| **Caller in the scoreboard** | The screen at the board announces the score, the remaining score and the game shot itself, with sounds for a 180, without a text-to-speech setup |
+| **Doubles analysis** | The hit rate of every double from practice games and training games, and checkout routes that prefer your strongest doubles |
+
 ## Later
 
 | Topic | Dependency |

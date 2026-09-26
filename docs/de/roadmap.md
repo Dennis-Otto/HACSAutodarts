@@ -43,6 +43,15 @@ Enthalten, alles ohne Autodarts-Cloud:
 - `autodarts.start_game` startet X01, Cricket oder ein Trainingsspiel mit Spielern, Namen und Format in einer Aktion.
 - Erkennungsqualität: der Anteil korrigierter Darts, mit einer Reparatur, die das Board nachkalibriert, wenn er steigt.
 
+## Als Nächstes: 1.5
+
+| Thema | Was es bringt |
+| --- | --- |
+| **Spielerprofile und Match-Verlauf** | Statistik und Bestleistungen für jeden Spielernamen, ein Verlauf der Matches mit Ergebnis und die Bilanz im direkten Vergleich |
+| **Mehr Spiele** | Shanghai, Halve-It und Killer für mehrere Spieler; X01 mit Double-In, Startwerten von 101 bis 1001 und Ausbullen, wer beginnt |
+| **Caller in der Anzeigetafel** | Der Bildschirm am Board sagt Punkte, Rest und Game shot selbst an, mit Klängen für eine 180, ohne Sprachausgabe einzurichten |
+| **Doppelanalyse** | Die Trefferquote jedes Doubles aus Übungs- und Trainingsspielen und Checkout-Wege, die deine stärksten Doubles bevorzugen |
+
 ## Später
 
 | Thema | Voraussetzung |
