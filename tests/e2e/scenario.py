@@ -549,6 +549,8 @@ class Scenario:
                 ("dart_corrected", "S20", 20),
                 ("takeout_started", None, None),
                 ("visit_completed", None, 70),
+                # The practice game announces the next visit.
+                ("turn_changed", None, None),
                 ("takeout_finished", None, None),
             ],
             f"Unexpected board events: {fired}",

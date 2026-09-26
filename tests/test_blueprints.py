@@ -396,3 +396,155 @@ async def test_training_session_started_by_a_dart_skips_the_calibration(hass):
     assert turn_on[0].data["entity_id"] == ["switch.autodarts_board_detection"]
     # The dart that started the session is still in the board.
     assert not press
+
+
+async def test_practice_caller_calls_requirements_busts_and_game_shots(hass):
+    calls = async_mock_service(hass, "tts", "speak")
+    hass.states.async_set(EVENTS, "unknown")
+    await automate(
+        hass,
+        "practice_caller",
+        {
+            "board_events": EVENTS,
+            "tts_engine": "tts.home_assistant_cloud",
+            "speakers": ["media_player.dartroom"],
+        },
+    )
+    match = {"game": 501, "players": 2}
+    events = [
+        (
+            "turn_changed",
+            {
+                **match,
+                "player": 2,
+                "name": "Sam",
+                "remaining": 81,
+                "checkout": "T15 D18",
+            },
+        ),
+        # No checkout possible and no turn message: silent.
+        (
+            "turn_changed",
+            {**match, "player": 1, "name": None, "remaining": 321, "checkout": None},
+        ),
+        ("bust", {**match, "player": 1, "name": None, "remaining": 32}),
+        ("leg_won", {**match, "player": 2, "name": "Sam", "darts": 15, "match": False}),
+        # The deciding leg leaves the call to the match.
+        ("leg_won", {**match, "player": 2, "name": "Sam", "darts": 12, "match": True}),
+        ("match_won", {**match, "player": 2, "name": "Sam", "sets": 1}),
+        (
+            "turn_changed",
+            {
+                "game": 501,
+                "players": 1,
+                "player": 1,
+                "name": None,
+                "remaining": 40,
+                "checkout": "D20",
+            },
+        ),
+        (
+            "leg_won",
+            {"game": 501, "players": 1, "player": 1, "name": None, "match": False},
+        ),
+    ]
+    for kind, attributes in events:
+        fire(hass, kind, **attributes)
+        await hass.async_block_till_done()
+    assert [str(call.data["message"]) for call in calls] == [
+        "Sam, you require 81",
+        "No score",
+        "Game shot, and the leg, Sam!",
+        "Game shot, and the match, Sam!",
+        "You require 40",
+        "Game shot, and the leg!",
+    ]
+
+
+async def test_practice_caller_names_unnamed_players_in_its_language(hass):
+    calls = async_mock_service(hass, "tts", "speak")
+    hass.states.async_set(EVENTS, "unknown")
+    await automate(
+        hass,
+        "practice_caller",
+        {
+            "board_events": EVENTS,
+            "tts_engine": "tts.home_assistant_cloud",
+            "speakers": ["media_player.dartroom"],
+            "turn_message": "{{ who }} ist dran",
+            "player_label": "Spieler",
+        },
+    )
+    fire(
+        hass,
+        "turn_changed",
+        game=501,
+        players=3,
+        player=3,
+        name=None,
+        remaining=501,
+        checkout=None,
+    )
+    await hass.async_block_till_done()
+    assert [str(call.data["message"]) for call in calls] == ["Spieler 3 ist dran"]
+
+
+async def test_highlight_photo_for_a_180_and_a_checkout(hass):
+    photos = async_mock_service(hass, "test", "photo")
+    score = "sensor.autodarts_board_detected_visit_score"
+    hass.states.async_set(score, "0")
+    hass.states.async_set(EVENTS, "unknown")
+    await automate(
+        hass,
+        "highlight_photo",
+        {
+            "visit_score": score,
+            "board_events": EVENTS,
+            "camera": "camera.autodarts_board_camera_1",
+            "photo_actions": [
+                {
+                    "action": "test.photo",
+                    "data": {"image": "{{ image }}", "message": "{{ message }}"},
+                }
+            ],
+        },
+    )
+    for value in ("60", "120", "180"):
+        hass.states.async_set(score, value)
+        await hass.async_block_till_done()
+    assert [call.data for call in photos] == [
+        {
+            "image": "/api/camera_proxy/camera.autodarts_board_camera_1",
+            "message": "180!",
+        }
+    ]
+    hass.states.async_set(score, "0")
+    fire(hass, "leg_won", game=501, players=2, player=2, name="Sam", checkout=121)
+    await hass.async_block_till_done()
+    assert photos[-1].data["message"] == "Checkout 121 by Sam!"
+
+
+async def test_highlight_photo_can_skip_checkouts_and_lower_the_score(hass):
+    photos = async_mock_service(hass, "test", "photo")
+    score = "sensor.autodarts_board_detected_visit_score"
+    hass.states.async_set(score, "0")
+    hass.states.async_set(EVENTS, "unknown")
+    await automate(
+        hass,
+        "highlight_photo",
+        {
+            "visit_score": score,
+            "board_events": EVENTS,
+            "camera": "camera.autodarts_board_camera_1",
+            "minimum_score": 140,
+            "checkouts": False,
+            "photo_actions": [
+                {"action": "test.photo", "data": {"message": "{{ message }}"}}
+            ],
+        },
+    )
+    hass.states.async_set(score, "140")
+    await hass.async_block_till_done()
+    fire(hass, "leg_won", game=501, players=1, player=1, name=None, checkout=40)
+    await hass.async_block_till_done()
+    assert [call.data["message"] for call in photos] == ["140!"]

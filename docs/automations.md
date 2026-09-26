@@ -17,6 +17,8 @@ Blueprints are ready-made automations. Import one, choose your board and the dev
 | **Board problem alert** | Alerts you after a grace period when the board goes offline or a camera fails. An optional all-clear is sent only after a real alert. The actions can use `problem` and `recovered`. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2Fha-autodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Fboard_alert.yaml) |
 | **Training report** | Sends a daily summary of darts, 3-dart average, highest visit and 180s, skipping days without darts. The `summary` variable has the sentence ready. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2Fha-autodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Ftraining_report.yaml) |
 | **Training session routine** | When a [training session](entities.md#training-session) starts, runs your actions, turns on the detection and calibrates the cameras after a short wait; when it ends, turns off the detection and runs your actions with `reason`, `darts`, `average` and `duration_minutes`. The detection switch and the calibration button are optional. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2Fha-autodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Ftraining_session.yaml) |
+| **Practice caller** | Calls the [practice game](entities.md#practice-game) on your speakers: "Sam, you require 81" when a checkout is possible, "No score" after a bust, and the game shot of a leg or the match. The messages are templates with `who`, `remaining`, `checkout`, `darts` and `average`. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2Fha-autodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Fpractice_caller.yaml) |
+| **Highlight photo** | Runs your actions with a picture from a board camera after a visit of at least 180 points (adjustable) or a checkout of the practice game, while the darts are still in the board. The actions can use `image`, `message`, `score`, `checkout` and `who`. | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FDennis-Otto%2Fha-autodarts%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fautodarts%2Fhighlight_photo.yaml) |
 
 Without My Home Assistant, go to **Settings → Automations & scenes → Blueprints → Import blueprint** and paste the link to the file in [`blueprints/automation/autodarts`](../blueprints/automation/autodarts).
 
@@ -31,6 +33,20 @@ The messages of the dart caller are templates. For example:
 | Dart message | `{{ segment \| replace('T', 'Treble ') \| replace('D', 'Double ') \| replace('S', '') }}` |
 
 For a German caller, choose a German text-to-speech voice and enter, for example, `{{ score }} Punkte` and `Einhundertachtzig!`.
+
+### Highlight photo on your phone
+
+In *Actions* of the highlight photo, add a notification of the Home Assistant app and give it the picture:
+
+```yaml
+action: notify.mobile_app_your_phone
+data:
+  message: "{{ message }}"
+  data:
+    image: "{{ image }}"
+```
+
+The app loads the picture from the camera right away, while the darts are still in the board. Enable the camera entity on the device page first; camera entities are disabled by default.
 
 ## Board events
 

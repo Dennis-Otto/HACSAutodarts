@@ -1,0 +1,122 @@
+blueprint:
+  name: "Autodarts: highlight photo"
+  description: >-
+    Sends a photo of the board after a big visit or a checkout of the practice
+    game, from one of the board cameras while the darts are still in the board.
+
+
+    Your actions can use `image` (the camera picture, for example
+    `data: {image: "{{ image }}"}` in a notification of the Home Assistant
+    app), `message`, `score`, `checkout` and `who`. Turn on the camera entity
+    first; camera entities are disabled by default.
+  domain: automation
+  author: Dennis Otto
+  source_url: https://github.com/Dennis-Otto/ha-autodarts/blob/main/blueprints/automation/autodarts/highlight_photo.yaml
+  homeassistant:
+    min_version: "2026.8.0"
+  input:
+    board:
+      name: Board
+      icon: mdi:bullseye-arrow
+      input:
+        visit_score:
+          name: Detected visit score
+          description: The "Detected visit score" sensor of your Autodarts board.
+          selector:
+            entity:
+              filter:
+                - integration: autodarts
+                  domain: sensor
+        board_events:
+          name: Board events
+          description: The "Board events" entity, for checkouts.
+          selector:
+            entity:
+              filter:
+                - integration: autodarts
+                  domain: event
+        camera:
+          name: Camera
+          description: The board camera that takes the photo.
+          selector:
+            entity:
+              filter:
+                - integration: autodarts
+                  domain: camera
+    moments:
+      name: Moments
+      icon: mdi:star-shooting
+      input:
+        minimum_score:
+          name: Visits from
+          description: A visit with at least this score gets a photo.
+          default: 180
+          selector:
+            number:
+              min: 60
+              max: 180
+              step: 1
+        checkouts:
+          name: Checkouts
+          description: Also a photo when a practice leg is won.
+          default: true
+          selector:
+            boolean: {}
+    photo:
+      name: Photo
+      icon: mdi:cellphone-message
+      input:
+        photo_actions:
+          name: Actions
+          description: >-
+            For example a notification with `image: "{{ image }}"` and
+            `message: "{{ message }}"`.
+          default: []
+          selector:
+            action: {}
+        score_message:
+          name: Message for a visit
+          default: "{{ score }}!"
+          selector:
+            text: {}
+        checkout_message:
+          name: Message for a checkout
+          default: "Checkout {{ checkout }}{{ ' by ' ~ who if who }}!"
+          selector:
+            text: {}
+
+# One photo at a time; a second highlight within the run is skipped.
+mode: single
+max_exceeded: silent
+
+trigger_variables:
+  visit_sensor: !input visit_score
+  minimum: !input minimum_score
+
+triggers:
+  - trigger: template
+    id: visit
+    value_template: "{{ states(visit_sensor) | int(0) >= minimum }}"
+  - trigger: event.received
+    id: checkout
+    enabled: !input checkouts
+    target:
+      entity_id: !input board_events
+    options:
+      event_type:
+        - leg_won
+
+variables:
+  camera_entity: !input camera
+  image: "/api/camera_proxy/{{ camera_entity }}"
+  score: "{{ states(visit_sensor) | int(0) }}"
+  checkout: >-
+    {{ trigger.to_state.attributes.get('checkout') | int(0) if trigger.id == 'checkout' else 0 }}
+  who: >-
+    {{ (trigger.to_state.attributes.get('name') or '') if trigger.id == 'checkout' else '' }}
+  score_text: !input score_message
+  checkout_text: !input checkout_message
+  message: "{{ checkout_text if trigger.id == 'checkout' else score_text }}"
+
+actions:
+  - sequence: !input photo_actions

@@ -41,10 +41,10 @@ The **Board events** entity (`event.*_board_events`) fires native Home Assistant
 | `status_changed` | The detection status changes | `status` |
 | `session_started` | A training session starts: with the *Training session* switch, the *New training session* button, or the first dart when *Start sessions automatically* is on | `started` and `reason` (`manual`, `new_session` or `first_dart`) |
 | `session_ended` | A training session ends: with the switch, the button, or after the pause set in *End session after a pause of* | `reason` (`manual`, `new_session` or `idle`), `started`, `ended`, `duration_minutes`, `darts`, `points`, `average`, `visits`, `highest_visit` and the other training totals |
-| `bust` | A dart of the [practice game](#practice-game) goes below zero, leaves 1 with double out, or reaches 0 without a double | `game`, `player`, `name`, `remaining` (the score at the start of the visit, which stays) |
-| `leg_won` | A dart finishes the practice leg | `game`, `player`, `name`, `darts` and `average` of the leg, `checkout` (the score checked out), `legs` and `sets` of the winner afterwards |
-| `match_won` | A dart decides a practice match of several players | `game`, `player`, `name`, `sets`, `average` of the match |
-| `turn_changed` | In a practice match, the darts were pulled and the next player is up | `game`, `player`, `name`, `remaining` |
+| `bust` | A dart of the [practice game](#practice-game) goes below zero, leaves 1 with double out, or reaches 0 without a double | `game`, `player`, `name`, `players`, `remaining` (the score at the start of the visit, which stays) |
+| `leg_won` | A dart finishes the practice leg | `game`, `player`, `name`, `players`, `darts` and `average` of the leg, `checkout` (the score checked out), `legs` and `sets` of the winner afterwards, `match` (`true` when the leg decides the match) |
+| `match_won` | A dart decides a practice match of several players | `game`, `player`, `name`, `players`, `sets`, `average` of the match |
+| `turn_changed` | In an X01 practice game, the darts were pulled and the next visit is up: the next player in a match, the same player when playing alone | `game`, `player`, `name`, `players`, `remaining`, `checkout` (the route for three darts, or none) |
 | `drill_finished` | A [training game](#training-games) ends: Around the Clock or doubles training reach the end, or Bob's 27 ends | `drill`, `darts`, `hits`, `hit_rate` (percent); Bob's 27 adds `score` and `completed` |
 | `checkout_attempt` | An attempt of the checkout training ends | `drill`, `target`, `success`, `darts`, `attempts`, `successes`, `rate` (percent) |
 

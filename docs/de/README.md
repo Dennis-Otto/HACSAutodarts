@@ -28,7 +28,7 @@
 - **Übungsspiele und Matches.** Spiele X01 (301, 501 oder 701) am lokalen Board, allein oder als Match mit bis zu vier Spielern, Legs und Sätzen. Die Restpunkte zählen herunter, Überwerfen wird erkannt, und die Live-Karte zeigt Checkout-Weg, nächstes Zielfeld und eine Anzeigetafel. Vier Trainingsspiele üben die Grundlagen: Around the Clock, Doppeltraining, Checkout-Training und Bob's 27. First-9-Average, Checkout-Quote, Doppelquote und Legs pro Tag zeigen deine Entwicklung.
 - **Automationen mit Bühnenatmosphäre.**
   - Board-Ereignisse für jeden Dart, jede Korrektur, jede Entnahme, jede abgeschlossene Aufnahme und jede Trainingssession.
-  - Sieben fertige Blueprints: 180-Feier, Dart-Caller, Licht bei der Entnahme, automatische Erkennung, Warnungen, tägliche Berichte und eine Routine für Trainingssessions.
+  - Neun fertige Blueprints: 180-Feier, Dart-Caller, Licht bei der Entnahme, automatische Erkennung, Warnungen, tägliche Berichte, eine Routine für Trainingssessions, ein Übungs-Caller und ein Highlight-Foto.
 - **Volle Kontrolle.**
   - Erkennung starten, stoppen und zurücksetzen.
   - Kalibrierung für das Board oder einzelne Kameras; Board Manager neu starten.
