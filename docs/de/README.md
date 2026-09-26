@@ -43,9 +43,9 @@
 
 1. **Mit HACS installieren.**
 
-   [![Home Assistant öffnen und dieses Repository in HACS anzeigen.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Dennis-Otto&repository=HACSAutodarts&category=integration)
+   [![Home Assistant öffnen und dieses Repository in HACS anzeigen.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Dennis-Otto&repository=ha-autodarts&category=integration)
 
-   Alternativ fügst du `https://github.com/Dennis-Otto/HACSAutodarts` in HACS als benutzerdefiniertes Repository vom Typ **Integration** hinzu. Dann installierst du **Autodarts** und startest Home Assistant neu.
+   Alternativ fügst du `https://github.com/Dennis-Otto/ha-autodarts` in HACS als benutzerdefiniertes Repository vom Typ **Integration** hinzu. Dann installierst du **Autodarts** und startest Home Assistant neu.
 
 2. **Board hinzufügen.** Mit Board Manager 2 erscheint dein Board meist schon unter **Einstellungen → Geräte & Dienste → Entdeckt**. Sonst:
 

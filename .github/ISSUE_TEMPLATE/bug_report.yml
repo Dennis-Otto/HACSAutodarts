@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a problem. Please check the [troubleshooting guide](https://github.com/Dennis-Otto/HACSAutodarts/blob/main/docs/troubleshooting.md) first.
+        Thanks for taking the time to report a problem. Please check the [troubleshooting guide](https://github.com/Dennis-Otto/ha-autodarts/blob/main/docs/troubleshooting.md) first.
 
         **Never post** access tokens, board API keys, public IP addresses or other personal data. Diagnostics downloaded from Home Assistant are already redacted.
   - type: textarea

@@ -6,7 +6,7 @@ blueprint:
     music while you walk to it.
   domain: automation
   author: Dennis Otto
-  source_url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/takeout.yaml
+  source_url: https://github.com/Dennis-Otto/ha-autodarts/blob/main/blueprints/automation/autodarts/takeout.yaml
   homeassistant:
     min_version: "2026.8.0"
   input:

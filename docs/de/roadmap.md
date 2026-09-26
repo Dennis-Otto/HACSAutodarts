@@ -2,7 +2,7 @@
 
 [← Übersicht](README.md) · [English](../roadmap.md)
 
-Diese Roadmap zeigt, was nach Version 1.0 geplant ist. Sie ist eine Richtung, kein Versprechen: Die Prioritäten richten sich nach den Rückmeldungen der Spieler, die Termine nach der verfügbaren Freizeit. Ideen und Stimmen sind als [Funktionswunsch](https://github.com/Dennis-Otto/HACSAutodarts/issues/new/choose) willkommen.
+Diese Roadmap zeigt, was nach Version 1.0 geplant ist. Sie ist eine Richtung, kein Versprechen: Die Prioritäten richten sich nach den Rückmeldungen der Spieler, die Termine nach der verfügbaren Freizeit. Ideen und Stimmen sind als [Funktionswunsch](https://github.com/Dennis-Otto/ha-autodarts/issues/new/choose) willkommen.
 
 ## Version 1.0: das lokale Fundament
 

@@ -10,7 +10,7 @@ blueprint:
     `dart_score`.
   domain: automation
   author: Dennis Otto
-  source_url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/dart_caller.yaml
+  source_url: https://github.com/Dennis-Otto/ha-autodarts/blob/main/blueprints/automation/autodarts/dart_caller.yaml
   homeassistant:
     min_version: "2026.8.0"
   input:

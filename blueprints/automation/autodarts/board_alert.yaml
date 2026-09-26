@@ -9,7 +9,7 @@ blueprint:
     and `recovered` (`true` when the problem is gone).
   domain: automation
   author: Dennis Otto
-  source_url: https://github.com/Dennis-Otto/HACSAutodarts/blob/main/blueprints/automation/autodarts/board_alert.yaml
+  source_url: https://github.com/Dennis-Otto/ha-autodarts/blob/main/blueprints/automation/autodarts/board_alert.yaml
   homeassistant:
     min_version: "2026.8.0"
   input:

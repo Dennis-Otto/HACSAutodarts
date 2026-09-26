@@ -81,4 +81,4 @@ logger:
 
 ### Report a bug
 
-Open an [issue](https://github.com/Dennis-Otto/HACSAutodarts/issues/new/choose) with the Home Assistant version, the Board Manager version, the diagnostics file and the relevant log lines. Report security problems privately as described in [SECURITY.md](../SECURITY.md).
+Open an [issue](https://github.com/Dennis-Otto/ha-autodarts/issues/new/choose) with the Home Assistant version, the Board Manager version, the diagnostics file and the relevant log lines. Report security problems privately as described in [SECURITY.md](../SECURITY.md).

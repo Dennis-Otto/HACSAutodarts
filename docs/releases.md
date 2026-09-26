@@ -161,12 +161,16 @@ and commit. HACS keeps installing from the tagged source; the archive is for man
 installations and for verification:
 
 ```sh
-gh attestation verify autodarts.zip --repo Dennis-Otto/HACSAutodarts
+gh attestation verify autodarts.zip --repo Dennis-Otto/ha-autodarts
 ```
 
 Offline verification with the downloaded bundle:
 
 ```sh
-gh attestation verify autodarts.zip --repo Dennis-Otto/HACSAutodarts \
+gh attestation verify autodarts.zip --repo Dennis-Otto/ha-autodarts \
   --bundle autodarts.zip.sigstore.json
 ```
+
+Releases 1.0.0 and 1.0.1 were signed before the repository was renamed from
+`HACSAutodarts` to `ha-autodarts`. Their provenance names the old repository, so
+verify them with `--repo Dennis-Otto/HACSAutodarts`.
