@@ -29,7 +29,7 @@ Enthalten, alles ohne Autodarts-Cloud:
 | Thema | Voraussetzung |
 | --- | --- |
 | **Cloud-Spielereignisse:** Leg und Match gewonnen, Überwerfen, Spielerwechsel, Restpunkte | Eine OAuth-Client-ID von Autodarts; sie ist beantragt |
-| **HACS-Standardkatalog** | Antrag nach 1.0; die Prüfung bei HACS dauert mehrere Monate |
+| **HACS-Standardkatalog** | Im September 2026 beantragt ([hacs/default#11306](https://github.com/hacs/default/pull/11306)); die Prüfung bei HACS dauert mehrere Monate |
 | **Weitere Sprachen** | Beiträge von Muttersprachlern |
 | **Protokoll-Bibliothek auf PyPI** | Eine eigene Bibliothek für das Board-Manager-Protokoll; Voraussetzung für einen möglichen Weg in den Home-Assistant-Kern |
 
