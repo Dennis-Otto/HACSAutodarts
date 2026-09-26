@@ -39,6 +39,8 @@ POLL_INTERVAL = timedelta(seconds=2)
 STREAM_POLL_INTERVAL = timedelta(seconds=30)
 # The board PC changes only with system or Board Manager updates.
 HOST_REFRESH_SECONDS = 3600
+# Detection states around a start or stop; the cameras open or close meanwhile.
+LIFECYCLE_STATUSES = ("starting", "stopping", "stopped", "calibrating", "error")
 MOTION_FLAGS = (
     "isWaiting",
     "isStable",
@@ -59,6 +61,12 @@ EVENT_TYPES = [
     "bust",
     "leg_won",
 ]
+
+
+def _lifecycle(state: dict[str, Any]) -> tuple[object, str]:
+    """Whether the detection runs and where it is in starting or stopping."""
+    status = str(state.get("status", "")).lower()
+    return state.get("running"), status if status in LIFECYCLE_STATUSES else "running"
 
 
 class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -336,7 +344,8 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         else:
             return
         self._revisions[field] = self._revisions.get(field, 0) + 1
-        changed = data.get(field) != value
+        previous = data.get(field)
+        changed = previous != value
         data[field] = value
         self._process(data, {field}, "websocket")
         self.data = data
@@ -347,6 +356,16 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.last_update_success = True
         if (changed or recovered) and field not in ("stats", "camera_stats"):
             self.async_update_listeners()
+        if (
+            field == "local"
+            and isinstance(previous, dict)
+            and _lifecycle(previous) != _lifecycle(value)
+        ):
+            # Board Manager 2 announces no camera changes; read them right after a
+            # start or stop instead of waiting for the next slow poll.
+            self._entry.async_create_task(
+                self.hass, self.async_request_refresh(), f"{DOMAIN} camera state"
+            )
 
     @callback
     def _report_identity(self) -> None:

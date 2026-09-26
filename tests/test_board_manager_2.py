@@ -8,7 +8,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.autodarts.diagnostics import async_get_config_entry_diagnostics
 from custom_components.autodarts.local_api import board_generation
 
-from .local_helpers import BASE, SYSTEM, local_entry_data, mock_board, mock_board_v2
+from .local_helpers import (
+    BASE,
+    STATE,
+    SYSTEM,
+    local_entry_data,
+    mock_board,
+    mock_board_v2,
+)
 from .test_local_setup import entity_id, setup_local, state
 
 SECRETS = ("private-board-api-key", "private-tls-key")
@@ -153,3 +160,29 @@ async def test_board_without_host_details_keeps_working(hass, aioclient_mock):
     assert state(hass, "sensor", "host_os") == "unknown"
     assert state(hass, "sensor", "vision_version") == "unknown"
     assert state(hass, "sensor", "cpu_usage") == "12.5"
+
+
+async def test_cameras_are_read_right_after_the_detection_starts(hass, aioclient_mock):
+    """Board Manager 2 sends no camera messages, so a start triggers one read."""
+    stopped = deepcopy(SYSTEM)
+    stopped["camState"] = {"isOpened": False, "isRunning": False}
+    entry = await setup_v2(hass, aioclient_mock, system=stopped)
+    coordinator = entry.runtime_data.local
+    assert state(hass, "binary_sensor", "cameras_active") == "off"
+
+    aioclient_mock.clear_requests()
+    mock_board_v2(aioclient_mock, state={**STATE, "running": True, "status": "Throw"})
+    board = {**STATE, "running": True, "status": "Starting", "event": "Starting"}
+    coordinator.async_receive("state", board)
+    await hass.async_block_till_done()
+    assert state(hass, "binary_sensor", "cameras_active") == "on"
+    reads = [call[1].path for call in aioclient_mock.mock_calls]
+    assert reads.count("/api/system") == 1
+
+    # Takeouts change the status too, but never the cameras.
+    aioclient_mock.clear_requests()
+    mock_board_v2(aioclient_mock, state={**STATE, "running": True, "status": "Throw"})
+    for status in ("Throw", "Takeout in progress", "Throw"):
+        coordinator.async_receive("state", {**board, "status": status})
+    await hass.async_block_till_done()
+    assert not aioclient_mock.mock_calls
