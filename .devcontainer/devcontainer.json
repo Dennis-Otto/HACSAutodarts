@@ -1,0 +1,28 @@
+{
+  "name": "ha-autodarts",
+  "image": "mcr.microsoft.com/devcontainers/python:3.14",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "pip install --require-hashes -r requirements-test.txt && npm ci --ignore-scripts",
+  "forwardPorts": [18124],
+  "portsAttributes": {
+    "18124": { "label": "Demo Home Assistant", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "redhat.vscode-yaml",
+        "editorconfig.editorconfig"
+      ],
+      "settings": {
+        "python.testing.pytestEnabled": true,
+        "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" }
+      }
+    }
+  }
+}

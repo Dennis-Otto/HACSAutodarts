@@ -1,0 +1,26 @@
+# Optional local checks before each commit: `pip install pre-commit && pre-commit install`.
+# CI runs the same Ruff version and more (see docs/development.md).
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 2eeb5678de71a00c0902cbda7105d328432f72cb # frozen: v0.16.8
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^(custom_components|tests|\.github/scripts|scripts)/
+      - id: ruff-format
+        files: ^(custom_components|tests|\.github/scripts|scripts)/
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
+    hooks:
+      - id: check-json
+      - id: check-yaml
+        # Blueprints use Home Assistant's !input tag.
+        args: [--unsafe]
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+        exclude: \.(png|webp|svg)$
+      - id: trailing-whitespace
+        exclude: \.(md|png|webp|svg)$
+      - id: mixed-line-ending
+        args: [--fix=lf]

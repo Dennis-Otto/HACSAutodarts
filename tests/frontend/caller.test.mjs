@@ -27,6 +27,10 @@ const all = { call_scores: true, call_checkouts: true, call_results: true, call_
 const calls = (before, after, options = all) => callerCalls(before, after, options).map((call) => call.kind);
 
 test("the caller waits for a first state and repeats nothing", () => {
+  assert.deepEqual(
+    [callerState(undefined, undefined)].map(({ darts, mode, player, route }) => [darts, mode, player, route]),
+    [[0, "idle", null, []]]
+  );
   const state = callerState(visit(), x01());
   assert.deepEqual(callerCalls(null, state, all), []);
   assert.deepEqual(callerCalls(state, state, all), []);

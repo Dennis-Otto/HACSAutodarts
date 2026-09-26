@@ -2,7 +2,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { dashboardStrategy, practiceView } from "../../custom_components/autodarts/frontend/autodarts-card.js";
+import {
+  bullOffView,
+  cricketView,
+  dashboardStrategy,
+  partyView,
+  practiceView,
+} from "../../custom_components/autodarts/frontend/autodarts-card.js";
 
 test("the practice view reads the remaining score sensor", () => {
   assert.equal(practiceView(undefined), null);
@@ -33,6 +39,25 @@ test("the practice view reads the remaining score sensor", () => {
   const bust = practiceView({ state: "32", attributes: { checkout: "<b> D16", bust: true, darts: "x" } });
   assert.deepEqual([bust.route, bust.bust, bust.darts, bust.average, bust.game], [["D16"], true, 0, null, null]);
   assert.deepEqual(practiceView({ state: "0", attributes: { won: true, checkout: null } }).route, []);
+});
+
+test("game views fill in what a sensor leaves out", () => {
+  assert.deepEqual(
+    [practiceView({ state: "40" })].map((view) => [view.game, view.player, view.legsToWin, view.scores]),
+    [[null, 1, 1, []]]
+  );
+  const cricket = cricketView({
+    state: "unknown",
+    attributes: { game: "cricket", scores: [{ player: 1, marks: [0, 0, 0, 0, 0, 0, 0] }] },
+  });
+  assert.deepEqual([cricket.scores[0].points, cricket.scores[0].legs, cricket.player], [0, 0, 1]);
+  const party = partyView({ state: "unknown", attributes: { game: "shanghai", scores: "none" } });
+  assert.deepEqual([party.scores, party.player, party.round, party.phase], [[], 1, null, "play"]);
+  assert.deepEqual(bullOffView({ state: "501", attributes: { bull_off: { player: "first", throws: null } } }), {
+    player: 1,
+    name: null,
+    throws: [],
+  });
 });
 
 test("a match brings every player's score", () => {

@@ -10,7 +10,7 @@
 | `custom_components/autodarts/frontend/autodarts-card.js` | The six dashboard cards, served by the integration |
 | `blueprints/automation/autodarts/` | Automation blueprints |
 | `tests/` | Unit and integration tests with `pytest-homeassistant-custom-component` |
-| `tests/frontend/` | Node tests of the card logic, including property-based tests with fast-check |
+| `tests/frontend/` | Node tests of the card logic and of every card element in a browser DOM, including property-based tests with fast-check |
 | `tests/e2e/` | Docker end-to-end test, demo instance, browser test and screenshot tool |
 | `docs/` | Documentation, with German translations in `docs/de/` |
 
@@ -26,7 +26,7 @@ python3.14 -m venv .venv
 .venv/bin/ruff format --check custom_components tests .github/scripts
 .venv/bin/mypy                  # strict typing of the integration
 npm ci
-npm test                        # includes property-based fuzzing with fast-check
+npm test                        # fuzzing with fast-check; fails below 100 % lines, 99 % branches and functions
 ```
 
 Without a local Python, run the same in Docker:
@@ -42,7 +42,8 @@ The test suite covers:
 - realtime and poll reconciliation, both Board Manager generations and failure recovery;
 - the training rules and every platform;
 - repairs, diagnostics and the dashboard card registration;
-- every blueprint, run by Home Assistant's automation engine.
+- every blueprint, run by Home Assistant's automation engine;
+- every dashboard card, card editor and the dashboard strategy, rendered in a [happy-dom](https://github.com/capricorn86/happy-dom) browser DOM against a simulated Home Assistant: every game, every option, both languages, controls with their confirmation, the caller and escaping of player names.
 
 The card logic is also fuzzed with [fast-check](https://fast-check.dev/): thousands of random and hostile inputs per run check that escaping, bed geometry, the heatmap and the history parser never break.
 

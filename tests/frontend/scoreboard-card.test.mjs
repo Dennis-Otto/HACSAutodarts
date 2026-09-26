@@ -1,0 +1,509 @@
+// The scoreboard card in a browser DOM: every game, the visit and the caller.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { $, $$, READY, loadCards, makeHass, mount, text, update, window } from "./dom.mjs";
+
+await loadCards();
+
+const dart = (number, multiplier) => ({ number, multiplier, bed: multiplier === 3 ? "Triple" : "SingleOuter" });
+const T20 = dart(20, 3);
+const visit = (...throws) => ({
+  "sensor.local_visit_score": {
+    state: String(throws.reduce((sum, item) => sum + item.number * item.multiplier, 0)),
+    attributes: { throws },
+  },
+});
+const PLAYERS = [
+  { player: 1, name: "Alex", remaining: 501, legs: 0, sets: 0, average: null },
+  { player: 2, name: "Sam", remaining: 301, legs: 0, sets: 0, average: null },
+];
+const game = (attributes, state = String(attributes.remaining ?? "unknown")) => ({
+  "sensor.practice_remaining": {
+    state,
+    attributes: { game: 501, player: 1, name: "Alex", scores: PLAYERS, ...attributes },
+  },
+});
+const STATS = {
+  "sensor.training_darts": "24",
+  "sensor.training_average": "55.75",
+  "sensor.training_highest_visit": "140",
+  "sensor.training_scores_180": "0",
+  "sensor.training_streak": "3",
+  "sensor.darts_today": { state: "60", attributes: { goal: 120 } },
+};
+const setup = (states = {}, config = {}, options = {}) => {
+  const hass = makeHass({ states: { ...READY, ...visit(), ...states }, ...options });
+  return { hass, card: mount("autodarts-scoreboard-card", hass, config) };
+};
+const sum = (card) => [...$(card, ".visit .sum").children].map((part) => part.textContent);
+const facts = (card) => $$(card, ".facts span").map((fact) => fact.textContent);
+const slots = (card) =>
+  $$(card, ".visit .dart").map((slot) => [
+    slot.className,
+    slot.querySelector(".segment").textContent,
+    slot.querySelector(".points").textContent,
+  ]);
+
+// Speech and sound as a browser offers them, recorded.
+const spoken = [];
+class Utterance {
+  constructor(words) {
+    this.text = words;
+    this.lang = "";
+  }
+}
+const speech = {
+  speak: (utterance) => spoken.push([utterance.text, utterance.lang]),
+  cancel: () => spoken.push(["cancel"]),
+};
+const contexts = [];
+class FakeAudioContext {
+  constructor() {
+    contexts.push(this);
+    this.currentTime = 2;
+    this.destination = { name: "speakers" };
+    this.resumed = 0;
+    this.tones = [];
+  }
+
+  resume() {
+    this.resumed += 1;
+  }
+
+  createOscillator() {
+    const tone = {
+      frequency: {},
+      connect: (node) => {
+        tone.output = node;
+        return node;
+      },
+      start: (at) => (tone.start = at),
+      stop: (at) => (tone.stop = at),
+    };
+    this.tones.push(tone);
+    return tone;
+  }
+
+  createGain() {
+    const ramp = [];
+    return {
+      ramp,
+      gain: {
+        setValueAtTime: (value, at) => ramp.push([value, Number(at.toFixed(2))]),
+        exponentialRampToValueAtTime: (value, at) => ramp.push([value, Number(at.toFixed(2))]),
+      },
+      connect(node) {
+        this.output = node;
+        return node;
+      },
+    };
+  }
+}
+window.speechSynthesis = speech;
+globalThis.SpeechSynthesisUtterance = Utterance;
+const tap = (card) => $(card, ".caller-toggle").click();
+const said = () => spoken.splice(0).map(([words]) => words);
+
+test("between games the scoreboard shows the visit and the session", () => {
+  const { card } = setup({ ...visit(T20), ...STATS });
+  assert.equal(text(card, ".title"), "Dartboard");
+  assert.equal(text(card, ".meta"), "Training");
+  assert.equal($(card, ".banner").hidden, true);
+  assert.equal(text(card, ".main .label"), "Current visit");
+  assert.equal(text(card, ".main .big"), "60");
+  assert.deepEqual(facts(card), [
+    "24 Darts",
+    "55.8 3-dart avg.",
+    "140 Highest visit",
+    "0 180s",
+    "3 days in a row",
+    "60 / 120 darts today",
+  ]);
+  assert.equal($(card, ".visit").getAttribute("class"), "visit plain");
+  assert.deepEqual(slots(card), [
+    ["dart", "T20", "60"],
+    ["dart empty", "–", ""],
+    ["dart empty", "–", ""],
+  ]);
+  assert.equal($(card, ".visit .sum"), null);
+  assert.equal(text(card, ".pill"), "Ready – throw!");
+  assert.equal(card.style.getPropertyValue("--ad-status"), "#43a047");
+});
+
+test("between games the facts leave out what is unknown", () => {
+  const { hass, card } = setup({
+    ...STATS,
+    "sensor.local_visit_score": "unavailable",
+    "sensor.training_streak": "1",
+    "sensor.darts_today": "35",
+  });
+  assert.equal(text(card, ".main .big"), "–");
+  assert.deepEqual(facts(card).slice(4), ["1 day in a row", "35 darts today"]);
+  card.hass = update(hass, { "sensor.training_streak": "0", "sensor.darts_today": "unavailable" });
+  assert.equal(facts(card).length, 4);
+});
+
+test("an X01 match shows every player, the legs and sets to win and the visit", () => {
+  const { card } = setup({
+    ...visit(T20, dart(20, 1)),
+    ...game({ remaining: 81, checkout: "T15 D18", legs_to_win: 3, sets_to_win: 2 }),
+  });
+  assert.equal(text(card, ".title"), "Practice 501");
+  assert.equal(text(card, ".meta"), "3 legs per set · 2 sets to win");
+  assert.equal($(card, ".main .players").getAttribute("class"), "players n2");
+  assert.deepEqual(
+    $$(card, ".main .player").map((tile) => [tile.className, tile.querySelector(".name").textContent]),
+    [
+      ["player active", "Alex"],
+      ["player", "Sam"],
+    ]
+  );
+  assert.equal($(card, ".visit").getAttribute("class"), "visit");
+  assert.deepEqual(slots(card), [
+    ["dart", "T20", "60"],
+    ["dart", "S20", "20"],
+    ["dart empty", "–", ""],
+  ]);
+  assert.deepEqual(sum(card), ["Visit", "80"]);
+});
+
+test("the winner of a match gets the banner", () => {
+  const { card } = setup({ ...game({ remaining: 0, won: true, winner: 1 }, "0") });
+  assert.equal($(card, ".banner").hidden, false);
+  assert.equal(text(card, ".banner"), "Alex wins the match!");
+  assert.equal($(card, ".main .player.winner .name").textContent, "Alex");
+});
+
+test("Cricket, party games, the bull-off and training games get their own boards", () => {
+  const { hass, card } = setup({
+    ...game({ game: "cricket", target: "T20", scores: [{ player: 1, marks: [2, 0, 0, 0, 0, 0, 0], points: 0 }] }),
+    "sensor.practice_target": { state: "unknown", attributes: { drill: null } },
+  });
+  assert.equal(text(card, ".title"), "Cricket");
+  assert.equal($$(card, ".main table.cricket tbody tr").length, 8);
+  assert.equal(text(card, ".main .aim"), "T20");
+
+  card.hass = update(hass, game({ game: "killer", phase: "choose", scores: [{ player: 1 }, { player: 2 }] }));
+  assert.equal(text(card, ".title"), "Killer");
+  assert.equal(text(card, ".main .player.active .route"), "Throw for your number");
+
+  card.hass = update(hass, game({ game: "shanghai", round: 4, rounds: 7, target: "4", points: 12 }));
+  assert.equal(text(card, ".meta"), "Round 4/7");
+
+  card.hass = update(hass, game({ bull_off: { player: 1, throws: [{ player: 1, name: "Alex", distance: 8.6 }] } }));
+  assert.equal(text(card, ".title"), "Bull-off");
+  assert.equal(text(card, ".meta"), "Closest to the bull starts");
+  assert.equal(text(card, ".main .big"), "9 mm");
+
+  card.hass = update(hass, {
+    "sensor.practice_target": { state: "D5", attributes: { drill: "doubles", progress: 4, targets: 21, darts: 9 } },
+  });
+  assert.equal(text(card, ".title"), "Doubles training");
+  assert.equal(text(card, ".main .big"), "D5");
+  assert.deepEqual(sum(card), ["Visit", "0"]);
+});
+
+test("status, visit and full height follow the options", () => {
+  const plain = setup({}, { show_status: false, show_visit: false }).card;
+  assert.equal($(plain, ".pill"), null);
+  assert.equal($(plain, ".visit"), null);
+  assert.equal($(plain, ".scoreboard").getAttribute("class"), "scoreboard");
+  assert.equal(text(plain, ".title"), "Dartboard");
+  const full = setup({}, { full_height: true }).card;
+  assert.equal($(full, ".scoreboard").getAttribute("class"), "scoreboard full");
+  assert.equal(full.getCardSize(), 8);
+  assert.deepEqual(full.getGridOptions(), { columns: "full", min_columns: 6 });
+  assert.equal(
+    customElements.get("autodarts-scoreboard-card").getConfigElement().localName,
+    "autodarts-scoreboard-card-editor"
+  );
+});
+
+test("the scoreboard speaks German", () => {
+  const { card } = setup({ ...STATS, ...game({ remaining: 81, legs_to_win: 3 }) }, {}, { language: "de" });
+  assert.equal(text(card, ".title"), "Übungsspiel 501");
+  assert.equal(text(card, ".meta"), "3 Legs pro Satz");
+  assert.deepEqual(sum(card), ["Aufnahme", "0"]);
+  assert.equal(text(card, ".pill"), "Bereit – wirf!");
+});
+
+test("an X01 leg alone explains double in, and the visit reads a dash while unknown", () => {
+  const alone = (attributes) => game({ scores: [], name: null, ...attributes });
+  const { hass, card } = setup({ ...alone({ remaining: 501, opened: false }), "sensor.local_visit_score": "unknown" });
+  assert.equal(text(card, ".main .route"), "Start with a double");
+  assert.deepEqual(sum(card), ["Visit", "–"]);
+  card.hass = update(hass, alone({ game: null, remaining: 170 }));
+  assert.equal(text(card, ".title"), "Practice");
+  assert.equal(text(card, ".main .route"), "No checkout possible");
+});
+
+test("party games on the scoreboard show lives, targets and the winner", () => {
+  const killers = [
+    { player: 1, name: "Alex", number: 7, lives: 3, killer: true, legs: 1, sets: 0 },
+    { player: 2, name: "Sam", number: 12, lives: 0, killer: false, legs: 0, sets: 1 },
+  ];
+  const killer = (attributes) =>
+    game({ game: "killer", scores: killers, legs_to_win: 2, sets_to_win: 2, ...attributes });
+  const tiles = (card) =>
+    $$(card, ".main .player").map((tile) => [
+      tile.className,
+      tile.querySelector(".big").className,
+      tile.querySelector(".big").textContent,
+      tile.querySelector(".route").textContent,
+      tile.querySelector(".details").textContent,
+    ]);
+  const { hass, card } = setup(killer({}));
+  assert.equal(text(card, ".meta"), "2 legs per set · 2 sets to win");
+  assert.deepEqual(tiles(card), [
+    [
+      "player active",
+      "big lives",
+      "♥♥♥",
+      "Killer – hit the others' doubles",
+      "Legs 1 · Sets 0 · 7 · Killer",
+    ],
+    ["player out", "big lives", "✕", "", "Legs 0 · Sets 1 · 12 · out"],
+  ]);
+  card.hass = update(hass, killer({ target: "D12" }));
+  assert.equal(tiles(card)[0][3], "D12");
+  card.hass = update(hass, killer({ needs_players: 2 }));
+  assert.equal(tiles(card)[0][3], "Killer needs at least two players");
+  card.hass = update(hass, killer({ won: true }));
+  assert.equal(tiles(card)[0][3], "Game shot!");
+  card.hass = update(hass, killer({ winner: 1 }));
+  assert.equal(tiles(card)[0][0], "player winner");
+  assert.equal(text(card, ".banner"), "Alex wins the match!");
+
+  const halveIt = (target) => game({ game: "halve_it", target, points: 40, scores: [{ player: 1, points: 40 }] });
+  card.hass = update(hass, halveIt("D"));
+  assert.deepEqual(tiles(card), [["player", "big", "40", "Any double", ""]]);
+  card.hass = update(hass, halveIt("T"));
+  assert.equal(tiles(card)[0][3], "Any treble");
+  card.hass = update(hass, halveIt("BULL"));
+  assert.equal(tiles(card)[0][3], "Bull");
+});
+
+test("Cricket on the scoreboard shows legs, sets, the winner and a game shot", () => {
+  const players = [
+    { player: 1, name: "Alex", marks: [3, 3, 3, 3, 3, 3, 3], points: 60, legs: 1, sets: 1, mpr: 2.4 },
+    { player: 2, name: "Sam", marks: [3, 2, 1, 0, 0, 0, 0], points: 20, legs: 0, sets: 0, mpr: null },
+  ];
+  const cricket = (attributes) =>
+    game({ game: "cricket", target: "T19", scores: players, legs_to_win: 2, sets_to_win: 2, ...attributes });
+  const { hass, card } = setup(cricket({ player: 2 }));
+  const rows = () => $$(card, ".main tbody tr").map((row) => [row.className, row.textContent]);
+  assert.deepEqual(rows().slice(-4), [
+    ["total", "Points6020"],
+    ["detail", "MPR2.40–"],
+    ["detail", "Legs10"],
+    ["detail", "Sets10"],
+  ]);
+  assert.deepEqual(
+    $$(card, ".main thead th").map((cell) => [cell.className, cell.textContent]),
+    [
+      ["aim", "T19"],
+      ["", "Alex"],
+      ["active", "Sam"],
+    ]
+  );
+  card.hass = update(hass, cricket({ winner: 1, won: true }));
+  assert.equal(text(card, ".banner"), "Alex wins the match!");
+  assert.equal(text(card, ".main thead .aim"), "");
+  assert.equal($(card, ".main thead th.winner").textContent, "Alex");
+  card.hass = update(hass, cricket({ scores: players.slice(0, 1), won: true }));
+  assert.equal(text(card, ".main thead .aim"), "Game shot!");
+});
+
+test("the checkout training shows a dash without a target, and the game shot", () => {
+  const checkout = (attributes) => ({
+    "sensor.practice_target": {
+      state: "unknown",
+      attributes: { drill: "checkout", attempts: 1, successes: 0, ...attributes },
+    },
+  });
+  const { hass, card } = setup(checkout({}));
+  assert.equal(text(card, ".title"), "Checkout training");
+  assert.equal(text(card, ".main .big"), "–");
+  card.hass = update(hass, checkout({ remaining: 0, won: true, successes: 1 }));
+  assert.equal(text(card, ".main .big"), "0");
+  assert.equal(text(card, ".main .route"), "Game shot!");
+});
+
+// Sound is unlocked once per page, so the caller tests build on each other in order.
+
+test("the caller is off by default and says nothing", () => {
+  const { hass, card } = setup(game({ remaining: 501 }));
+  assert.equal($(card, ".caller-toggle"), null);
+  card.hass = update(hass, visit(T20, T20, T20));
+  assert.deepEqual(spoken, []);
+});
+
+test("a tap switches the caller on, even without Web Audio, and a second tap mutes it", () => {
+  const { hass, card } = setup(game({ remaining: 501 }), { caller: true });
+  const button = $(card, ".caller-toggle");
+  assert.deepEqual([button.getAttribute("aria-pressed"), button.textContent], ["false", "Tap to switch the caller on"]);
+  card.hass = update(hass, visit(T20, T20, T20));
+  assert.deepEqual(spoken, []);
+
+  tap(card);
+  assert.deepEqual(spoken.splice(0), [["Caller on", "en"]]);
+  assert.deepEqual([button.getAttribute("aria-pressed"), button.textContent], ["true", "Caller on"]);
+  card.hass = update(hass, visit());
+  card.hass = update(hass, visit(T20, T20, T20));
+  // Without an audio context the fanfare stays silent.
+  assert.deepEqual(said(), ["180"]);
+  assert.equal(contexts.length, 0);
+
+  tap(card);
+  assert.deepEqual(spoken.splice(0), [["cancel"]]);
+  assert.deepEqual([button.getAttribute("aria-pressed"), button.textContent], ["false", "Tap to switch the caller on"]);
+});
+
+test("the caller unlocks the prefixed audio context of Safari and plays a fanfare for 180", () => {
+  window.webkitAudioContext = FakeAudioContext;
+  const { hass, card } = setup(game({ remaining: 501 }), { caller: true });
+  tap(card);
+  assert.equal(contexts.length, 1);
+  assert.equal(contexts[0].resumed, 1);
+  card.hass = update(hass, visit(T20, T20, T20));
+  assert.deepEqual(said(), ["Caller on", "180"]);
+  const tones = contexts[0].tones;
+  assert.deepEqual(
+    tones.map((tone) => [tone.frequency.value, tone.type, Number(tone.start.toFixed(2)), Number(tone.stop.toFixed(2))]),
+    [
+      [523.25, "triangle", 2, 3],
+      [659.25, "triangle", 2.14, 3.14],
+      [783.99, "triangle", 2.28, 3.28],
+      [1046.5, "triangle", 2.42, 3.42],
+    ]
+  );
+  assert.deepEqual(tones[0].output.ramp, [
+    [0.0001, 2],
+    [0.25, 2.02],
+    [0.0001, 2.3],
+  ]);
+  assert.deepEqual(tones[3].output.ramp.at(-1), [0.0001, 3.32]);
+  assert.equal(tones[3].output.output, contexts[0].destination);
+  tap(card);
+  said();
+});
+
+test("later taps resume the one shared audio context", () => {
+  window.AudioContext = FakeAudioContext;
+  const { hass, card } = setup({}, { caller: true });
+  // Without a locale the caller speaks Home Assistant's language, or English.
+  card.hass = { ...hass, locale: undefined, language: "de" };
+  tap(card);
+  assert.equal(contexts.length, 1);
+  assert.equal(contexts[0].resumed, 2);
+  assert.deepEqual(spoken.splice(0), [["Caller an", "de"]]);
+  tap(card);
+  said();
+  card.hass = { ...hass, locale: undefined, language: undefined };
+  tap(card);
+  assert.deepEqual(spoken.splice(0), [["Caller on", "en"]]);
+  tap(card);
+  said();
+});
+
+test("the caller calls scores, what a player requires, busts and the match", () => {
+  const { hass, card } = setup(game({ remaining: 501 }), { caller: true });
+  tap(card);
+  said();
+  let next = update(hass, visit(T20, dart(5, 1), dart(1, 1)));
+  card.hass = next;
+  assert.deepEqual(said(), ["66"]);
+
+  next = update(next, { ...visit(), ...game({ player: 2, name: "Sam", remaining: 40, checkout: "D20" }) });
+  card.hass = next;
+  assert.deepEqual(said(), ["Sam, you require 40"]);
+
+  next = update(next, {
+    ...visit(dart(20, 1), dart(20, 1), dart(5, 1)),
+    ...game({ player: 2, name: "Sam", remaining: 40, checkout: "D20", bust: true }),
+  });
+  card.hass = next;
+  assert.deepEqual(said(), ["45", "No score"]);
+
+  next = update(next, {
+    ...visit(dart(20, 2)),
+    ...game({ player: 2, name: "Sam", remaining: 0, won: true, winner: 2 }),
+  });
+  card.hass = next;
+  assert.deepEqual(said(), ["Game shot, and the match, Sam!"]);
+  tap(card);
+  said();
+});
+
+test("alone, the caller calls the requirement without a name and the leg", () => {
+  const alone = (attributes) => game({ scores: [], name: null, ...attributes });
+  const { hass, card } = setup(alone({ remaining: 60 }), { caller: true }, { language: "de" });
+  tap(card);
+  assert.deepEqual(spoken.splice(0), [["Caller an", "de"]]);
+  let next = update(hass, alone({ remaining: 40, checkout: "D20" }));
+  card.hass = next;
+  assert.deepEqual(said(), ["Du brauchst 40"]);
+  next = update(next, { ...visit(dart(20, 2)), ...alone({ remaining: 0, won: true }) });
+  card.hass = next;
+  assert.deepEqual(said(), ["Game shot, und das Leg!"]);
+  tap(card);
+  said();
+});
+
+test("each kind of call can be switched off", () => {
+  const options = { caller: true, call_scores: false, call_checkouts: false, call_results: false, call_sounds: false };
+  const { hass, card } = setup(game({ remaining: 100 }), options);
+  tap(card);
+  said();
+  let next = update(hass, { ...visit(T20, T20, T20), ...game({ remaining: 100, bust: true }) });
+  card.hass = next;
+  next = update(next, { ...visit(), ...game({ player: 2, remaining: 40, checkout: "D20" }) });
+  card.hass = next;
+  card.hass = update(next, game({ player: 2, remaining: 0, won: true, winner: 2 }));
+  assert.deepEqual(said(), []);
+
+  const sounds = setup(game({ remaining: 501 }), { caller: true, call_sounds: false });
+  const before = contexts[0].tones.length;
+  sounds.card.hass = update(sounds.hass, visit(T20, T20, T20));
+  assert.deepEqual(said(), ["180"]);
+  assert.equal(contexts[0].tones.length, before);
+  tap(sounds.card);
+  said();
+});
+
+test("the preview neither unlocks nor speaks", () => {
+  const { hass, card } = setup(game({ remaining: 501 }), { caller: true });
+  card.preview = true;
+  tap(card);
+  assert.equal($(card, ".caller-toggle").getAttribute("aria-pressed"), "false");
+  assert.deepEqual(spoken, []);
+
+  // Unlocked by another card on the page, the preview still stays silent.
+  const live = setup({}, { caller: true }).card;
+  tap(live);
+  said();
+  card.hass = update(hass, visit(T20, T20, T20));
+  assert.deepEqual(spoken, []);
+  tap(live);
+  said();
+});
+
+test("without speech synthesis the caller stays silent", (t) => {
+  delete globalThis.SpeechSynthesisUtterance;
+  delete window.speechSynthesis;
+  t.after(() => {
+    globalThis.SpeechSynthesisUtterance = Utterance;
+    window.speechSynthesis = speech;
+  });
+  const { hass, card } = setup(game({ remaining: 501 }), { caller: true });
+  tap(card);
+  card.hass = update(hass, visit(dart(20, 1), dart(20, 1), dart(20, 1)));
+  assert.equal($(card, ".caller-toggle").getAttribute("aria-pressed"), "true");
+  window.speechSynthesis = speech;
+  card.hass = update(hass, visit(dart(20, 1), dart(20, 1), dart(19, 1)));
+  delete window.speechSynthesis;
+  tap(card);
+  assert.equal($(card, ".caller-toggle").getAttribute("aria-pressed"), "false");
+  assert.deepEqual(spoken, []);
+});
