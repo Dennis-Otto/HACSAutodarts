@@ -24,6 +24,7 @@ from .party import (
     distance_mm,
     make_party,
 )
+from .profiles import Profiles
 from .scoring import average as _average
 from .scoring import evaluate_visit, finishable, is_double, rate, score
 from .training import hit_key
@@ -126,6 +127,7 @@ class PracticeGame:
         # The training game played instead of X01, if any.
         self.drill: str | None = None
         self.drills: dict[str, Drill] = {kind: make_drill(kind) for kind in DRILLS}
+        self.profiles = Profiles()
         self._visit: list[dict[str, Any]] = []
         # Board positions of the visit's darts, where the board reports them.
         self._positions: list[tuple[float, float] | None] = []
@@ -190,6 +192,7 @@ class PracticeGame:
         ][:STATS_LEGS]
         total = saved.get("legs_total")
         self.legs_total = total if type(total) is int and total >= 0 else 0
+        self.profiles.restore(saved.get("profiles"))
         drills = saved.get("drills")
         for kind, drill in self.drills.items():
             state = drills.get(kind) if isinstance(drills, dict) else None
@@ -228,6 +231,7 @@ class PracticeGame:
             "legs_total": self.legs_total,
             "drill": self.drill,
             "drills": {kind: drill.stored() for kind, drill in self.drills.items()},
+            "profiles": self.profiles.stored(),
         }
 
     # -- settings --------------------------------------------------------------
@@ -436,6 +440,7 @@ class PracticeGame:
             player.match_points += scored
             if self.double_in and opening < darts and outcome != "bust":
                 player.opened = True
+            self.profiles.visit(self._name(self.current), scored)
             if outcome == "won":
                 self._book_leg()
             else:
@@ -814,7 +819,49 @@ class PracticeGame:
             ],
         }
 
+    def _leg_entries(self) -> list[dict[str, Any]]:
+        """Every player's numbers of the leg that just ended, for the profiles."""
+        entries = []
+        for index, player in enumerate(self.players):
+            entry: dict[str, Any] = {
+                "name": self._name(index),
+                "won": index == self.current,
+                "darts": player.darts,
+            }
+            if self.cricket:
+                entry["marks"] = player.marks_hit
+            elif not self.party:
+                entry.update(
+                    points=player.points,
+                    first9_points=player.first9_points,
+                    first9_darts=player.first9_darts,
+                    at_double=player.at_double,
+                    double_out=self.double_out,
+                    checkout=player.remaining if index == self.current else 0,
+                )
+            entries.append(entry)
+        return entries
+
+    def _match_entries(self) -> list[dict[str, Any]]:
+        """Every player's result of the match that just ended, for the history."""
+        entries = []
+        for index, player in enumerate(self.players):
+            entry: dict[str, Any] = {
+                "name": self._name(index),
+                "legs": player.legs,
+                "sets": player.sets,
+            }
+            if self.cricket:
+                entry["mpr"] = marks_per_round(player.match_marks, player.match_darts)
+            elif self.party:
+                entry["points"] = self.party.points[index]
+            else:
+                entry["average"] = _average(player.match_points, player.match_darts)
+            entries.append(entry)
+        return entries
+
     def _book_leg(self) -> None:
+        self.profiles.leg(self._kind(), self._leg_entries())
         winner = self.players[self.current]
         if self.cricket:
             record = {
@@ -844,6 +891,13 @@ class PracticeGame:
         if match:
             winner.remaining = 0
             self.winner = self.current
+            self.profiles.match(
+                self._kind(),
+                self._match_entries(),
+                self.current,
+                self.legs_to_win,
+                self.sets_to_win,
+            )
             return
         if winner.legs == 0:
             # A won set starts the next one from zero legs for everybody.

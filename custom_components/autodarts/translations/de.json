@@ -270,6 +270,12 @@
       },
       "training_streak": {
         "name": "Trainingsserie"
+      },
+      "player_profiles": {
+        "name": "Spielerprofile"
+      },
+      "last_match": {
+        "name": "Letztes Match"
       }
     },
     "button": {
@@ -493,6 +499,9 @@
     },
     "several_boards": {
       "message": "Es sind mehrere Autodarts-Boards eingerichtet. Wähle das Board."
+    },
+    "unknown_player": {
+      "message": "Es gibt kein Spielerprofil mit dem Namen {name}."
     }
   },
   "issues": {
@@ -556,6 +565,20 @@
         "bull_off": {
           "name": "Ausbullen",
           "description": "Die Spieler werfen zuerst aufs Bull; wer am nächsten liegt, beginnt das Match."
+        }
+      }
+    },
+    "delete_player": {
+      "name": "Spielerprofil löschen",
+      "description": "Vergisst Statistik, Bestleistungen und direkte Vergleiche eines Spielers. Der Match-Verlauf behält den Namen.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Board",
+          "description": "Nur bei mehreren Boards nötig."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Der Spielername, in beliebiger Groß- und Kleinschreibung."
         }
       }
     }

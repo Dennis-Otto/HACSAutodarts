@@ -62,6 +62,7 @@ CARDS = {
         {"type": "custom:autodarts-status-card", "grid_options": {"columns": "full"}}
     ],
     "scoreboard": [{"type": "custom:autodarts-scoreboard-card"}],
+    "players": [{"type": "custom:autodarts-players-card"}],
     "styles": [
         {
             "type": "custom:autodarts-card",
@@ -74,7 +75,14 @@ CARDS = {
 
 
 def dashboard() -> dict:
-    wide = {"board": 2, "training": 2, "status": 2, "scoreboard": 2, "styles": 1}
+    wide = {
+        "board": 2,
+        "training": 2,
+        "status": 2,
+        "scoreboard": 2,
+        "players": 2,
+        "styles": 1,
+    }
     return {
         "title": "Autodarts",
         "views": [

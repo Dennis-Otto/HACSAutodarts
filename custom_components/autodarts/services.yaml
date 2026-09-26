@@ -1,3 +1,16 @@
+delete_player:
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: autodarts
+    name:
+      required: true
+      example: "Dennis"
+      selector:
+        text:
+
 start_game:
   fields:
     config_entry_id:

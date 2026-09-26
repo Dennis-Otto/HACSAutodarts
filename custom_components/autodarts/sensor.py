@@ -331,6 +331,8 @@ async def async_setup_entry(
                 AutodartsPersonalBest(runtime.local),
                 AutodartsDailyDarts(runtime.local),
                 AutodartsStreak(runtime.local),
+                AutodartsPlayerProfiles(runtime.local),
+                AutodartsLastMatch(runtime.local),
             )
         )
         entities.extend(
@@ -844,6 +846,62 @@ class AutodartsStreak(AutodartsRecordsEntity):
         records = self._records()
         return {
             key: records[key] for key in ("best_streak", "trained_today", "last_day")
+        }
+
+
+class AutodartsPlayerProfiles(AutodartsLocalEntity, SensorEntity):
+    """Named players with their statistics and personal bests."""
+
+    _unrecorded_attributes = frozenset({"players"})
+    _attr_native_unit_of_measurement = "players"
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "player_profiles")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> int:
+        return len(self.coordinator.practice.profiles.players)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"players": self.coordinator.practice.profiles.snapshot()["players"]}
+
+
+class AutodartsLastMatch(AutodartsLocalEntity, SensorEntity):
+    """When the last match of several players ended, with the recent matches."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _unrecorded_attributes = frozenset({"matches", "head_to_head"})
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "last_match")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> datetime | None:
+        matches = self.coordinator.practice.profiles.matches
+        return dt_util.parse_datetime(matches[0]["ended"]) if matches else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        snapshot = self.coordinator.practice.profiles.snapshot()
+        last = snapshot["matches"][0] if snapshot["matches"] else {}
+        winner = last.get("winner")
+        players = last.get("players", [])
+        return {
+            "game": last.get("game"),
+            "winner": players[winner - 1].get("name")
+            if isinstance(winner, int) and 0 < winner <= len(players)
+            else None,
+            "matches": snapshot["matches"],
+            "head_to_head": snapshot["head_to_head"],
         }
 
 

@@ -37,6 +37,7 @@ CARDS = find("autodarts-card")
 TRAINING_CARDS = find("autodarts-training-card")
 STATUS_CARDS = find("autodarts-status-card")
 SCOREBOARD_CARDS = find("autodarts-scoreboard-card")
+PLAYERS_CARDS = find("autodarts-players-card")
 SCOREBOARD_STATE = f"""
 () => {{
   const root = ({SCOREBOARD_CARDS})()[0].shadowRoot;
@@ -624,6 +625,7 @@ def strategy(browser: Browser) -> None:
         ("live", CARDS, ".board svg"),
         ("scoreboard", SCOREBOARD_CARDS, ".main"),
         ("training", TRAINING_CARDS, ".heat-layer"),
+        ("players", PLAYERS_CARDS, ".players-card"),
         ("board", STATUS_CARDS, ".camera"),
     ):
         page.goto(f"{HA}/autodarts-auto/{view}")
@@ -708,6 +710,17 @@ def main() -> None:
                 ),
             ),
             (
+                "players editor",
+                lambda: editor(
+                    browser,
+                    "players",
+                    PLAYERS_CARDS,
+                    ".players-card",
+                    "autodarts-players-card-editor",
+                    3,
+                ),
+            ),
+            (
                 "scoreboard editor",
                 lambda: editor(
                     browser,
@@ -732,7 +745,7 @@ def main() -> None:
         "training heatmap, "
         "history and "
         "sessions, board status, the scoreboard, "
-        "the generated dashboard, all four editors and light theme."
+        "the generated dashboard, all five editors and light theme."
     )
 
 

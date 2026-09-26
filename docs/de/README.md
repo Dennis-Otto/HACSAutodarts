@@ -16,17 +16,19 @@
   - Board Manager 2 meldet sich selbst im Netzwerk; Home Assistant bietet das Board mit einem Klick an.
   - Alternativ suchst du nach deinen Boards oder gibst die Adresse ein.
 - **Beide Board-Manager-Generationen.** Unterstützt den klassischen Board Manager 1 und den Headless Board Manager 2. Nach einem Update stellt sich die Integration selbst um.
-- **Vier Dashboard-Karten**, die automatisch geladen werden:
+- **Fünf Dashboard-Karten**, die automatisch geladen werden:
   - Live-Dartscheibe mit blinkenden Treffern und Dart-Positionen;
   - Trainingskarte mit Trefferbild und Aufnahmeverlauf;
   - Board-Status mit Erkennung, Verbindungen und Kameras;
   - Anzeigetafel für ein Tablet oder einen Fernseher am Board, lesbar vom Abwurf aus;
+  - Spielerkarte mit Profilen, direkten Vergleichen und letzten Matches;
   - dazu ein automatisches Dashboard, das alles pro Board mit einem Klick anordnet.
 - **Trainingsanalyse:**
   - Trainingssessions, die mit dem ersten Dart oder bewusst beginnen, nach einer Pause enden und die letzten 20 Sessions behalten;
   - 3-Dart-Average, Aufnahmen, höchste Aufnahme, 100+/140+/180, Triple-Quote;
   - Treffer pro Feld, lokal gespeichert und über Neustarts hinweg erhalten.
-  - Bestleistungen mit einem Ereignis, sobald du eine übertriffst, eine Trainingsserie in Tagen und ein Tagesziel in Darts.
+  - Bestleistungen mit einem Ereignis, sobald du eine übertriffst, eine Trainingsserie in Tagen und ein Tagesziel in Darts;
+  - Spielerprofile mit Statistik und Bestleistungen pro Name, Match-Verlauf und direkten Vergleichen.
 - **Übungsspiele und Matches.** Spiele X01 (101 bis 1001, auf Wunsch mit Double-In und Ausbullen), Cricket oder die Partyspiele Shanghai, Halve-It und Killer am lokalen Board, allein oder als Match mit bis zu vier Spielern, Legs und Sätzen. Die Restpunkte zählen herunter, Überwerfen wird erkannt, und die Live-Karte zeigt Checkout-Weg, nächstes Zielfeld und eine Anzeigetafel, bei Cricket eine Kreidetafel mit Treffern, Punkten und Treffern pro Runde. Vier Trainingsspiele üben die Grundlagen: Around the Clock, Doppeltraining, Checkout-Training und Bob's 27. First-9-Average, Checkout-Quote, Doppelquote und Legs pro Tag zeigen deine Entwicklung.
 - **Automationen mit Bühnenatmosphäre.**
   - Board-Ereignisse für jeden Dart, jede Korrektur, jede Entnahme, jede abgeschlossene Aufnahme und jede Trainingssession.
@@ -86,7 +88,7 @@
 | --- | --- |
 | [Installation und Einrichtung](installation.md) | Voraussetzungen, HACS, manuelle Installation, Einrichtung, Cloud-Verknüpfung, Updates, Entfernen |
 | [Entitäten und Ereignisse](entitaeten.md) | Alle Entitäten, Board-Ereignisse, Zustände und Attribute |
-| [Dashboard-Karten](karten.md) | Live-Karte, Trainingskarte, Board-Status und Anzeigetafel mit allen Optionen |
+| [Dashboard-Karten](karten.md) | Live-Karte, Trainingskarte, Board-Status, Anzeigetafel und Spielerkarte mit allen Optionen |
 | [Automationen](automationen.md) | Blueprints, Board-Ereignisse und fertige Beispiele |
 | [Funktionsweise](funktionsweise.md) | Architektur, Aktualisierung, Trainingsregeln, Datenschutz |
 | [Fehlerbehebung](fehlerbehebung.md) | Meldungen, Reparaturen, Diagnose und Logs |
