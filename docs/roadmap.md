@@ -49,7 +49,7 @@ Released features, all of them working without the Autodarts cloud:
 | --- | --- |
 | **Player profiles and match history** | Statistics and personal bests for every player name, a history of matches with their results, and head-to-head records |
 | **More games** | Shanghai, Halve-It and Killer for several players; X01 with double in, start scores from 101 to 1001 and a bull-off for who starts |
-| **Caller in the scoreboard** | The screen at the board announces the score, the remaining score and the game shot itself, with sounds for a 180, without a text-to-speech setup |
+| **Caller in the scoreboard** | The screen at the board announces the score, the remaining score and the game shot itself, with sounds for a 180, without a text-to-speech setup. Off by default; the card options switch it on and choose what it calls |
 | **Doubles analysis** | The hit rate of every double from practice games and training games, and checkout routes that prefer your strongest doubles |
 | **Protocol library on PyPI** | The Board Manager protocol as a separate, tested library that the integration uses; a prerequisite for a possible Home Assistant core integration |
 

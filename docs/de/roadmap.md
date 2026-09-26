@@ -49,7 +49,7 @@ Enthalten, alles ohne Autodarts-Cloud:
 | --- | --- |
 | **Spielerprofile und Match-Verlauf** | Statistik und Bestleistungen für jeden Spielernamen, ein Verlauf der Matches mit Ergebnis und die Bilanz im direkten Vergleich |
 | **Mehr Spiele** | Shanghai, Halve-It und Killer für mehrere Spieler; X01 mit Double-In, Startwerten von 101 bis 1001 und Ausbullen, wer beginnt |
-| **Caller in der Anzeigetafel** | Der Bildschirm am Board sagt Punkte, Rest und Game shot selbst an, mit Klängen für eine 180, ohne Sprachausgabe einzurichten |
+| **Caller in der Anzeigetafel** | Der Bildschirm am Board sagt Punkte, Rest und Game shot selbst an, mit Klängen für eine 180, ohne Sprachausgabe einzurichten. Standardmäßig aus; die Kartenoptionen schalten ihn ein und legen fest, was er ansagt |
 | **Doppelanalyse** | Die Trefferquote jedes Doubles aus Übungs- und Trainingsspielen und Checkout-Wege, die deine stärksten Doubles bevorzugen |
 | **Protokoll-Bibliothek auf PyPI** | Das Board-Manager-Protokoll als eigene, getestete Bibliothek, die die Integration nutzt; Voraussetzung für einen möglichen Weg in den Home-Assistant-Kern |
 
