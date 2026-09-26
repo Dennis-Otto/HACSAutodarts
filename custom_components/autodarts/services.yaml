@@ -12,10 +12,16 @@ start_game:
         select:
           translation_key: game
           options:
+            - "101"
             - "301"
             - "501"
             - "701"
+            - "901"
+            - "1001"
             - cricket
+            - shanghai
+            - halve_it
+            - killer
             - around_the_clock
             - doubles
             - checkout
@@ -41,6 +47,14 @@ start_game:
           max: 7
           mode: box
     double_out:
+      required: false
+      selector:
+        boolean: {}
+    double_in:
+      required: false
+      selector:
+        boolean: {}
+    bull_off:
       required: false
       selector:
         boolean: {}

@@ -79,6 +79,8 @@ ENTITIES = {
     "darts_today": "sensor",
     "training_streak": "sensor",
     "training_daily_goal": "number",
+    "practice_double_in": "switch",
+    "practice_bull_off": "switch",
     "practice_legs_played": "sensor",
     "practice_first_9_average": "sensor",
     "practice_players": "number",

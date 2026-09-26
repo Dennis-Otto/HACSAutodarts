@@ -72,6 +72,8 @@ The practice game follows the darts of the current visit, including corrections,
 - **Statistics:** each finished leg adds one record for everybody at the board: the points and darts of the first nine darts, the darts thrown at a double and the checkout. Bust visits score nothing, also in the first nine. The statistics sensors use the last 10 records, so their history shows how you improve.
 - **Matches:** with several players, the turn passes when the darts are pulled, also after a bust. The player who starts the leg changes every leg. Winning *legs per set* legs wins a set and resets everybody's legs; winning *sets to win* sets wins the match. Each player's average covers the whole match.
 - **Cricket:** a dart adds its marks to its number until three close it; further marks score the number's value while another player has it open. The win is checked after every dart, so a closing dart wins at once when the points are enough, and later darts of the visit do not count. Marks per round count the marks that closed a number or scored, per three darts.
+- **Party games:** Shanghai and Killer are decided by the dart that makes the Shanghai or takes the last life, and announce the win at once; the end of the last round in Shanghai and Halve-It is decided when the darts are pulled. Halve-It halves a visit without a hit on the target also when fewer than three darts were thrown.
+- **Bull-off:** only the first dart of each player's visit counts. Its distance comes from the position the board reports, relative to the outer edge of the double ring (170 mm).
 - **Storage:** the game, the players with their scores and marks, the match format and the last 10 legs are saved together with the training session.
 
 ## Camera health

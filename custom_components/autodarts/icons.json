@@ -284,6 +284,12 @@
       },
       "practice_double_out": {
         "default": "mdi:numeric-2-box-outline"
+      },
+      "practice_double_in": {
+        "default": "mdi:login-variant"
+      },
+      "practice_bull_off": {
+        "default": "mdi:bullseye"
       }
     },
     "text": {

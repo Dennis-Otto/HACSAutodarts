@@ -71,7 +71,30 @@ EVENT_TYPES = [
     "checkout_attempt",
     "personal_best",
     "daily_goal_reached",
+    "bull_off_won",
 ]
+
+
+def _positions(state: dict[str, Any], count: int) -> list[tuple[float, float] | None]:
+    """Board positions of the last darts on the board, which make the visit."""
+    throws = state.get("throws")
+    if not isinstance(throws, list) or len(throws) < count:
+        return [None] * count
+    positions: list[tuple[float, float] | None] = []
+    for dart in throws[len(throws) - count :]:
+        coords = dart.get("coords") if isinstance(dart, dict) else None
+        x = coords.get("x") if isinstance(coords, dict) else None
+        y = coords.get("y") if isinstance(coords, dict) else None
+        if (
+            isinstance(x, int | float)
+            and isinstance(y, int | float)
+            and not isinstance(x, bool)
+            and not isinstance(y, bool)
+        ):
+            positions.append((float(x), float(y)))
+        else:
+            positions.append(None)
+    return positions
 
 
 def _lifecycle(state: dict[str, Any]) -> tuple[object, str]:
@@ -295,8 +318,9 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if kind == "visit_completed":
                     for turn, details in self._recorded(self.practice.finish_visit()):
                         self._emit(turn, details, source)
+            visit = self.training.visit()
             for kind, attributes in self._recorded(
-                self.practice.track(self.training.visit())
+                self.practice.track(visit, _positions(state, len(visit)))
             ):
                 self._emit(kind, attributes, source)
             if previous is not None:
@@ -665,8 +689,11 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.practice.new_leg()
         await self._async_training([])
 
-    async def async_set_double_out(self, enabled: bool) -> None:
-        self.practice.double_out = enabled
+    async def async_set_practice_option(self, option: str, enabled: bool) -> None:
+        """Double out applies from now on; double in and the bull-off start a new match."""
+        setattr(self.practice, option, enabled)
+        if option != "double_out":
+            self.practice.new_match()
         await self._async_training([])
 
     async def async_new_match(self) -> None:
@@ -695,11 +722,18 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         legs: int | None = None,
         sets: int | None = None,
         double_out: bool | None = None,
+        double_in: bool | None = None,
+        bull_off: bool | None = None,
     ) -> None:
         """Set up a practice game in one step; unset values stay as they are."""
         practice = self.practice
-        if double_out is not None:
-            practice.double_out = double_out
+        for option, value in (
+            ("double_out", double_out),
+            ("double_in", double_in),
+            ("bull_off", bull_off),
+        ):
+            if value is not None:
+                setattr(practice, option, value)
         if names:
             for index in range(len(practice.names)):
                 practice.set_name(index, names[index] if index < len(names) else "")

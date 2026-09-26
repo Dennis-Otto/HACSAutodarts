@@ -418,6 +418,62 @@ def scoreboard_animation(page: Page) -> None:
     game(page, "off")
 
 
+def killer_animation(page: Page) -> None:
+    """Killer for three on the scoreboard: numbers, killers, lives, the last one left."""
+    pull_darts()
+    for index, name in enumerate(("Alex", "Sam", "Kim")):
+        page.evaluate(SET_NAME, [index, name])
+    players(page, 3)
+    for key in ("practice_legs", "practice_sets"):
+        page.evaluate(CALL_SERVICE, ["number", "set_value", key, {"value": 1}])
+    game(page, "killer")
+    board = page.context.new_page()
+    board.set_viewport_size({"width": 1280, "height": 800})
+    board.goto(f"{HA}/autodarts-auto/scoreboard")
+    tag = "autodarts-scoreboard-card"
+    wait_card(board, "r.querySelectorAll('.player').length === 3", tag, 60000)
+    board.wait_for_timeout(1500)
+    recorder = Recorder(board, tag)
+    recorder.shot(1400)
+    detail = "r.querySelectorAll('.player .details')[{0}]?.textContent.includes('{1}')"
+    lives = "r.querySelectorAll('.player .big')[{0}]?.textContent === '{1}'"
+    # Each visit with what the scoreboard shows after the darts are pulled.
+    visits = [
+        (["S7"], detail.format(0, "7")),
+        (["S12"], detail.format(1, "12")),
+        (["S3"], detail.format(2, "3")),
+        (["D7", "D12", "D12"], lives.format(1, "♥")),
+        (["S1"], detail.format(2, "3")),
+        (["D3"], detail.format(2, "Killer")),
+        (["D12", "D3", "D3"], lives.format(2, "♥")),
+        (["S5"], lives.format(2, "♥")),
+    ]
+    for names, shown in visits:
+        thrown: list[dict] = []
+        for name in names:
+            thrown.append(at(name))
+            control({"event": "Throw detected", "throws": thrown})
+            board.wait_for_timeout(500)
+            if len(names) > 1:
+                recorder.shot(700)
+        pull_darts()
+        wait_card(board, shown, tag)
+        board.wait_for_timeout(400)
+        recorder.shot(1000)
+    control({"event": "Throw detected", "throws": [at("D3")]})
+    wait_card(board, lives.format(2, "✕"), tag)
+    board.wait_for_timeout(300)
+    recorder.shot(1000)
+    pull_darts()
+    wait_card(board, "!r.querySelector('.banner').hidden", tag)
+    board.wait_for_timeout(300)
+    recorder.shot(2600)
+    recorder.save("killer")
+    board.close()
+    players(page, 1)
+    game(page, "off")
+
+
 def scoreboard_page(page: Page) -> Page:
     """The scoreboard view of the generated dashboard, as on a tablet at the board."""
     board = page.context.new_page()
@@ -680,6 +736,7 @@ def main() -> None:
         cricket_animation(page)
         training_game_animation(page)
         scoreboard_animation(page)
+        killer_animation(page)
         games.close()
         browser.close()
 

@@ -187,6 +187,18 @@ const TEXT = {
     cricket: "Cricket",
     cricket_mpr: "MPR",
     cricket_points: "Points",
+    bull_off: "Bull-off",
+    bull_off_hint: "Closest to the bull starts",
+    party_shanghai: "Shanghai",
+    party_halve_it: "Halve-It",
+    party_killer: "Killer",
+    any_double: "Any double",
+    any_treble: "Any treble",
+    killer_choose: "Throw for your number",
+    killer_hunt: "Killer – hit the others' doubles",
+    needs_players: "Killer needs at least two players",
+    double_in_needed: "Start with a double",
+    out: "out",
     // Scoreboard card
     view_scoreboard: "Scoreboard",
     full_height: "Fill the screen",
@@ -354,6 +366,18 @@ const TEXT = {
     cricket: "Cricket",
     cricket_mpr: "MPR",
     cricket_points: "Punkte",
+    bull_off: "Ausbullen",
+    bull_off_hint: "Wer am nächsten am Bull liegt, beginnt",
+    party_shanghai: "Shanghai",
+    party_halve_it: "Halve-It",
+    party_killer: "Killer",
+    any_double: "Beliebiges Double",
+    any_treble: "Beliebiges Triple",
+    killer_choose: "Wirf für deine Zahl",
+    killer_hunt: "Killer – triff die Doubles der anderen",
+    needs_players: "Killer braucht mindestens zwei Spieler",
+    double_in_needed: "Mit einem Double beginnen",
+    out: "raus",
     view_scoreboard: "Anzeigetafel",
     full_height: "Bildschirm füllen",
     show_visit: "Aktuelle Aufnahme anzeigen",
@@ -909,6 +933,8 @@ function practiceView(state) {
     winner: number(attributes.winner),
     legsToWin: number(attributes.legs_to_win) ?? 1,
     setsToWin: number(attributes.sets_to_win) ?? 1,
+    // Without double in, every player is in from the first dart.
+    opened: attributes.opened !== false,
     scores,
   };
 }
@@ -1006,14 +1032,104 @@ function cricketBeds(cricket) {
   return hitBeds(cricket.target);
 }
 
+const PARTY_GAMES = ["shanghai", "halve_it", "killer"];
+const BOARD_NUMBERS = Array.from({ length: 20 }, (_, index) => index + 1);
+
+// A party game of the remaining-score sensor, which has no state then.
+function partyView(state) {
+  const attributes = state?.attributes || {};
+  if (!state || state.state === "unavailable" || !PARTY_GAMES.includes(attributes.game)) return null;
+  const number = (value) => (Number.isFinite(value) ? value : null);
+  const name = (value) => (typeof value === "string" && value ? value : null);
+  const scores = (Array.isArray(attributes.scores) ? attributes.scores : [])
+    .filter((score) => score && Number.isInteger(score.player))
+    .map((score) => ({
+      player: score.player,
+      name: name(score.name),
+      points: number(score.points) ?? 0,
+      legs: number(score.legs) ?? 0,
+      sets: number(score.sets) ?? 0,
+      number: Number.isInteger(score.number) ? score.number : null,
+      lives: Number.isInteger(score.lives) ? score.lives : null,
+      killer: score.killer === true,
+    }));
+  return {
+    kind: attributes.game,
+    round: number(attributes.round),
+    rounds: number(attributes.rounds),
+    target: typeof attributes.target === "string" && attributes.target ? attributes.target : null,
+    phase: attributes.phase === "choose" ? "choose" : "play",
+    needsPlayers: number(attributes.needs_players),
+    points: number(attributes.points) ?? 0,
+    won: attributes.won === true,
+    darts: number(attributes.darts) ?? 0,
+    player: number(attributes.player) ?? 1,
+    name: name(attributes.name),
+    winner: number(attributes.winner),
+    legsToWin: number(attributes.legs_to_win) ?? 1,
+    setsToWin: number(attributes.sets_to_win) ?? 1,
+    scores,
+  };
+}
+
+// The bull-off before a match, while it runs.
+function bullOffView(state) {
+  const bullOff = state?.attributes?.bull_off;
+  if (!state || state.state === "unavailable" || !bullOff || typeof bullOff !== "object") return null;
+  const name = (value) => (typeof value === "string" && value ? value : null);
+  return {
+    player: Number.isInteger(bullOff.player) ? bullOff.player : 1,
+    name: name(bullOff.name),
+    throws: (Array.isArray(bullOff.throws) ? bullOff.throws : [])
+      .filter((item) => item && Number.isInteger(item.player))
+      .map((item) => ({
+        player: item.player,
+        name: name(item.name),
+        distance: Number.isFinite(item.distance) ? item.distance : null,
+      })),
+  };
+}
+
+// Beds to aim at in a party game: a number, any double or treble, the bull, or
+// the doubles a killer hunts.
+function partyBeds(party) {
+  if (!party || party.won || party.winner !== null || party.needsPlayers) return [];
+  if (party.kind === "killer") {
+    if (party.phase === "choose") return [];
+    if (party.target) return hitBeds(party.target);
+    return party.scores
+      .filter((score) => score.player !== party.player && score.lives > 0 && score.number)
+      .flatMap((score) => hitBeds(`D${score.number}`));
+  }
+  const target = party.target;
+  if (!target) return [];
+  if (target === "BULL") return [...hitBeds("BULL"), ...hitBeds("25")];
+  if (target === "D") return [...BOARD_NUMBERS.flatMap((n) => hitBeds(`D${n}`)), ...hitBeds("BULL")];
+  if (target === "T") return BOARD_NUMBERS.flatMap((n) => hitBeds(`T${n}`));
+  return ["S", "T", "D"].flatMap((bed) => hitBeds(`${bed}${target}`));
+}
+
+// How a target reads: "Any double" for D, "Bull" for BULL, D7 for D7.
+function targetLabel(hass, target) {
+  if (target === "D") return translate(hass, "any_double");
+  if (target === "T") return translate(hass, "any_treble");
+  return hitLabel(hass, target);
+}
+
+const hearts = (lives) => (lives > 0 ? "♥".repeat(lives) : "✕");
+
 // Scoreboard -----------------------------------------------------------------
 
 // What the scoreboard shows: a training game, Cricket, X01, or the session between games.
 function scoreboardView(stateOf) {
   const drill = drillView(stateOf("drill"));
   if (drill) return { mode: "drill", drill };
+  const bullOff = bullOffView(stateOf("practice"));
+  if (bullOff) return { mode: "bulloff", bullOff };
   const cricket = cricketView(stateOf("practice"));
   if (cricket) return { mode: "cricket", cricket };
+  const party = partyView(stateOf("practice"));
+  if (party) return { mode: "party", party };
   const practice = practiceView(stateOf("practice"));
   if (practice) return { mode: "x01", practice };
   return { mode: "idle" };
@@ -1048,6 +1164,7 @@ function x01Board(practice, ui) {
     if (active && practice.won) route = `<span class="note won">${escapeHtml(t("game_shot"))}</span>`;
     else if (active && practice.bust) route = `<span class="note bust">${escapeHtml(t("bust"))}</span>`;
     else if (active && practice.route.length) route = bedChips(ui, practice.route);
+    else if (active && !practice.opened) route = `<span class="note">${escapeHtml(t("double_in_needed"))}</span>`;
     else if (active && score.remaining <= 170) route = `<span class="note">${escapeHtml(t("no_checkout"))}</span>`;
     const state = practice.winner === score.player ? " winner" : active && match ? " active" : "";
     return (
@@ -1057,6 +1174,53 @@ function x01Board(practice, ui) {
     );
   });
   return `<div class="players n${scores.length}">${tiles.join("")}</div>`;
+}
+
+function partyBoard(party, ui) {
+  const { t, label } = ui;
+  const match = party.scores.length > 1;
+  const killer = party.kind === "killer";
+  const tiles = party.scores.map((score) => {
+    const active = party.winner === null && score.player === party.player;
+    const details = [
+      match && party.legsToWin > 1 ? `${t("score_legs")} ${score.legs}` : "",
+      match && party.setsToWin > 1 ? `${t("score_sets")} ${score.sets}` : "",
+      killer && score.number ? String(score.number) : "",
+      killer && score.killer ? t("party_killer") : "",
+      killer && score.lives === 0 ? t("out") : "",
+    ];
+    let route = "";
+    if (active && party.won) route = `<span class="note won">${escapeHtml(t("game_shot"))}</span>`;
+    else if (active && party.needsPlayers) route = `<span class="note">${escapeHtml(t("needs_players"))}</span>`;
+    else if (active && killer && party.phase === "choose") {
+      route = `<span class="note">${escapeHtml(t("killer_choose"))}</span>`;
+    } else if (active && party.target) {
+      route = `<span class="bed">${escapeHtml(party.target === "D" || party.target === "T" ? t(party.target === "D" ? "any_double" : "any_treble") : label(party.target))}</span>`;
+    } else if (active && killer && score.killer) route = `<span class="note">${escapeHtml(t("killer_hunt"))}</span>`;
+    const state =
+      party.winner === score.player ? " winner" : active && match ? " active" : killer && score.lives === 0 ? " out" : "";
+    const big = killer ? hearts(score.lives ?? 0) : String(score.points);
+    return (
+      `<div class="player${state}"><div class="name">${escapeHtml(playerName(ui, score, match))}</div>` +
+      `<div class="big${killer ? " lives" : ""}">${escapeHtml(big)}</div><div class="route">${route}</div>` +
+      `<div class="details">${escapeHtml(details.filter(Boolean).join(" · "))}</div></div>`
+    );
+  });
+  return `<div class="players n${Math.max(party.scores.length, 1)}">${tiles.join("")}</div>`;
+}
+
+function bullOffBoard(bullOff, ui) {
+  const { format } = ui;
+  const match = bullOff.throws.length > 1;
+  const tiles = bullOff.throws.map((item) => {
+    const active = item.player === bullOff.player;
+    const distance = item.distance === null ? "–" : `${format(item.distance, 0)} mm`;
+    return (
+      `<div class="player${active ? " active" : ""}"><div class="name">${escapeHtml(playerName(ui, item, match))}</div>` +
+      `<div class="big">${escapeHtml(distance)}</div><div class="route"></div><div class="details"></div></div>`
+    );
+  });
+  return `<div class="players n${Math.max(bullOff.throws.length, 1)}">${tiles.join("")}</div>`;
 }
 
 function cricketBoard(cricket, ui) {
@@ -1169,7 +1333,10 @@ function scoreboardHtml(view, ui) {
   if (view.mode === "idle") {
     return { title: ui.name, meta: t("training"), banner: "", main: idleBoard(ui.stats, ui) };
   }
-  const game = view.mode === "cricket" ? view.cricket : view.practice;
+  if (view.mode === "bulloff") {
+    return { title: t("bull_off"), meta: t("bull_off_hint"), banner: "", main: bullOffBoard(view.bullOff, ui) };
+  }
+  const game = { cricket: view.cricket, party: view.party }[view.mode] ?? view.practice;
   const match = game.scores.length > 1;
   const meta = match
     ? [
@@ -1180,11 +1347,17 @@ function scoreboardHtml(view, ui) {
         .join(" · ")
     : "";
   const winner = game.scores.find((score) => score.player === game.winner);
+  const round = view.mode === "party" && game.rounds ? `${t("drill_round")} ${game.round}/${game.rounds}` : "";
+  const titles = {
+    cricket: t("cricket"),
+    party: view.party ? t(`party_${view.party.kind}`) : "",
+  };
+  const boards = { cricket: cricketBoard, party: partyBoard };
   return {
-    title: view.mode === "cricket" ? t("cricket") : `${t("practice")} ${game.game ?? ""}`.trim(),
-    meta,
+    title: titles[view.mode] ?? `${t("practice")} ${game.game ?? ""}`.trim(),
+    meta: [round, meta].filter(Boolean).join(" · "),
     banner: winner ? `${playerName(ui, winner, true)} ${t("score_winner")}` : "",
-    main: view.mode === "cricket" ? cricketBoard(view.cricket, ui) : x01Board(view.practice, ui),
+    main: (boards[view.mode] ?? x01Board)(game, ui),
   };
 }
 
@@ -1243,6 +1416,8 @@ function dashboardStrategy(hass, config = {}) {
       "number.practice_legs",
       "number.practice_sets",
       "switch.practice_double_out",
+      "switch.practice_double_in",
+      "switch.practice_bull_off",
       "button.practice_new_leg",
       "button.practice_new_match",
     ]
@@ -1487,6 +1662,8 @@ const CSS = `${BASE_CSS}
     gap: 12px; padding: 4px 8px; border-radius: 8px;
   }
   .player-score.active { background: color-mix(in srgb, var(--ad-accent) 18%, transparent); }
+  .player-score.out { opacity: .45; }
+  .player-score .rest.lives { color: ${STATUS_COLORS.problem}; letter-spacing: .05em; }
   .player-score.winner { background: color-mix(in srgb, ${STATUS_COLORS.ready} 20%, transparent); }
   .player-score .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .player-score .rest { font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -1743,6 +1920,8 @@ const SCOREBOARD_CSS = `${BASE_CSS}
   .player.winner {
     border-color: ${STATUS_COLORS.ready}; background: color-mix(in srgb, ${STATUS_COLORS.ready} 14%, transparent);
   }
+  .player.out { opacity: .45; }
+  .big.lives { color: ${STATUS_COLORS.problem}; letter-spacing: 0; }
   .player .name {
     max-width: 100%; min-height: 1.2em; font-size: clamp(16px, 2.8cqi, 40px); font-weight: 700;
     color: var(--primary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -2237,11 +2416,19 @@ function createElements(Base) {
         value.textContent = `${dart.number * dart.multiplier} ${t("points")}`;
       });
 
-      const drill = c.show_practice ? drillView(this._state("drill")) : null;
-      const cricket = c.show_practice && !drill ? cricketView(this._state("practice")) : null;
-      const practice = c.show_practice && !drill && !cricket ? practiceView(this._state("practice")) : null;
-      this._updatePractice(practice, drill, cricket);
-      this._updateBoard(darts, practice, drill, cricket);
+      // The practice sensor carries one game at a time; a training game comes first.
+      const views = {};
+      if (c.show_practice) {
+        const game = this._state("practice");
+        views.drill = drillView(this._state("drill"));
+        views.bullOff = views.drill ? null : bullOffView(game);
+        views.cricket = views.drill || views.bullOff ? null : cricketView(game);
+        views.party = views.drill || views.bullOff || views.cricket ? null : partyView(game);
+        views.practice =
+          views.drill || views.bullOff || views.cricket || views.party ? null : practiceView(game);
+      }
+      this._updatePractice(views);
+      this._updateBoard(darts, views);
       this._updateStats();
       this._updateChips();
       this._updateControls(status);
@@ -2354,16 +2541,116 @@ function createElements(Base) {
       this._setHtml(el.scoreboard, `<table class="cricket-grid">${head}<tbody>${rows.join("")}</tbody></table>`);
     }
 
-    _updatePractice(practice, drill = null, cricket = null) {
+    _updateBullOff(bullOff) {
+      const el = this._el;
+      const t = (key) => this._t(key);
+      const who = (number, name) => name || `${t("score_player")} ${number}`;
+      el.practiceTitle.textContent = t("bull_off");
+      el.practiceMeta.textContent = `${who(bullOff.player, bullOff.name)} ${t("score_turn")}`;
+      el.practiceRemaining.textContent = "Bull";
+      el.practiceRoute.title = "";
+      this._setHtml(el.practiceRoute, `<span class="muted">${escapeHtml(t("bull_off_hint"))}</span>`);
+      if (!el.scoreboard) return;
+      el.scoreboard.hidden = false;
+      this._setHtml(
+        el.scoreboard,
+        bullOff.throws
+          .map((item) => {
+            const distance = item.distance === null ? "–" : `${this._format(item.distance, 0)} mm`;
+            return (
+              `<div class="player-score${item.player === bullOff.player ? " active" : ""}">` +
+              `<span class="who">${escapeHtml(who(item.player, item.name))}</span><span class="muted"></span>` +
+              `<span class="rest">${escapeHtml(distance)}</span></div>`
+            );
+          })
+          .join("")
+      );
+    }
+
+    _updateParty(party) {
+      const el = this._el;
+      const t = (key) => this._t(key);
+      const who = (number, name) => name || `${t("score_player")} ${number}`;
+      const match = party.scores.length > 1;
+      const killer = party.kind === "killer";
+      el.practiceTitle.textContent = t(`party_${party.kind}`);
+      el.practiceMeta.textContent = [
+        party.rounds ? `${t("drill_round")} ${party.round}/${party.rounds}` : "",
+        match && party.winner === null ? `${who(party.player, party.name)} ${t("score_turn")}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      const current = party.scores.find((score) => score.player === party.player);
+      el.practiceRemaining.textContent = killer
+        ? party.phase === "choose"
+          ? "?"
+          : String(current?.number ?? "–")
+        : String(party.points);
+      const note = (text, kind = "") =>
+        `<span class="${kind ? `practice-note ${kind}` : "muted"}">${escapeHtml(text)}</span>`;
+      let html = party.target
+        ? `<span class="route-bed">${escapeHtml(targetLabel(this._hass, party.target))}</span>`
+        : "";
+      if (party.needsPlayers) html = note(t("needs_players"));
+      else if (party.winner !== null) {
+        const winner = party.scores.find((score) => score.player === party.winner);
+        html = note(`${who(party.winner, winner?.name ?? null)} ${t("score_winner")}`, "won");
+      } else if (party.won) html = note(t("game_shot"), "won");
+      else if (killer && party.phase === "choose") html = note(t("killer_choose"));
+      else if (killer && current?.killer) html = note(t("killer_hunt"));
+      el.practiceRoute.title = "";
+      this._setHtml(el.practiceRoute, html);
+      if (!el.scoreboard) return;
+      el.scoreboard.hidden = !match;
+      this._setHtml(
+        el.scoreboard,
+        match
+          ? party.scores
+              .map((score) => {
+                const details = [
+                  party.legsToWin > 1 ? `${t("score_legs")} ${score.legs}` : "",
+                  party.setsToWin > 1 ? `${t("score_sets")} ${score.sets}` : "",
+                  killer && score.number ? String(score.number) : "",
+                  killer && score.killer ? t("party_killer") : "",
+                ].filter(Boolean);
+                const state =
+                  party.winner === score.player
+                    ? " winner"
+                    : party.winner === null && party.player === score.player
+                      ? " active"
+                      : killer && score.lives === 0
+                        ? " out"
+                        : "";
+                const rest = killer ? hearts(score.lives ?? 0) : String(score.points);
+                return (
+                  `<div class="player-score${state}"><span class="who">${escapeHtml(who(score.player, score.name))}</span>` +
+                  `<span class="muted">${escapeHtml(details.join(" · "))}</span>` +
+                  `<span class="rest${killer ? " lives" : ""}">${escapeHtml(rest)}</span></div>`
+                );
+              })
+              .join("")
+          : ""
+      );
+    }
+
+    _updatePractice({ practice = null, drill = null, cricket = null, party = null, bullOff = null } = {}) {
       const el = this._el;
       if (!el.practice) return;
-      el.practice.hidden = !practice && !drill && !cricket;
+      el.practice.hidden = !practice && !drill && !cricket && !party && !bullOff;
       if (drill) {
         this._updateDrill(drill);
         return;
       }
+      if (bullOff) {
+        this._updateBullOff(bullOff);
+        return;
+      }
       if (cricket) {
         this._updateCricket(cricket);
+        return;
+      }
+      if (party) {
+        this._updateParty(party);
         return;
       }
       if (!practice) return;
@@ -2420,6 +2707,7 @@ function createElements(Base) {
         )}</span>`;
       } else if (practice.won) html = `<span class="practice-note won">${escapeHtml(t("game_shot"))}</span>`;
       else if (practice.bust) html = `<span class="practice-note bust">${escapeHtml(t("bust"))}</span>${route}`;
+      else if (!practice.opened) html = `<span class="muted">${escapeHtml(t("double_in_needed"))}</span>`;
       else if (!route && practice.remaining <= 170) {
         html = `<span class="muted">${escapeHtml(t("no_checkout"))}</span>`;
       }
@@ -2427,7 +2715,7 @@ function createElements(Base) {
       this._setHtml(el.practiceRoute, html);
     }
 
-    _updateBoard(darts, practice = null, drill = null, cricket = null) {
+    _updateBoard(darts, { practice = null, drill = null, cricket = null, party = null, bullOff = null } = {}) {
       const c = this._config;
       const latest = darts.length - 1;
       const highlighted =
@@ -2446,11 +2734,18 @@ function createElements(Base) {
           .join("")
       );
       // The next bed of the checkout route, where the player aims now.
+      const doubles = [...BOARD_NUMBERS.flatMap((n) => hitBeds(`D${n}`)), ...hitBeds("BULL")];
       const aim = drill
         ? drillBeds(drill)
-        : cricket
-          ? cricketBeds(cricket)
-          : practice && !practice.won && practice.winner === null
+        : bullOff
+          ? [...hitBeds("BULL"), ...hitBeds("25")]
+          : cricket
+            ? cricketBeds(cricket)
+            : party
+              ? partyBeds(party)
+              : practice && !practice.opened && practice.winner === null
+                ? doubles
+                : practice && !practice.won && practice.winner === null
           ? hitBeds(practice.route[0] ?? "")
           : [];
       this._setHtml(
@@ -3681,6 +3976,9 @@ export {
   parseSegment,
   pastSessions,
   practiceView,
+  partyBeds,
+  partyView,
+  bullOffView,
   scoreboardHtml,
   scoreboardView,
   cricketBeds,
