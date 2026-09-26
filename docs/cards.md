@@ -91,6 +91,7 @@ highlight_color: "#00e5ff"
 </picture>
 
 - **3-dart average**, the number of darts and visits, and when the session started.
+- **Streak and daily goal:** the [training streak](entities.md#personal-bests-streak-and-daily-goal) in days and today's darts, with a bar towards the daily goal that turns green when you reach it.
 - **Heatmap:**
   - Every bed is coloured by how often you hit it, from blue (rarely) to red (most often).
   - Hover a bed for its count and share.
@@ -174,7 +175,7 @@ show_system: false
 - **X01:** a tile for every player with the remaining score, legs, sets and average. The player at the board is outlined and gets the checkout route, a bust or the game shot.
 - **Cricket:** a large chalkboard with the marks of every player, the points and the marks per round; the next open number is shown below.
 - **Training games:** the target in large type, with the progress, darts and hit rate (Bob's 27: points and round; checkout training: the score, the route and the checkout rate).
-- **Between games:** the score of the current visit together with darts, 3-dart average, highest visit and 180s of the training session.
+- **Between games:** the score of the current visit together with darts, 3-dart average, highest visit and 180s of the training session, the training streak and today's darts towards the daily goal.
 - **Winner:** a banner names the winner of the match until the next dart.
 - **Visit:** the three darts of the current visit and its score along the bottom.
 
@@ -210,7 +211,7 @@ For every board, the dashboard gets four views, which update themselves when you
 | --- | --- |
 | **Live** | The live card across the full width, the practice game controls and the player names |
 | **Scoreboard** | The [scoreboard card](#scoreboard-card) across the whole screen, for a tablet or TV at the board |
-| **Training** | The training card, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly), the 3-dart average of the last 7 days, practice legs per day, and the first 9 average and checkout rate of the practice game |
+| **Training** | The training card, the daily goal with darts today, the streak and the last personal best, darts per day for the last 30 days (from long-term statistics, which Home Assistant compiles hourly), the 3-dart average of the last 7 days, practice legs per day, and the first 9 average and checkout rate of the practice game |
 | **Board** | The board status card, the board settings and the Board Manager update |
 
 <img src="images/en/dashboard-strategy.png" alt="The training view of the automatic dashboard" width="760">

@@ -40,13 +40,28 @@ async def async_get_config_entry_diagnostics(
         ),
         "practice_game": (
             {
-                "game": local.practice.game or None,
+                "game": (
+                    "cricket"
+                    if local.practice.cricket
+                    else local.practice.drill or local.practice.game or None
+                ),
                 "double_out": local.practice.double_out,
                 "players": len(local.practice.players),
                 "legs_to_win": local.practice.legs_to_win,
                 "sets_to_win": local.practice.sets_to_win,
                 "stored_legs": len(local.practice.legs),
                 "legs_total": local.practice.legs_total,
+            }
+            if local
+            else None
+        ),
+        # Counts only: the bests carry the names of players.
+        "records": (
+            {
+                "stored_bests": len(local.records.bests),
+                "streak": local.records.streak,
+                "best_streak": local.records.best_streak,
+                "daily_goal": local.records.goal,
             }
             if local
             else None
