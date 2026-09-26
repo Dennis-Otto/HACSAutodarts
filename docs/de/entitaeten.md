@@ -161,7 +161,7 @@ Während die Erkennung gestoppt ist, startet, stoppt oder kalibriert, sind diese
 
 | Entität | Typ | Beschreibung |
 | --- | --- | --- |
-| Kamera *N* | Kamera, *Deaktiviert* | Ein Standbild einer Board-Kamera, etwa für eine Bildkarte. Einen Videostream bietet der Board Manager nicht. |
+| Kamera *N* | Kamera, *Deaktiviert* | Eine Board-Kamera, etwa für eine Bildkarte oder den Kameradialog. Mit **BM 2** leitet die Liveansicht den Kamerastream des Boards über Home Assistant weiter; läuft der Stream nicht, und mit BM 1, zeigt sie Standbilder. Um eine Kamera zu zeigen, startet oder stoppt die Integration weder die Erkennung noch die Streams. |
 
 ## Cloud-Spieldaten (optional)
 

@@ -99,4 +99,4 @@ Die Entwickler-Dokumentation gibt es auf Englisch: [Development](../development.
 - **Cloud-Spieldaten sind noch nicht verfügbar.** Sie brauchen eine OAuth-Client-ID, die Autodarts für diese Integration vergibt; sie ist beantragt, aber noch nicht enthalten. Alles Lokale funktioniert ohne sie.
 - **Keine Spiellogik im Training.** Das Training zählt die Darts, die das Board erkennt. Spieler, Legs, Überwerfen oder Checkouts kennt es nicht.
 - **Board-Manager-Updates installierst du auf dem Board-PC.** Die Update-Entität zeigt neue Versionen von Board Manager 2 nur an.
-- **Nur Standbilder.** Die Kamera-Entitäten liefern Standbilder; der Board Manager bietet Home Assistant keinen Videostream an.
+- **Liveansicht der Kameras nur mit Board Manager 2.** Mit Board Manager 1 zeigen die Kamera-Entitäten Standbilder.

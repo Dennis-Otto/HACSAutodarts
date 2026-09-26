@@ -115,7 +115,7 @@ The [installation guide](docs/installation.md) covers requirements, manual insta
 | Motion | Hand detected, image stable, darts partially or fully removed | ✓ | ✓ |
 | Board cloud link | Switch and buttons for the board's own cloud connection | ✓ | – |
 | System | Autodarts cloud connection, CPU and memory, operating system, processor and detection software of the board PC, Board Manager update | – | ✓ |
-| Snapshots | One camera entity per board camera (disabled by default) | ✓ | ✓ |
+| Cameras | One camera entity per board camera (disabled by default): snapshots, and the live stream with Board Manager 2 | ✓ | ✓ |
 | Cloud match data *(optional)* | Board status, game mode, match state, round, visit score, darts thrown | Needs an Autodarts client ID | Needs an Autodarts client ID |
 
 The [entity reference](docs/entities.md) lists every entity with its states, attributes and defaults.
@@ -182,7 +182,7 @@ Details: [how it works](docs/how-it-works.md).
 - **Cloud match data is on hold.** It needs an OAuth client ID that Autodarts issues for this integration, and none is bundled yet. Everything local works without it.
 - **No game logic in training.** Training statistics count the darts the board detects. They do not know players, legs, busts or checkouts.
 - **Board Manager updates are not installed from Home Assistant.** The update entity reports new Board Manager 2 versions; you install them on the board PC.
-- **Snapshots only.** Camera entities show snapshots; the Board Manager offers no video stream for Home Assistant.
+- **Live camera view with Board Manager 2 only.** With Board Manager 1, the camera entities show snapshots.
 - **Test coverage.** Every control is tested against a protocol-accurate Board Manager simulator in CI. Reads are also verified against real Board Manager 1.0.7 and 2.0.0 installations.
 
 ## Documentation

@@ -161,7 +161,7 @@ These sensors are *off* while the detection is stopped, starting, stopping or ca
 
 | Entity | Type | Description |
 | --- | --- | --- |
-| Camera *N* | Camera, *Disabled* | A snapshot of one board camera, for example in a picture card. The Board Manager offers no video stream. |
+| Camera *N* | Camera, *Disabled* | One board camera, for example in a picture card or the camera dialog. With **BM 2**, the live view relays the board's camera stream through Home Assistant; when the stream is not running, and with BM 1, it shows snapshots. To show a camera, the integration never starts or stops the detection or the streams. |
 
 ## Cloud match data (optional)
 

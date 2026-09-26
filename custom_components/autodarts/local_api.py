@@ -283,6 +283,27 @@ class AutodartsLocalClient:
         )
         return cast(bytes, image)
 
+    async def open_camera_stream(self, index: int) -> aiohttp.ClientResponse:
+        """The live MJPEG stream of one camera, which Board Manager 2 serves.
+
+        The caller closes the response. Any answer other than multipart
+        content counts as no stream.
+        """
+        try:
+            response = await self._session.get(
+                f"{self.base_url}/api/streams/cams/{index}",
+                timeout=aiohttp.ClientTimeout(
+                    total=None, sock_connect=10, sock_read=30
+                ),
+            )
+        except (TimeoutError, aiohttp.ClientError) as err:
+            raise AutodartsConnectionError("Unable to open the camera stream") from err
+        content_type = response.headers.get("Content-Type", "")
+        if response.status != 200 or not content_type.startswith("multipart/"):
+            response.close()
+            raise AutodartsConnectionError("No camera stream available")
+        return response
+
     async def command(self, command: str) -> None:
         """Send an explicit user action once. Only missing routes permit fallback."""
         method, path = COMMANDS[command]
