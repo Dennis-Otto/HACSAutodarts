@@ -186,6 +186,15 @@
       },
       "training_last_session": {
         "default": "mdi:chart-timeline-variant"
+      },
+      "host_os": {
+        "default": "mdi:desktop-classic"
+      },
+      "host_processor": {
+        "default": "mdi:cpu-64-bit"
+      },
+      "vision_version": {
+        "default": "mdi:eye-outline"
       }
     },
     "switch": {

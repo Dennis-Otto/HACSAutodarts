@@ -120,6 +120,9 @@ A change is written to the Board Manager configuration; only the changed setting
 | Camera *N* frame rate | Sensor, fps, *Diagnostic*, *Disabled* | Frames per second of one camera. |
 | CPU usage | Sensor, %, **BM 2**, *Diagnostic* | CPU load of the board PC. |
 | Memory usage | Sensor, **BM 2**, *Diagnostic*, *Disabled* | Memory use as reported by Board Manager 2. |
+| Board PC operating system | Sensor, **BM 2**, *Diagnostic* | Distribution and version of the board PC, for example *Debian 13*. Attributes: `kernel`, `architecture`. |
+| Board PC processor | Sensor, **BM 2**, *Diagnostic* | Processor model of the board PC. Attribute: `cores`. |
+| Detection software version | Sensor, **BM 2**, *Diagnostic* | Version of the Autodarts detection software. Attribute: `opencv_version`. |
 | Board software | Update, **BM 2** | Installed and latest Board Manager version. Install updates on the board PC. |
 
 Per-camera entities carry a `camera` attribute with the camera number, which the [status card](cards.md#board-status-card) uses.

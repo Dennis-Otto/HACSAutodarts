@@ -36,6 +36,8 @@ _LOGGER = logging.getLogger(__name__)
 # Poll quickly without realtime events; with them, polling only reconciles.
 POLL_INTERVAL = timedelta(seconds=2)
 STREAM_POLL_INTERVAL = timedelta(seconds=30)
+# The board PC changes only with system or Board Manager updates.
+HOST_REFRESH_SECONDS = 3600
 MOTION_FLAGS = (
     "isWaiting",
     "isStable",
@@ -96,6 +98,8 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.setup_generation: int | None = None
         self._system_supported: bool | None = None
         self._metadata_updated = 0.0
+        self._host: dict[str, Any] | None = None
+        self._host_updated = 0.0
         self._identity_valid = True
         self._action_lock = asyncio.Lock()
         self._stream_task: asyncio.Task[None] | None = None
@@ -487,9 +491,20 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             and not (generation >= 2 and self._system_supported is False)
         ):
             self._set_generation(generation)
+        if self.board_manager_2 and (
+            self._host is None
+            or self._version != previous_version
+            or time.monotonic() - self._host_updated >= HOST_REFRESH_SECONDS
+        ):
+            # Boards without the endpoint answer {} and are asked again later.
+            host = await self._optional(self.client.get_host())
+            if host is not None:
+                self._host, self._host_updated = host, time.monotonic()
         data = dict(self.data or {})
         if reads.get("system") is not None:
             data["system"] = reads["system"]
+        if self._host is not None:
+            data["board_pc"] = self._host
         fields = set()
         motion = reads["motion"]
         for field, value in {

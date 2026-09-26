@@ -225,6 +225,7 @@ class AutodartsSensorEntityDescription(SensorEntityDescription):
     """Describe an Autodarts sensor."""
 
     value_fn: Callable[[dict[str, Any]], Any]
+    attr_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 STATIC_SENSORS: tuple[AutodartsSensorEntityDescription, ...] = (
@@ -448,6 +449,22 @@ def _system(data: dict[str, Any], key: str) -> int | float | None:
 
 
 # Host load reported by Board Manager 2.
+def _host(data: dict[str, Any]) -> dict[str, Any]:
+    host = data.get("board_pc")
+    return host if isinstance(host, dict) else {}
+
+
+def _operating_system(data: dict[str, Any]) -> str | None:
+    """For example Debian 13, from the distribution or the plain system name."""
+    host = _host(data)
+    name = host.get("platform") or host.get("os")
+    if not isinstance(name, str):
+        return None
+    version = host.get("platform_version")
+    name = name[:1].upper() + name[1:]
+    return f"{name} {version}" if isinstance(version, str) else name
+
+
 SYSTEM_SENSORS = (
     AutodartsSensorEntityDescription(
         key="cpu_usage",
@@ -470,6 +487,30 @@ SYSTEM_SENSORS = (
         entity_registry_enabled_default=False,
         value_fn=lambda data: _system(data, "memory_bytes"),
     ),
+    AutodartsSensorEntityDescription(
+        key="host_os",
+        translation_key="host_os",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_operating_system,
+        attr_fn=lambda data: {
+            "kernel": _host(data).get("kernel"),
+            "architecture": _host(data).get("architecture"),
+        },
+    ),
+    AutodartsSensorEntityDescription(
+        key="host_processor",
+        translation_key="host_processor",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: _host(data).get("cpu_model"),
+        attr_fn=lambda data: {"cores": _host(data).get("cpu_cores")},
+    ),
+    AutodartsSensorEntityDescription(
+        key="vision_version",
+        translation_key="vision_version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: _host(data).get("vision_version"),
+        attr_fn=lambda data: {"opencv_version": _host(data).get("opencv_version")},
+    ),
 )
 
 
@@ -488,6 +529,12 @@ class AutodartsLocalSensor(AutodartsLocalEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         return self.entity_description.value_fn(self.coordinator.data or {})
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if attr_fn := self.entity_description.attr_fn:
+            return attr_fn(self.coordinator.data or {})
+        return None
 
 
 class AutodartsCameraSensor(AutodartsLocalSensor):
