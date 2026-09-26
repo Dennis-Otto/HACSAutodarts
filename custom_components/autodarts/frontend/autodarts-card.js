@@ -745,11 +745,17 @@ function pastSessions(sessions, limit = 5) {
 
 // Rows of history/history_during_period for the board events entity.
 function visitsFromHistory(rows, since = 0) {
-  const visits = [];
+  let visits = [];
   for (const row of Array.isArray(rows) ? rows : []) {
     const attributes = row?.a || row?.attributes;
+    const time = Date.parse(row?.s ?? row?.state);
+    // The start sensor has whole seconds, so a visit of the previous session
+    // can fall into the same second; the start event itself is precise.
+    if (attributes?.event_type === "session_started" && time >= since) {
+      visits = [];
+      continue;
+    }
     if (attributes?.event_type !== "visit_completed") continue;
-    const time = Date.parse(row.s ?? row.state);
     const score = Number(attributes.score);
     if (!Number.isFinite(time) || !Number.isFinite(score) || time < since) continue;
     visits.push({

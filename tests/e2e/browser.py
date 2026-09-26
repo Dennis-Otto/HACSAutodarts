@@ -10,6 +10,7 @@ import os
 import urllib.request
 
 from playwright.sync_api import Browser, Page, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 HA = "http://homeassistant:8123"
 BOARD = "http://board-mock:3180"
@@ -229,7 +230,12 @@ def visit(browser: Browser) -> None:
 def training(browser: Browser) -> None:
     page, problems = open_view(browser, "training", TRAINING_CARDS, ".heat-layer path")
     # The history of completed visits is loaded from the recorder.
-    page.wait_for_function(f"() => ({TRAINING_STATE})().history === 5", timeout=15000)
+    try:
+        page.wait_for_function(
+            f"() => ({TRAINING_STATE})().history === 5", timeout=15000
+        )
+    except PlaywrightTimeout:
+        pass  # The comparison below reports what the card shows instead.
     state = page.evaluate(TRAINING_STATE)
     # Demo visits: 81, 125, 102, 112 and 90 points, plus 115 in progress.
     expected = {
