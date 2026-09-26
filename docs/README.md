@@ -10,6 +10,8 @@
 | [Automations](automations.md) | Six blueprints, board events and ready-to-use examples |
 | [How it works](how-it-works.md) | Architecture, update intervals, Board Manager generations, training rules, privacy and security |
 | [Troubleshooting](troubleshooting.md) | Setup messages, repairs, unavailable entities, diagnostics and logs |
+| [Security design](security.md) | What is protected, trust boundaries, threats and countermeasures |
+| [Roadmap](roadmap.md) | What comes after 1.0 |
 | [Development](development.md) | Tests, Docker end-to-end test, demo instance, screenshots and CI |
 | [Releases](releases.md) | How versions and release notes are produced |
 
