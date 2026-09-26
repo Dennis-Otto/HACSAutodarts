@@ -320,6 +320,7 @@ async def async_setup_entry(
             AutodartsPracticeStatistic(runtime.local, key)
             for key in PRACTICE_STATISTICS
         )
+        entities.append(AutodartsCorrectionRate(runtime.local))
         entities.extend(
             AutodartsLocalSensor(runtime.local, description)
             for description in STATIC_SENSORS
@@ -756,3 +757,24 @@ class AutodartsPracticeStatistic(AutodartsLocalEntity, SensorEntity):
             "legs_counted": statistics["legs_counted"],
             "darts_at_double": statistics["darts_at_double"],
         }
+
+
+class AutodartsCorrectionRate(AutodartsLocalEntity, SensorEntity):
+    """Share of the last hundred darts that the board corrected."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator: AutodartsLocalCoordinator) -> None:
+        super().__init__(coordinator, "correction_rate")
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.quality.rate
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        quality = self.coordinator.quality.snapshot()
+        return {"darts": quality["darts"], "corrected": quality["corrected"]}

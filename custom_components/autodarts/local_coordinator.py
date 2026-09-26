@@ -31,6 +31,7 @@ from .local_api import (
     board_generation,
 )
 from .practice import PracticeGame
+from .quality import RECALIBRATE_RATE, RECOVERED_RATE, DetectionQuality
 from .training import TrainingSession
 
 _LOGGER = logging.getLogger(__name__)
@@ -101,6 +102,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.event_signal = f"{DOMAIN}_{entry.entry_id}_event"
         self.training = TrainingSession()
         self.practice = PracticeGame()
+        self.quality = DetectionQuality()
         self._store: Store[dict[str, Any]] = Store(
             hass, 1, f"{DOMAIN}.{entry.entry_id}.training"
         )
@@ -252,6 +254,7 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if "local" in fields:
             previous = self._observed_state
             for kind, attributes in self.training.observe(state):
+                self.quality.record(kind, attributes)
                 self._emit(kind, attributes, source)
                 if kind == "visit_completed":
                     for turn, details in self.practice.finish_visit():
@@ -304,6 +307,8 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._save_training()
             self._schedule_idle_end()
         data["camera_problems"] = self._health.update(data, time.monotonic())
+        data["quality"] = self.quality.snapshot()
+        self._report_quality()
 
     @callback
     def async_receive(self, kind: str, payload: dict[str, Any]) -> None:
@@ -639,6 +644,51 @@ class AutodartsLocalCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_set_player_name(self, index: int, name: str) -> None:
         self.practice.set_name(index, name)
         await self._async_training([])
+
+    async def async_start_game(
+        self,
+        game: int | str,
+        names: list[str] | None = None,
+        legs: int | None = None,
+        sets: int | None = None,
+        double_out: bool | None = None,
+    ) -> None:
+        """Set up a practice game in one step; unset values stay as they are."""
+        practice = self.practice
+        if double_out is not None:
+            practice.double_out = double_out
+        if names:
+            for index in range(len(practice.names)):
+                practice.set_name(index, names[index] if index < len(names) else "")
+            practice.set_players(len(names))
+        practice.set_format(legs, sets)
+        practice.play(game)
+        await self._async_training([])
+
+    @callback
+    def _report_quality(self) -> None:
+        """Suggest a calibration while many darts need corrections."""
+        issue = f"calibration_{self._entry.entry_id}"
+        rate = self.quality.rate
+        if self.quality.enough and rate is not None and rate >= RECALIBRATE_RATE:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue,
+                is_fixable=True,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="calibration_recommended",
+                translation_placeholders={"rate": f"{rate:.0f}"},
+                data={"entry_id": self._entry.entry_id},
+            )
+        elif rate is None or rate < RECOVERED_RATE:
+            ir.async_delete_issue(self.hass, DOMAIN, issue)
+
+    async def async_recalibrate(self) -> None:
+        """Calibrate all cameras and count the corrections from zero."""
+        await self.async_action(lambda: self.client.command("calibrate"))
+        self.quality.reset()
+        ir.async_delete_issue(self.hass, DOMAIN, f"calibration_{self._entry.entry_id}")
 
     def _idle_due(self) -> datetime | None:
         """When a running session ends without darts, if the user wants that."""

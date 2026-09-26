@@ -258,6 +258,9 @@
       },
       "practice_legs_played": {
         "name": "Übungsspiel gespielte Legs"
+      },
+      "correction_rate": {
+        "name": "Korrekturquote der Erkennung"
       }
     },
     "button": {
@@ -453,6 +456,15 @@
     },
     "cloud_unavailable": {
       "message": "Die Autodarts-Cloud antwortet nicht."
+    },
+    "unknown_board": {
+      "message": "Das ist kein Autodarts-Board."
+    },
+    "no_board": {
+      "message": "Es ist kein Autodarts-Board mit lokaler Verbindung geladen."
+    },
+    "several_boards": {
+      "message": "Es sind mehrere Autodarts-Boards eingerichtet. Wähle das Board."
     }
   },
   "issues": {
@@ -463,6 +475,66 @@
     "board_manager_1": {
       "title": "Board auf den neuen Autodarts Board Manager umstellen",
       "description": "Dieses Board nutzt noch die klassische Board-Manager-App. Autodarts ersetzt sie durch den Headless Board Manager 2 und schaltet die alte Version ab, sobald die meisten Spieler umgestiegen sind. Installiere Board Manager 2 auf dem Board-PC; die Integration stellt sich automatisch um und funktioniert weiter lokal."
+    },
+    "calibration_recommended": {
+      "title": "Autodarts-Board kalibrieren",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Jetzt kalibrieren",
+            "description": "Das Board hat {rate} % der letzten Darts korrigiert. Eine neue Kalibrierung senkt das meist.\n\nZieh vorher alle Darts aus dem Board. Die Kalibrierung dauert ein paar Sekunden."
+          }
+        },
+        "abort": {
+          "calibration_failed": "Das Board hat die Kalibrierung nicht angenommen. Versuch es erneut oder kalibriere über die Board-Status-Karte.",
+          "board_unavailable": "Das Board ist nicht geladen. Prüfe die Verbindung und versuch es erneut."
+        }
+      }
+    }
+  },
+  "services": {
+    "start_game": {
+      "name": "Spiel starten",
+      "description": "Startet ein X01-Übungsspiel oder ein Trainingsspiel am Board, auf Wunsch mit Spielern, Namen und Matchformat.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Board",
+          "description": "Das Autodarts-Board. Nur bei mehreren Boards nötig."
+        },
+        "game": {
+          "name": "Spiel",
+          "description": "X01 mit 301, 501 oder 701 Punkten oder ein Trainingsspiel."
+        },
+        "players": {
+          "name": "Spieler",
+          "description": "Namen von einem bis vier Spielern in Wurfreihenfolge. Ohne Namen bleibt die Spielerzahl, wie sie ist."
+        },
+        "legs": {
+          "name": "Legs pro Satz",
+          "description": "Legs, die im Match einen Satz gewinnen."
+        },
+        "sets": {
+          "name": "Sätze zum Sieg",
+          "description": "Sätze, die das Match gewinnen."
+        },
+        "double_out": {
+          "name": "Double-Out",
+          "description": "X01-Legs auf einem Double oder dem Bullseye beenden."
+        }
+      }
+    }
+  },
+  "selector": {
+    "game": {
+      "options": {
+        "301": "301",
+        "501": "501",
+        "701": "701",
+        "around_the_clock": "Around the Clock",
+        "doubles": "Doppeltraining",
+        "checkout": "Checkout-Training",
+        "bobs_27": "Bob's 27"
+      }
     }
   }
 }

@@ -284,6 +284,25 @@ mode: queued
 
 Die Entitäts-IDs in den Beispielen hängen vom Namen deines Boards und der Sprache bei der Einrichtung ab. Du findest sie auf der Geräteseite.
 
+### Spiel per Sprache starten
+
+Mit dem Sprachassistenten Assist startet ein Satz das Spiel. `{names}` nimmt den Rest des Satzes auf, etwa „Dennis und Lea“.
+
+```yaml
+alias: Darts – per Sprache starten
+triggers:
+  - trigger: conversation
+    command:
+      - "starte {game} für {names}"
+actions:
+  - action: autodarts.start_game
+    data:
+      game: "{{ trigger.slots.game }}"
+      players: "{{ trigger.slots.names.split(' und ') }}"
+  - set_conversation_response: "Game on, {{ trigger.slots.names }}!"
+mode: single
+```
+
 ## Automationen älterer Versionen anpassen
 
 Ab Version 1.0 meldet der Sensor **Erkennungsstatus** übersetzbare Zustände wie `stopped`, `throw` oder `takeout_in_progress`. Ältere Versionen meldeten den Rohtext des Board Managers, etwa `Stopped` oder `Takeout in progress`. Passe Automationen an, die mit dem alten Text vergleichen:

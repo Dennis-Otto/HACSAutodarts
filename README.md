@@ -109,6 +109,7 @@ The [installation guide](docs/installation.md) covers requirements, manual insta
 | Board events | Dart detected and corrected, takeout started and finished, visit completed, status changed, session started and ended, bust, leg won, match won, turn changed, training game finished, checkout attempt | ✓ | ✓ |
 | Training | Training sessions with automatic start and end and the last 20 sessions; darts, points, 3-dart average, visits, highest visit, 100+/140+/180, triples, doubles, bulls, misses, hits per bed | ✓ | ✓ |
 | Practice game | X01 with 301, 501 or 701 for 1–4 players, double out, legs and sets, player names, remaining score, busts, checkout routes and the last 10 legs; training games Around the Clock, doubles, checkout training and Bob's 27 | ✓ | ✓ |
+| Actions | `autodarts.start_game`: start X01 or a training game with players, names and format in one call, also by voice | ✓ | ✓ |
 | Controls | Detection switch; start, stop and reset buttons; calibration (board and per camera); restart; camera streams | ✓ | ✓ |
 | Settings | Calibrate on start, automatic recalibration, distortion correction, camera standby | ✓ | ✓ |
 | Health | Board Manager connection, realtime connection, cameras active, calibration, camera problems (overall and per camera), frame rates | ✓ | ✓ |

@@ -40,6 +40,7 @@ from .errors import AutodartsApiError
 from .local_api import AutodartsLocalClient
 from .local_coordinator import AutodartsLocalCoordinator
 from .runtime import AutodartsConfigEntry, AutodartsRuntimeData
+from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,8 +57,9 @@ V2_ONLY = (
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Provide the dashboard card once, independent of config entries."""
+    """Provide the dashboard card and the actions once, independent of entries."""
     await async_register_card(hass)
+    async_setup_services(hass)
     return True
 
 

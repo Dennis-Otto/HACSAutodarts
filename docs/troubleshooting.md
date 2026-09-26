@@ -27,6 +27,7 @@ Home Assistant shows these notices under **Settings → Repairs**:
 | Notice | Meaning and solution |
 | --- | --- |
 | **Autodarts board address points to a different board** | The configured address answers with a different board ID, for example because IP addresses were swapped. The entities stay unavailable so that they never show another board's data. Open the integration, choose **Reconfigure** and select the correct board. The notice disappears by itself. |
+| **Calibrate the Autodarts board** | At least 20 % of the last darts needed a correction by the board, see *Detection correction rate*. Remove all darts, open the notice and confirm: the integration calibrates all cameras and counts again from zero. The notice also disappears once the rate falls below 10 %. |
 | **Update the board to the new Autodarts Board Manager** | The board still runs the classic Board Manager 1, which Autodarts will switch off. Install Board Manager 2 on the board PC. The integration switches over by itself and the notice disappears. |
 
 ## Operation

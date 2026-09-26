@@ -74,6 +74,7 @@ ENTITIES = {
     "practice_remaining": "sensor",
     "practice_checkout": "sensor",
     "practice_target": "sensor",
+    "correction_rate": "sensor",
     "practice_legs_played": "sensor",
     "practice_first_9_average": "sensor",
     "practice_players": "number",
