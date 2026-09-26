@@ -35,15 +35,13 @@ Released features, all of them working without the Autodarts cloud:
 - Practice statistics: first-9 average, checkout rate, doubles rate and legs per day.
 - Two blueprints: a practice caller and a highlight photo after a 180 or a checkout.
 
-## Next: 1.4
+## Version 1.4: Cricket, scoreboard and personal bests
 
-| Topic | What it brings |
-| --- | --- |
-| **Local Cricket** | Cricket for one to four players with marks, closed numbers and points, and a scoreboard in the live card |
-| **Scoreboard view** | A full-screen view for a screen at the board, readable from the oche: remaining scores, checkout route and the player at the board |
-| **Personal bests and streaks** | An event for a new personal best, such as the highest checkout or the fewest darts in a leg, a training streak in days, and a daily goal |
-| **Start a game with one action** | `autodarts.start_game` with game, players, names and format, for automations and voice control |
-| **Detection quality** | The share of corrected darts, with a repair suggestion to recalibrate when it rises |
+- Cricket for one to four players with marks, closed numbers, points and marks per round, and a chalkboard in the live card.
+- A scoreboard card and a full-screen scoreboard view for a screen at the board, readable from the oche.
+- Personal bests with an event when one is beaten, a training streak in days and a daily goal.
+- `autodarts.start_game` starts X01, Cricket or a training game with players, names and format in one action.
+- Detection quality: the share of corrected darts, with a repair that recalibrates the board when it rises.
 
 ## Later
 
