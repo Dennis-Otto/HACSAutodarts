@@ -165,3 +165,23 @@ async def test_training_average_is_unknown_without_darts(hass, aioclient_mock):
     assert average.attributes["state_class"] == "measurement"
     darts = hass.states.get(entity_id(hass, "sensor", "training_darts"))
     assert darts.attributes["hits"] == {}
+
+
+async def test_training_values_have_the_units_of_the_live_sensors(hass, aioclient_mock):
+    await setup_local(hass, aioclient_mock)
+    units = {
+        key: hass.states.get(
+            entity_id(hass, "sensor", f"training_{key}")
+        ).attributes.get("unit_of_measurement")
+        for key in ("darts", "triples", "points", "average", "visits", "scores_180")
+    }
+    assert units == {
+        "darts": "darts",
+        "triples": "darts",
+        "points": "points",
+        "average": "points",
+        "visits": "visits",
+        "scores_180": "visits",
+    }
+    started = hass.states.get(entity_id(hass, "sensor", "training_started"))
+    assert "unit_of_measurement" not in started.attributes

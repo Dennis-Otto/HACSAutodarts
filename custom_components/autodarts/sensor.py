@@ -39,6 +39,21 @@ from .training import COUNTERS
 
 # Session values that can go down again, unlike the counters.
 TRAINING_MEASUREMENTS = ("average", "highest_visit")
+# Units match the live sensors: darts count darts, scores count points.
+TRAINING_UNITS = {
+    "darts": "darts",
+    "triples": "darts",
+    "doubles": "darts",
+    "bulls": "darts",
+    "misses": "darts",
+    "points": "points",
+    "average": "points",
+    "highest_visit": "points",
+    "visits": "visits",
+    "scores_100": "visits",
+    "scores_140": "visits",
+    "scores_180": "visits",
+}
 
 PARALLEL_UPDATES = 0
 
@@ -532,6 +547,7 @@ class AutodartsTrainingSensor(AutodartsLocalEntity, SensorEntity):
     def __init__(self, coordinator: AutodartsLocalCoordinator, key: str) -> None:
         super().__init__(coordinator, f"training_{key}")
         self._key = key
+        self._attr_native_unit_of_measurement = TRAINING_UNITS.get(key)
         if key == "started":
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
         elif key in TRAINING_MEASUREMENTS:
