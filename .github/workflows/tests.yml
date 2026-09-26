@@ -51,7 +51,7 @@ jobs:
           cache: npm
       - name: Install locked test tools
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Check and test the dashboard cards, including property-based fuzzing
+      - name: Check and test the dashboard cards, including property-based fuzzing and a coverage gate
         run: |
           node --check custom_components/autodarts/frontend/autodarts-card.js
           npm test

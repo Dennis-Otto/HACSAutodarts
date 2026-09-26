@@ -69,6 +69,14 @@ test("the players view keeps valid profiles, records and matches", () => {
   assert.deepEqual(playersView(undefined, undefined), { players: [], headToHead: [], matches: [] });
 });
 
+test("a profile without statistics counts no legs and no matches yet", () => {
+  const [player] = playersView({ attributes: { players: [{ name: "Kim" }] } }, undefined).players;
+  assert.deepEqual(
+    [player.legsPlayed, player.legsWon, player.matchesPlayed, player.matchesWon, player.average, player.fewestDarts],
+    [0, 0, 0, 0, null, []]
+  );
+});
+
 test("the players card shows statistics, the balance and who won", () => {
   const html = playersHtml(playersView(profiles, lastMatch), ui);
   assert.match(html.players, /<div class="profile-name">Alex<\/div><div class="muted">profile_legs 12\/20 · profile_matches 3\/5<\/div>/);

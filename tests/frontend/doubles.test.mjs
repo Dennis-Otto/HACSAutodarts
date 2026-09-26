@@ -31,6 +31,12 @@ const profiles = {
   },
 };
 
+test("without sensors nobody has doubles yet", () => {
+  const empty = { attempts: 0, hits: 0, rate: null, favourite: null, doubles: [] };
+  assert.deepEqual(doublesView(undefined, undefined), { player: null, ...empty });
+  assert.deepEqual(doublesView(undefined, { state: "0", attributes: {} }, "Lea"), { player: "Lea", ...empty });
+});
+
 test("everybody's doubles or one player's", () => {
   const all = doublesView(doubles, profiles);
   assert.deepEqual([all.player, all.favourite, all.attempts, all.rate], [null, "D16", 42, 31]);
