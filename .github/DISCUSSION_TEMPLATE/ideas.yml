@@ -1,0 +1,18 @@
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share an idea for a game, a card, an automation or anything else. The [roadmap](https://github.com/Dennis-Otto/ha-autodarts/blob/main/docs/roadmap.md) shows what is already planned.
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like to do at the board, and what is missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: A game situation, a dashboard sketch or an automation that shows the idea.

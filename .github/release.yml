@@ -2,10 +2,14 @@ changelog:
   exclude:
     labels:
       - release
+      - skip-changelog
   categories:
     - title: Breaking changes and migration
       labels:
         - breaking-change
+    - title: Security
+      labels:
+        - security
     - title: New features
       labels:
         - enhancement
@@ -15,6 +19,9 @@ changelog:
     - title: Documentation
       labels:
         - documentation
+    - title: Translations
+      labels:
+        - translations
     - title: Dependencies and maintenance
       labels:
         - dependencies
