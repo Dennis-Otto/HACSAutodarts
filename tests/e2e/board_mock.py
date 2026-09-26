@@ -169,8 +169,32 @@ def routes(board: Board) -> web.RouteTableDef:
             }
         )
 
+    async def host(request):
+        # Like the real board PC, including the details the integration drops.
+        return web.json_response(
+            {
+                "os": "linux",
+                "platform": "debian",
+                "platformVersion": "13",
+                "kernelArch": "x86_64",
+                "kernelVersion": "6.12.107+deb13-amd64",
+                "cpu": {
+                    "cores": 4,
+                    "mhz": 3400.4,
+                    "model": "Intel(R) Core(TM) i3-9100T",
+                },
+                "visionVersion": VERSION,
+                "openCVVersion": "5.0.0",
+                "clientVersion": VERSION,
+                "hostname": "e2e-dartboard",
+                "ip": "192.0.2.99",
+                "cam1": {"name": "E2E Camera", "pid": "0001", "vid": "0002"},
+            }
+        )
+
     if GENERATION >= 2:
         api.get("/api/system")(system)
+        api.get("/api/host")(host)
 
     @api.get("/api/events")
     async def events(request):

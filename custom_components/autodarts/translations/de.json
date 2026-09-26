@@ -228,6 +228,15 @@
       },
       "training_last_session": {
         "name": "Schnitt der letzten Session"
+      },
+      "host_os": {
+        "name": "Betriebssystem des Board-PCs"
+      },
+      "host_processor": {
+        "name": "Prozessor des Board-PCs"
+      },
+      "vision_version": {
+        "name": "Version der Erkennungssoftware"
       }
     },
     "button": {

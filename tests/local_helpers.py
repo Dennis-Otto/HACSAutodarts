@@ -55,6 +55,39 @@ SYSTEM = {
 }
 
 
+# Shaped like Board Manager 2.0.0's /api/host, with made-up names and addresses.
+HOST = {
+    "appVersion": None,
+    "clientVersion": "2.0.0",
+    "desktopVersion": None,
+    "os": "linux",
+    "platform": "debian",
+    "platformFamily": "debian",
+    "platformVersion": "13",
+    "kernelArch": "x86_64",
+    "kernelVersion": "6.12.107+deb13-amd64",
+    "model": "",
+    "openCVVersion": "5.0.0",
+    "visionVersion": "2.0.0",
+    "hasAutodartsVisionCam": False,
+    "hostname": "dartboard-pc",
+    "ip": "198.51.100.7",
+    "cpu": {
+        "cores": 4,
+        "mhz": 3400.4,
+        "model": "Intel(R) Core(TM) i3-9100T CPU @ 3.10GHz",
+    },
+    "cpu2": None,
+    "cam1": {"name": "USB Camera", "pid": "0001", "vid": "0002"},
+    "cam2": {"name": "", "pid": "", "vid": ""},
+    "cam3": {"name": "", "pid": "", "vid": ""},
+    "protocol": "",
+    "port": "",
+    "tlsPort": "",
+    "insecurePort": "",
+}
+
+
 def mock_board(mock, *, state=None, config=None, config_status=200, version="1.0.7"):
     mock.get(f"{BASE}/api/state", json=deepcopy(STATE if state is None else state))
     mock.get(
@@ -86,9 +119,10 @@ def local_entry_data():
     }
 
 
-def mock_board_v2(mock, *, system=None, state=None):
+def mock_board_v2(mock, *, system=None, state=None, host=None):
     """A Board Manager 2 board: /api/system instead of upstream routes."""
     mock.get(f"{BASE}/api/system", json=deepcopy(SYSTEM if system is None else system))
+    mock.get(f"{BASE}/api/host", json=deepcopy(HOST if host is None else host))
     mock.put(f"{BASE}/api/upstream/connect", status=404)
     mock.put(f"{BASE}/api/upstream/disconnect", status=404)
     mock_board(mock, state=state, version="2.0.0")

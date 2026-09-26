@@ -165,6 +165,29 @@ class AutodartsLocalClient:
             },
         }
 
+    async def get_host(self) -> dict[str, Any]:
+        """Board Manager 2: the board PC's system, processor and detection software.
+
+        Only these fields leave this client; the host name, addresses and
+        camera identifiers of the board PC are dropped.
+        """
+        raw = await self._request("GET", "/api/host")
+        if not isinstance(raw, dict):
+            raise AutodartsConnectionError("Invalid host information")
+        cpu = _dict(raw.get("cpu"))
+        cores = cpu.get("cores")
+        return {
+            "os": _text(raw.get("os")),
+            "platform": _text(raw.get("platform")),
+            "platform_version": _text(raw.get("platformVersion")),
+            "kernel": _text(raw.get("kernelVersion")),
+            "architecture": _text(raw.get("kernelArch")),
+            "cpu_model": _text(cpu.get("model")),
+            "cpu_cores": cores if type(cores) is int and cores > 0 else None,
+            "vision_version": _text(raw.get("visionVersion")),
+            "opencv_version": _text(raw.get("openCVVersion")),
+        }
+
     async def identify(self) -> dict[str, Any]:
         """Board ID, version and camera count, as needed to set up a board."""
         await self.get_state()

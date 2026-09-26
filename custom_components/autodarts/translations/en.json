@@ -228,6 +228,15 @@
       },
       "training_last_session": {
         "name": "Last session average"
+      },
+      "host_os": {
+        "name": "Board PC operating system"
+      },
+      "host_processor": {
+        "name": "Board PC processor"
+      },
+      "vision_version": {
+        "name": "Detection software version"
       }
     },
     "button": {

@@ -120,3 +120,36 @@ def test_board_generation_from_version():
     assert board_generation(" 10.1 ") == 10
     for value in (None, "", "beta", "0.9", 2):
         assert board_generation(value) is None
+
+
+async def test_board_pc_details_without_private_names(hass, aioclient_mock):
+    entry = await setup_v2(hass, aioclient_mock)
+    system = hass.states.get(entity_id(hass, "sensor", "host_os"))
+    assert system.state == "Debian 13"
+    assert system.attributes["kernel"] == "6.12.107+deb13-amd64"
+    assert system.attributes["architecture"] == "x86_64"
+    processor = hass.states.get(entity_id(hass, "sensor", "host_processor"))
+    assert processor.state == "Intel(R) Core(TM) i3-9100T CPU @ 3.10GHz"
+    assert processor.attributes["cores"] == 4
+    vision = hass.states.get(entity_id(hass, "sensor", "vision_version"))
+    assert vision.state == "2.0.0"
+    assert vision.attributes["opencv_version"] == "5.0.0"
+    registry = er.async_get(hass)
+    for key in ("host_os", "host_processor", "vision_version"):
+        entry_ = registry.async_get(entity_id(hass, "sensor", key))
+        assert entry_.entity_category == er.EntityCategory.DIAGNOSTIC
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["local"]["board_pc"]["vision_version"] == "2.0.0"
+    for private in ("dartboard-pc", "198.51.100.7", "USB Camera"):
+        assert private not in str(entry.runtime_data.local.data)
+        assert private not in str(diagnostics)
+        assert private not in str(hass.states.async_all())
+
+
+async def test_board_without_host_details_keeps_working(hass, aioclient_mock):
+    aioclient_mock.get(BASE + "/api/host", status=404)
+    entry = await setup_v2(hass, aioclient_mock)
+    assert entry.runtime_data.local.data["board_pc"] == {}
+    assert state(hass, "sensor", "host_os") == "unknown"
+    assert state(hass, "sensor", "vision_version") == "unknown"
+    assert state(hass, "sensor", "cpu_usage") == "12.5"
